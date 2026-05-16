@@ -1,0 +1,108 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: #FFF9F0;
+  color: #1F140E;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+}
+
+@layer base {
+  :root {
+    --background: 36 60% 97%;
+    --foreground: 24 40% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 24 40% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 24 40% 10%;
+    --primary: 0 65% 32%;
+    --primary-foreground: 36 60% 97%;
+    --secondary: 36 50% 92%;
+    --secondary-foreground: 24 40% 10%;
+    --muted: 36 30% 94%;
+    --muted-foreground: 24 15% 40%;
+    --accent: 28 78% 50%;
+    --accent-foreground: 36 60% 97%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 36 30% 86%;
+    --input: 36 30% 86%;
+    --ring: 0 65% 32%;
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground; }
+}
+
+/* Font utilities */
+.font-display { font-family: 'Playfair Display', Georgia, serif; }
+.font-serif { font-family: 'Cormorant Garamond', Georgia, serif; }
+.font-cinzel { font-family: 'Cinzel', serif; }
+.font-sans { font-family: 'Inter', sans-serif; }
+
+/* Indian-inspired decorative utilities */
+.decorative-border {
+  background-image: repeating-linear-gradient(90deg, #C9A961 0, #C9A961 8px, transparent 8px, transparent 14px);
+}
+
+.text-marigold { color: #E07A1F; }
+.text-maroon { color: #8B1A1A; }
+.text-gold { color: #C9A961; }
+.bg-cream { background-color: #FFF9F0; }
+.bg-maroon { background-color: #8B1A1A; }
+.bg-marigold { background-color: #E07A1F; }
+.bg-deepcream { background-color: #FBEFD9; }
+
+.diya-glow {
+  box-shadow: 0 0 40px 6px rgba(224, 122, 31, 0.35);
+}
+
+/* Sweeping marquee */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.animate-marquee { animation: marquee 40s linear infinite; }
+
+/* Subtle entrance */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fadeUp { animation: fadeUp 0.7s ease-out both; }
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Paisley pattern background as SVG */
+.bg-paisley {
+  background-color: #FFF9F0;
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(139,26,26,0.12) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Smooth interaction on hover cards */
+.card-hover {
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.4s ease;
+}
+.card-hover:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 20px 50px -20px rgba(139, 26, 26, 0.35);
+}
