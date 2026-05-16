@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
-import { EVENT_CATEGORIES, UPCOMING_EVENTS } from "../data/mock";
-import { Calendar, Clock, MapPin, ArrowRight, Sparkles, Users } from "lucide-react";
+import { EVENT_CATEGORIES, UPCOMING_EVENTS, EVENT_DETAILS } from "../data/mock";
+import { Calendar, Clock, MapPin, ArrowRight, Sparkles, Users, Star } from "lucide-react";
 import { useToast } from "../hooks/use-toast";
 import Mandala from "../components/Mandala";
 
@@ -82,18 +82,57 @@ const UpcomingList = ({ filterSlug }) => {
   );
 };
 
-const CategoryHero = ({ cat }) => (
-  <section className="py-14 bg-deepcream relative overflow-hidden">
-    <Mandala className="absolute -right-32 top-0 w-[420px] h-[420px]" color={cat.color} opacity={0.08} />
-    <div className="max-w-5xl mx-auto px-6 relative">
-      <p className="text-stone-700 leading-relaxed font-serif text-lg">{cat.description}</p>
-      <div className="flex items-center gap-3 mt-6">
-        <Link to="/membership/regular" className="px-5 py-2.5 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded-md text-sm font-medium transition">Become a Member</Link>
-        <Link to="/sponsorship/become-sponsor" className="px-5 py-2.5 border-2 border-[#8B1A1A] text-[#8B1A1A] hover:bg-[#8B1A1A] hover:text-amber-50 rounded-md text-sm font-medium transition">Sponsor This Event</Link>
+const CategoryHero = ({ cat }) => {
+  const d = EVENT_DETAILS[cat.slug];
+  return (
+    <section className="py-16 bg-deepcream relative overflow-hidden">
+      <Mandala className="absolute -right-32 top-0 w-[420px] h-[420px]" color={cat.color} opacity={0.08} />
+      <div className="max-w-5xl mx-auto px-6 relative">
+        <p className="text-stone-700 leading-relaxed font-serif text-lg mb-6">{d?.longDescription || cat.description}</p>
+        {d && (
+          <div className="grid md:grid-cols-2 gap-8 mt-8">
+            <div className="bg-white p-6 rounded-2xl border border-amber-100">
+              <div className="font-cinzel text-xs tracking-[0.22em] text-[#E07A1F] mb-3">WHAT TO EXPECT</div>
+              <ul className="space-y-2">
+                {d.highlights.map((h, i) => (
+                  <li key={i} className="flex items-start gap-2 text-stone-700 text-sm"><Star className="w-4 h-4 text-[#E07A1F] mt-0.5 flex-shrink-0 fill-current" /><span>{h}</span></li>
+                ))}
+              </ul>
+            </div>
+            <div className="space-y-4">
+              <div className="bg-white p-5 rounded-xl border border-amber-100 flex items-start gap-3">
+                <MapPin className="w-5 h-5 text-[#8B1A1A] mt-0.5" />
+                <div>
+                  <div className="font-cinzel text-xs tracking-[0.22em] text-[#E07A1F]">USUAL VENUE</div>
+                  <div className="font-medium text-stone-800 mt-0.5">{d.venue}</div>
+                </div>
+              </div>
+              <div className="bg-white p-5 rounded-xl border border-amber-100 flex items-start gap-3">
+                <Calendar className="w-5 h-5 text-[#8B1A1A] mt-0.5" />
+                <div>
+                  <div className="font-cinzel text-xs tracking-[0.22em] text-[#E07A1F]">TIMING</div>
+                  <div className="font-medium text-stone-800 mt-0.5">{d.typical}</div>
+                </div>
+              </div>
+              <div className="bg-[#8B1A1A] p-5 rounded-xl text-amber-50">
+                <div className="font-cinzel text-xs tracking-[0.22em] text-[#E07A1F]">GET INVOLVED</div>
+                <div className="font-display text-lg mt-1 mb-3">Volunteer or Sponsor</div>
+                <div className="flex gap-2">
+                  <Link to="/sponsorship/become-sponsor" className="px-4 py-2 bg-[#E07A1F] hover:bg-[#c66c1a] text-white rounded text-xs font-medium transition">Sponsor This</Link>
+                  <Link to="/contact" className="px-4 py-2 border border-amber-100/30 hover:bg-white/10 rounded text-xs font-medium transition">Volunteer</Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        <div className="flex items-center gap-3 mt-8">
+          <Link to="/membership/regular" className="px-5 py-2.5 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded-md text-sm font-medium transition">Become a Member</Link>
+          <Link to="/events/upcoming" className="px-5 py-2.5 border-2 border-[#8B1A1A] text-[#8B1A1A] hover:bg-[#8B1A1A] hover:text-amber-50 rounded-md text-sm font-medium transition">See Upcoming Events</Link>
+        </div>
       </div>
-    </div>
-  </section>
-);
+    </section>
+  );
+};
 
 export default function EventsPage() {
   const { sub } = useParams();

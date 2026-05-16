@@ -1,8 +1,8 @@
 import React from "react";
 import { useParams, Link } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
-import { PROGRAMS } from "../data/mock";
-import { Heart, BookOpen, GraduationCap, Award, ArrowRight } from "lucide-react";
+import { PROGRAMS, PROGRAM_DETAILS } from "../data/mock";
+import { Heart, BookOpen, GraduationCap, Award, ArrowRight, Check, TrendingUp } from "lucide-react";
 
 const ICON = { charity: Heart, education: BookOpen, scholarship: GraduationCap, "community-service": Award };
 
@@ -32,16 +32,46 @@ const ProgramsHub = () => (
 
 const ProgramDetail = ({ p }) => {
   const Icon = ICON[p.slug] || Heart;
+  const d = PROGRAM_DETAILS[p.slug];
   return (
     <section className="py-20 bg-cream">
-      <div className="max-w-4xl mx-auto px-6">
+      <div className="max-w-5xl mx-auto px-6">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-12 h-12 rounded-xl bg-[#E07A1F] flex items-center justify-center"><Icon className="w-5 h-5 text-white" /></div>
           <div className="font-cinzel text-xs tracking-[0.22em] text-[#E07A1F]">PROGRAM</div>
         </div>
-        <p className="text-stone-700 leading-relaxed font-serif text-lg mb-6">{p.summary}</p>
-        <p className="text-stone-700 leading-relaxed mb-8">{p.details}</p>
-        <div className="bg-white p-6 rounded-xl border border-amber-100">
+        <p className="text-stone-700 leading-relaxed font-serif text-lg mb-10">{d?.intro || p.details}</p>
+
+        {d && (
+          <>
+            <h3 className="font-display text-3xl text-[#8B1A1A] mb-6">Our Initiatives</h3>
+            <div className="grid md:grid-cols-2 gap-5 mb-10">
+              {d.initiatives.map((it, i) => (
+                <div key={i} className="card-hover p-6 bg-white border border-amber-100 rounded-xl">
+                  <div className="flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0">
+                      <Check className="w-4 h-4 text-[#8B1A1A]" />
+                    </div>
+                    <div>
+                      <div className="font-display text-lg text-stone-900 mb-1">{it.name}</div>
+                      <p className="text-sm text-stone-600 leading-relaxed">{it.desc}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-gradient-to-r from-[#8B1A1A] to-[#6f1414] rounded-2xl p-8 text-amber-50 flex items-center gap-5">
+              <TrendingUp className="w-10 h-10 text-[#E07A1F] flex-shrink-0" />
+              <div>
+                <div className="font-cinzel text-xs tracking-[0.22em] text-[#E07A1F]">OUR IMPACT</div>
+                <div className="font-display text-2xl mt-1">{d.impact}</div>
+              </div>
+            </div>
+          </>
+        )}
+
+        <div className="bg-white p-7 rounded-xl border border-amber-100 mt-10">
           <h3 className="font-display text-xl text-[#8B1A1A] mb-2">Want to volunteer or contribute?</h3>
           <p className="text-stone-600 mb-4">Your time, skills and donations directly power this program.</p>
           <div className="flex flex-wrap gap-3">
