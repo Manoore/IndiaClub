@@ -27,13 +27,7 @@ export default function Footer() {
           {/* About */}
           <div>
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-11 h-11 rounded-full bg-[#8B1A1A] flex items-center justify-center diya-glow">
-                <span className="text-amber-100 font-cinzel font-bold">IC</span>
-              </div>
-              <div className="leading-tight">
-                <div className="font-display text-amber-100 text-lg">India Club</div>
-                <div className="font-cinzel text-[9px] tracking-[0.18em] text-amber-200/60">OF GREATER DAYTON</div>
-              </div>
+              <img src="/icgd/misc/newweblogo.png" alt="ICGD" className="h-12 w-auto bg-white rounded p-1" />
             </div>
             <p className="text-sm text-amber-50/70 leading-relaxed">
               A Registered, Tax Exempt 501(c)(3) non-profit serving the Cultural, Charity, Educational and Welfare needs of the Asian Indian community in Greater Dayton since 1967.

@@ -45,13 +45,8 @@ export default function Navbar() {
           <div className="flex items-center justify-between h-20">
             {/* Logo */}
             <Link to="/" className="flex items-center gap-3 group">
-              <div className="relative w-12 h-12 rounded-full bg-[#8B1A1A] flex items-center justify-center diya-glow">
-                <span className="text-amber-100 font-cinzel font-bold text-lg">IC</span>
-                <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-[#E07A1F] border-2 border-white" />
-              </div>
-              <div className="leading-tight">
-                <div className="font-display text-[#8B1A1A] text-xl tracking-wide">India Club</div>
-                <div className="font-cinzel text-[10px] tracking-[0.18em] text-stone-600">OF GREATER DAYTON • EST. 1967</div>
+              <div className="relative h-12 flex items-center">
+                <img src="/icgd/misc/newweblogo.png" alt="India Club of Greater Dayton" className="h-12 w-auto" />
               </div>
             </Link>
 

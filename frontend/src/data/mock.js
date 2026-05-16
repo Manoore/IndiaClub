@@ -2,8 +2,8 @@
 
 // Real photos sourced from indiaclubdayton.org/images/headers/2026
 export const HERO_IMAGES = [
-  "https://images.unsplash.com/photo-1651512186979-737021ace442?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600",
-  "https://images.unsplash.com/photo-1592843997881-cab3860b1067?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600",
+  "/icgd/features/grow-your-business.jpg",
+  "/icgd/features/donate-for-home.jpg",
   "https://images.unsplash.com/photo-1585607344893-43a4bd91169a?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600",
   "https://images.unsplash.com/photo-1467810563316-b5476525c0f9?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600",
   "https://images.unsplash.com/photo-1716714620140-9ed26b67e900?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600",
@@ -25,7 +25,7 @@ export const FEATURE_HIGHLIGHTS = [
   {
     title: "Become a Member",
     description: "Join 1000+ families and immerse in cultural events, networking and community.",
-    image: "https://images.unsplash.com/photo-1463592177119-bab2a00f3ccb?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600",
+    image: "/icgd/features/become-a-member.png",
     cta: "Join Today",
     link: "/membership/regular",
     accent: "#8B1A1A",
@@ -33,7 +33,7 @@ export const FEATURE_HIGHLIGHTS = [
   {
     title: "Sponsor India Club",
     description: "A community-funded institution supported by sponsors and well-wishers.",
-    image: "https://images.unsplash.com/photo-1645264090488-a019de493023?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600",
+    image: "/icgd/features/grow-together.jpg",
     cta: "Sponsor Us",
     link: "/sponsorship/become-sponsor",
     accent: "#E07A1F",
@@ -41,7 +41,7 @@ export const FEATURE_HIGHLIGHTS = [
   {
     title: "Business Membership",
     description: "Grow your business with the largest Indian community in Greater Dayton.",
-    image: "https://images.unsplash.com/photo-1651512186979-737021ace442?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600",
+    image: "/icgd/features/grow-your-business.jpg",
     cta: "Learn More",
     link: "/membership/business",
     accent: "#C9A961",
@@ -49,7 +49,7 @@ export const FEATURE_HIGHLIGHTS = [
   {
     title: "Donate to Own a Place",
     description: "Help us build a permanent home so we can serve you more efficiently.",
-    image: "https://images.unsplash.com/photo-1592843997881-cab3860b1067?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600",
+    image: "/icgd/features/donate-for-home.jpg",
     cta: "Donate Now",
     link: "/sponsorship/donate",
     accent: "#8B1A1A",
@@ -253,7 +253,7 @@ export const TAX_RETURNS = [
 
 export const SPONSORS = [
   { name: "Athena Investment Properties", logo: "https://ui-avatars.com/api/?name=Athena+Investment&size=220&background=8B1A1A&color=FFF9F0&bold=true&font-size=0.35" },
-  { name: "Day Freight", logo: "https://ui-avatars.com/api/?name=Day+Freight&size=220&background=E07A1F&color=FFF9F0&bold=true&font-size=0.35" },
+  { name: "Day Freight", logo: "/icgd/sponsors/day-freight.png" },
   { name: "Dayton Business Journal", logo: "https://ui-avatars.com/api/?name=Dayton+Business&size=220&background=1a0e0a&color=FFF9F0&bold=true&font-size=0.35" },
   { name: "FRI", logo: "https://ui-avatars.com/api/?name=FRI&size=220&background=C9A961&color=FFF9F0&bold=true&font-size=0.4" },
   { name: "GDAA", logo: "https://ui-avatars.com/api/?name=GDAA&size=220&background=8B1A1A&color=FFF9F0&bold=true&font-size=0.4" },
@@ -261,10 +261,10 @@ export const SPONSORS = [
   { name: "India Chat Cafe", logo: "https://ui-avatars.com/api/?name=India+Chat&size=220&background=E07A1F&color=FFF9F0&bold=true&font-size=0.35" },
   { name: "Mike's Auto", logo: "https://ui-avatars.com/api/?name=Mikes+Auto&size=220&background=1a0e0a&color=FFF9F0&bold=true&font-size=0.35" },
   { name: "Mount Mortgage", logo: "https://ui-avatars.com/api/?name=Mount+Mortgage&size=220&background=C9A961&color=FFF9F0&bold=true&font-size=0.35" },
-  { name: "Mo Dough", logo: "https://ui-avatars.com/api/?name=Mo+Dough&size=220&background=8B1A1A&color=FFF9F0&bold=true&font-size=0.35" },
+  { name: "Mo Dough", logo: "/icgd/sponsors/mo-dough.jpg" },
   { name: "Nova", logo: "https://ui-avatars.com/api/?name=Nova&size=220&background=E07A1F&color=FFF9F0&bold=true&font-size=0.4" },
   { name: "Shree G", logo: "https://ui-avatars.com/api/?name=Shree+G&size=220&background=2E5E3E&color=FFF9F0&bold=true&font-size=0.35" },
-  { name: "Sports Clips", logo: "https://ui-avatars.com/api/?name=Sports+Clips&size=220&background=1a0e0a&color=FFF9F0&bold=true&font-size=0.35" },
+  { name: "Sports Clips", logo: "/icgd/sponsors/sportsclips.jpg" },
   { name: "Bonzi", logo: "https://ui-avatars.com/api/?name=Bonzi&size=220&background=C9A961&color=FFF9F0&bold=true&font-size=0.4" },
   { name: "Alice", logo: "https://ui-avatars.com/api/?name=Alice&size=220&background=8B1A1A&color=FFF9F0&bold=true&font-size=0.4" },
 ];
