@@ -26,7 +26,7 @@ export default function LoginPage() {
   };
   return (
     <>
-      <PageHeader eyebrow="MEMBERS" title={tab === "login" ? "Member Login" : "Register"} image="https://images.unsplash.com/photo-1577083753695-e010191bacb5?crop=entropy&cs=srgb&fm=jpg&q=85&w=1920" />
+      <PageHeader eyebrow="MEMBERS" title={tab === "login" ? "Member Login" : "Register"} image="https://images.unsplash.com/photo-1585607344893-43a4bd91169a?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600" />
       <section className="py-20 bg-cream">
         <div className="max-w-md mx-auto px-6">
           <div className="bg-white p-7 rounded-2xl border border-amber-100">

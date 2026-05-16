@@ -183,11 +183,11 @@ const DonorsDirectory = () => {
 export default function SponsorshipPage() {
   const { sub } = useParams();
   const headers = {
-    undefined: { eyebrow: "PARTNERSHIPS", title: "Sponsorship & Donations", subtitle: "Help us serve the Indian community of Greater Dayton.", image: "https://images.unsplash.com/photo-1622610607501-32ac9c927216?crop=entropy&cs=srgb&fm=jpg&q=85&w=1920" },
-    "become-sponsor": { eyebrow: "PARTNER WITH US", title: "Become a Sponsor", subtitle: "Reach 1000+ Indian-American families across Greater Dayton.", image: "https://images.unsplash.com/photo-1585607344893-43a4bd91169a?crop=entropy&cs=srgb&fm=jpg&q=85&w=1920" },
-    "sponsor-directory": { eyebrow: "OUR PARTNERS", title: "Sponsor Directory", image: "https://images.unsplash.com/photo-1605292356183-a77d0a9c9d1d?crop=entropy&cs=srgb&fm=jpg&q=85&w=1920" },
-    donate: { eyebrow: "DONATE", title: "Donate to India Club", subtitle: "Tax-deductible. 501(c)(3) charity.", image: "https://images.unsplash.com/photo-1577083753695-e010191bacb5?crop=entropy&cs=srgb&fm=jpg&q=85&w=1920" },
-    "donors-directory": { eyebrow: "WITH GRATITUDE", title: "Our Donors", image: "https://images.unsplash.com/photo-1467810563316-b5476525c0f9?crop=entropy&cs=srgb&fm=jpg&q=85&w=1920" },
+    undefined: { eyebrow: "PARTNERSHIPS", title: "Sponsorship & Donations", subtitle: "Help us serve the Indian community of Greater Dayton.", image: "https://images.unsplash.com/photo-1467810563316-b5476525c0f9?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600" },
+    "become-sponsor": { eyebrow: "PARTNER WITH US", title: "Become a Sponsor", subtitle: "Reach 1000+ Indian-American families across Greater Dayton.", image: "https://images.unsplash.com/photo-1716714620140-9ed26b67e900?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600" },
+    "sponsor-directory": { eyebrow: "OUR PARTNERS", title: "Sponsor Directory", image: "https://images.unsplash.com/photo-1716714607603-8aa6a2f16d84?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600" },
+    donate: { eyebrow: "DONATE", title: "Donate to India Club", subtitle: "Tax-deductible. 501(c)(3) charity.", image: "https://images.unsplash.com/photo-1605302977140-6572a4421aef?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600" },
+    "donors-directory": { eyebrow: "WITH GRATITUDE", title: "Our Donors", image: "https://images.unsplash.com/photo-1468234847176-28606331216a?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600" },
   };
   const h = headers[sub] || headers[undefined];
   const render = () => {

@@ -44,7 +44,7 @@ export default function Home() {
           </div>
           <div className="relative">
             <div className="absolute -inset-3 bg-[#E07A1F]/15 rounded-2xl -rotate-2" />
-            <img src="https://images.unsplash.com/photo-1463592177119-bab2a00f3ccb?crop=entropy&cs=srgb&fm=jpg&q=85&w=900" alt="Cultural performance" className="relative rounded-2xl shadow-2xl w-full object-cover h-[520px]" />
+            <img src="https://images.unsplash.com/photo-1605292356183-a77d0a9c9d1d?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600" alt="Cultural performance" className="relative rounded-2xl shadow-2xl w-full object-cover h-[520px]" />
             <div className="absolute -bottom-6 -left-6 bg-white rounded-xl shadow-xl px-5 py-4 border border-amber-100">
               <div className="font-display text-3xl text-[#8B1A1A]">58<span className="text-[#E07A1F]">+</span></div>
               <div className="font-cinzel text-[10px] tracking-[0.2em] text-stone-500">YEARS OF SERVICE</div>

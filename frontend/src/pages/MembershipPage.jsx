@@ -72,8 +72,8 @@ export default function MembershipPage() {
   const focused = MEMBERSHIP_PLANS.find((p) => p.slug === sub);
   const display = focused ? [focused, ...MEMBERSHIP_PLANS.filter((p) => p.slug !== sub).slice(0, 3)] : MEMBERSHIP_PLANS;
   const header = focused
-    ? { eyebrow: "MEMBERSHIP PLAN", title: focused.name, subtitle: focused.description, image: "https://images.unsplash.com/photo-1543342384-1f1350e27861?crop=entropy&cs=srgb&fm=jpg&q=85&w=1920" }
-    : { eyebrow: "JOIN US", title: "Membership Plans", subtitle: "Choose the plan that suits your family. Every membership funds our community programs.", image: "https://images.unsplash.com/photo-1543342384-1f1350e27861?crop=entropy&cs=srgb&fm=jpg&q=85&w=1920" };
+    ? { eyebrow: "MEMBERSHIP PLAN", title: focused.name, subtitle: focused.description, image: "https://images.unsplash.com/photo-1577083753695-e010191bacb5?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600" }
+    : { eyebrow: "JOIN US", title: "Membership Plans", subtitle: "Choose the plan that suits your family. Every membership funds our community programs.", image: "https://images.unsplash.com/photo-1463592177119-bab2a00f3ccb?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600" };
   return (
     <>
       <PageHeader {...header} />

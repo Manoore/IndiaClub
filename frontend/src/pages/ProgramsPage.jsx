@@ -59,7 +59,7 @@ export default function ProgramsPage() {
   const p = PROGRAMS.find((x) => x.slug === sub);
   const header = p
     ? { eyebrow: "PROGRAM", title: p.name, subtitle: p.summary, image: p.image }
-    : { eyebrow: "WHAT WE DO", title: "Our Programs", subtitle: "Charity, education, scholarship and community service — four pillars of our mission.", image: "https://images.unsplash.com/photo-1605292356183-a77d0a9c9d1d?crop=entropy&cs=srgb&fm=jpg&q=85&w=1920" };
+    : { eyebrow: "WHAT WE DO", title: "Our Programs", subtitle: "Charity, education, scholarship and community service — four pillars of our mission.", image: "https://images.unsplash.com/photo-1605292356183-a77d0a9c9d1d?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600" };
   return (
     <>
       <PageHeader {...header} />

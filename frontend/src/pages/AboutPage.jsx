@@ -251,18 +251,18 @@ const PrivacyTerms = ({ title, body }) => (
 export default function AboutPage() {
   const { sub } = useParams();
   const headers = {
-    undefined: { eyebrow: "WHO WE ARE", title: "About India Club", subtitle: "A 58-year journey of culture, community and service.", image: "https://images.unsplash.com/photo-1592843997881-cab3860b1067?crop=entropy&cs=srgb&fm=jpg&q=85&w=1920" },
-    mission: { eyebrow: "OUR PURPOSE", title: "Mission & Values", image: "https://images.unsplash.com/photo-1585607344893-43a4bd91169a?crop=entropy&cs=srgb&fm=jpg&q=85&w=1920" },
-    constitution: { eyebrow: "GOVERNANCE", title: "Constitution & Bylaws", image: "https://images.unsplash.com/photo-1577083753695-e010191bacb5?crop=entropy&cs=srgb&fm=jpg&q=85&w=1920" },
-    nonprofit: { eyebrow: "501(c)(3)", title: "Nonprofit Determination", image: "https://images.unsplash.com/photo-1467810563316-b5476525c0f9?crop=entropy&cs=srgb&fm=jpg&q=85&w=1920" },
-    "tax-returns": { eyebrow: "TRANSPARENCY", title: "Tax Returns", image: "https://images.unsplash.com/photo-1645264090488-a019de493023?crop=entropy&cs=srgb&fm=jpg&q=85&w=1920" },
-    "past-presidents": { eyebrow: "LEGACY", title: "Past Presidents", image: "https://images.unsplash.com/photo-1622610607501-32ac9c927216?crop=entropy&cs=srgb&fm=jpg&q=85&w=1920" },
-    "community-service-awardees": { eyebrow: "HONORS", title: "Community Service Awardees", image: "https://images.unsplash.com/photo-1543342384-1f1350e27861?crop=entropy&cs=srgb&fm=jpg&q=85&w=1920" },
-    "difi-awards": { eyebrow: "RECOGNITION", title: "DIFI Awards Received", image: "https://images.unsplash.com/photo-1585607344893-43a4bd91169a?crop=entropy&cs=srgb&fm=jpg&q=85&w=1920" },
-    "executive-committee": { eyebrow: "LEADERSHIP", title: "Executive Committee", subtitle: "Meet the volunteers steering ICGD this year.", image: "https://images.unsplash.com/photo-1622610607501-32ac9c927216?crop=entropy&cs=srgb&fm=jpg&q=85&w=1920" },
-    privacy: { eyebrow: "LEGAL", title: "Privacy Policy", image: "https://images.unsplash.com/photo-1467810563316-b5476525c0f9?crop=entropy&cs=srgb&fm=jpg&q=85&w=1920" },
-    terms: { eyebrow: "LEGAL", title: "Terms & Conditions", image: "https://images.unsplash.com/photo-1467810563316-b5476525c0f9?crop=entropy&cs=srgb&fm=jpg&q=85&w=1920" },
-    disclaimer: { eyebrow: "LEGAL", title: "Disclaimer & Cookie Policy", image: "https://images.unsplash.com/photo-1467810563316-b5476525c0f9?crop=entropy&cs=srgb&fm=jpg&q=85&w=1920" },
+    undefined: { eyebrow: "WHO WE ARE", title: "About India Club", subtitle: "A 58-year journey of culture, community and service.", image: "https://images.unsplash.com/photo-1467810563316-b5476525c0f9?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600" },
+    mission: { eyebrow: "OUR PURPOSE", title: "Mission & Values", image: "https://images.unsplash.com/photo-1716714620140-9ed26b67e900?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600" },
+    constitution: { eyebrow: "GOVERNANCE", title: "Constitution & Bylaws", image: "https://images.unsplash.com/photo-1716714607603-8aa6a2f16d84?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600" },
+    nonprofit: { eyebrow: "501(c)(3)", title: "Nonprofit Determination", image: "https://images.unsplash.com/photo-1605302977140-6572a4421aef?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600" },
+    "tax-returns": { eyebrow: "TRANSPARENCY", title: "Tax Returns", image: "https://images.unsplash.com/photo-1468234847176-28606331216a?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600" },
+    "past-presidents": { eyebrow: "LEGACY", title: "Past Presidents", image: "https://images.unsplash.com/photo-1605292356183-a77d0a9c9d1d?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600" },
+    "community-service-awardees": { eyebrow: "HONORS", title: "Community Service Awardees", image: "https://images.unsplash.com/photo-1577083753695-e010191bacb5?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600" },
+    "difi-awards": { eyebrow: "RECOGNITION", title: "DIFI Awards Received", image: "https://images.unsplash.com/photo-1463592177119-bab2a00f3ccb?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600" },
+    "executive-committee": { eyebrow: "LEADERSHIP", title: "Executive Committee", subtitle: "Meet the volunteers steering ICGD this year.", image: "https://images.unsplash.com/photo-1645264090488-a019de493023?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600" },
+    privacy: { eyebrow: "LEGAL", title: "Privacy Policy", image: "https://images.unsplash.com/photo-1651512186979-737021ace442?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600" },
+    terms: { eyebrow: "LEGAL", title: "Terms & Conditions", image: "https://images.unsplash.com/photo-1592843997881-cab3860b1067?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600" },
+    disclaimer: { eyebrow: "LEGAL", title: "Disclaimer & Cookie Policy", image: "https://images.unsplash.com/photo-1585607344893-43a4bd91169a?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600" },
   };
   const h = headers[sub] || headers[undefined];
 

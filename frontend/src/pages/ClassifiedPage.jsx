@@ -94,7 +94,7 @@ const PostAd = () => {
   const submit = (e) => {
     e.preventDefault();
     const ads = JSON.parse(localStorage.getItem("icgd_ads") || "[]");
-    const newAd = { ...form, id: `local-${Date.now()}`, date: new Date().toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }), image: "https://images.unsplash.com/photo-1605292356183-a77d0a9c9d1d?crop=entropy&cs=srgb&fm=jpg&q=85&w=600" };
+    const newAd = { ...form, id: `local-${Date.now()}`, date: new Date().toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }), image: "https://images.unsplash.com/photo-1645264090488-a019de493023?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600" };
     ads.unshift(newAd);
     localStorage.setItem("icgd_ads", JSON.stringify(ads));
     toast({ title: "Ad posted!", description: "Your classified is live. View it in All Advertisements." });
@@ -145,5 +145,5 @@ export default function ClassifiedPage() {
       default: return <List />;
     }
   };
-  return (<><PageHeader {...header} image="https://images.unsplash.com/photo-1645264090488-a019de493023?crop=entropy&cs=srgb&fm=jpg&q=85&w=1920" />{render()}</>);
+  return (<><PageHeader {...header} image="https://images.unsplash.com/photo-1651512186979-737021ace442?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600" />{render()}</>);
 }

@@ -4,7 +4,7 @@ import Mandala from "../components/Mandala";
 export default function PageHeader({ eyebrow, title, subtitle, image }) {
   return (
     <section className="relative h-[44vh] min-h-[320px] overflow-hidden">
-      <img src={image || "https://images.unsplash.com/photo-1605292356183-a77d0a9c9d1d?crop=entropy&cs=srgb&fm=jpg&q=85&w=1920"} alt={title} className="absolute inset-0 w-full h-full object-cover" />
+      <img src={image || "https://images.unsplash.com/photo-1645264090488-a019de493023?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600"} alt={title} className="absolute inset-0 w-full h-full object-cover" />
       <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/55 to-black/70" />
       <Mandala className="absolute -right-40 -bottom-32 w-[500px] h-[500px]" color="#FFD89B" opacity={0.18} />
       <div className="relative max-w-7xl mx-auto h-full px-6 flex flex-col justify-center text-amber-50">

@@ -99,7 +99,7 @@ export default function EventsPage() {
   const { sub } = useParams();
   const cat = EVENT_CATEGORIES.find((c) => c.slug === sub);
   const header = !sub
-    ? { eyebrow: "OUR PROGRAMS", title: "Events & Festivals", subtitle: "Cultural events, festivals, sports and youth programs throughout the year.", image: "https://images.unsplash.com/photo-1585607344893-43a4bd91169a?crop=entropy&cs=srgb&fm=jpg&q=85&w=1920" }
+    ? { eyebrow: "OUR PROGRAMS", title: "Events & Festivals", subtitle: "Cultural events, festivals, sports and youth programs throughout the year.", image: "https://images.unsplash.com/photo-1592843997881-cab3860b1067?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600" }
     : { eyebrow: cat?.tagline || "EVENTS", title: cat?.name || "Events", subtitle: cat?.description, image: cat?.image };
   return (
     <>

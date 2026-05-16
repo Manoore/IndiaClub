@@ -9,7 +9,7 @@ export default function GalleryPage() {
   const prev = () => setActive((i) => (i - 1 + GALLERY.length) % GALLERY.length);
   return (
     <>
-      <PageHeader eyebrow="OUR MEMORIES" title="Gallery" subtitle="Moments from our cultural celebrations, festivals and community gatherings." image="https://images.unsplash.com/photo-1467810563316-b5476525c0f9?crop=entropy&cs=srgb&fm=jpg&q=85&w=1920" />
+      <PageHeader eyebrow="OUR MEMORIES" title="Gallery" subtitle="Moments from our cultural celebrations, festivals and community gatherings." image="https://images.unsplash.com/photo-1463592177119-bab2a00f3ccb?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600" />
       <section className="py-16 bg-cream">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
