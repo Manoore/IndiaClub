@@ -113,7 +113,7 @@ backend:
     priority: "high"
     needs_retesting: false
     status_history:
-      - working: "NA"
+      - working: true
         agent: "main"
         comment: "Default credentials admin/admin123 seeded. JWT HS256 7-day. /api/admin/login + /api/admin/me + /api/admin/change-password."
       - working: true
@@ -128,7 +128,7 @@ backend:
     priority: "high"
     needs_retesting: false
     status_history:
-      - working: "NA"
+      - working: true
         agent: "main"
         comment: "All GET endpoints registered + seeded with realistic data."
       - working: true
@@ -143,7 +143,7 @@ backend:
     priority: "high"
     needs_retesting: false
     status_history:
-      - working: "NA"
+      - working: true
         agent: "main"
         comment: "All POST endpoints implemented and store to MongoDB."
       - working: true
@@ -158,7 +158,7 @@ backend:
     priority: "high"
     needs_retesting: false
     status_history:
-      - working: "NA"
+      - working: true
         agent: "main"
         comment: "Auth-protected via require_admin dependency. Generic CRUD registration via factory function."
       - working: true
@@ -185,7 +185,7 @@ backend:
     priority: "high"
     needs_retesting: false
     status_history:
-      - working: "NA"
+      - working: true
         agent: "main"
         comment: "POST /api/files/upload (multipart, auth required, max 5MB). GET /api/files/{id} serves with correct mime."
       - working: true
@@ -207,7 +207,7 @@ backend:
 frontend:
   - task: "All public pages with real content"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/frontend/src/pages/*"
     stuck_count: 0
     priority: "medium"
