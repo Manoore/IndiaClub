@@ -1,7 +1,7 @@
 import React from "react";
 import { useParams, Link } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
-import { EXECUTIVE_TEAM, PAST_PRESIDENTS } from "../data/mock";
+import { EXECUTIVE_TEAM, PAST_PRESIDENTS, TAX_RETURNS, CONSTITUTION, COMMUNITY_SERVICE_AWARDEES, DIFI_AWARDS } from "../data/mock";
 import { Award, FileText, Heart, Scroll, Trophy, Users, Building, Phone, Mail, MapPin } from "lucide-react";
 import Mandala from "../components/Mandala";
 
@@ -39,27 +39,43 @@ const AboutHub = () => {
 const Mission = () => (
   <section className="py-20 bg-cream">
     <div className="max-w-4xl mx-auto px-6">
-      <div className="prose prose-stone max-w-none">
-        <p className="text-stone-700 leading-relaxed text-lg font-serif">
-          The India Club of Greater Dayton (ICGD) is a Registered, Tax Exempt 501(c)(3) non-profit, non-political, non-religious, volunteer organization serving since 1967 with the primary purpose to serve the <strong>Cultural, Charity, Educational and Welfare</strong> needs of the Asian Indian community in Greater Dayton.
-        </p>
-        <h2 className="font-display text-3xl text-[#8B1A1A] mt-10">Our Pillars</h2>
-        <div className="grid md:grid-cols-2 gap-5 mt-6 not-prose">
-          {[
-            { t: "Cultural", d: "Preserve & celebrate Indian heritage through festivals, dance, music and arts." },
-            { t: "Charity", d: "Support community welfare via fundraising drives, food drives & disaster relief." },
-            { t: "Educational", d: "Heritage classes, scholarships and mentorship for our youth." },
-            { t: "Welfare", d: "Connect, support and serve the well-being of Asian Indians in Greater Dayton." },
-          ].map((p) => (
-            <div key={p.t} className="p-6 bg-white border border-amber-100 rounded-xl">
-              <div className="font-cinzel text-xs tracking-[0.22em] text-[#E07A1F] mb-1">PILLAR</div>
-              <div className="font-display text-2xl text-[#8B1A1A] mb-2">{p.t}</div>
-              <p className="text-stone-600 text-sm">{p.d}</p>
-            </div>
-          ))}
-        </div>
-        <p className="text-stone-700 leading-relaxed mt-8">ICGD does not promote any specific political, religious or social agendas. <em>Tax ID/EIN: 31-1184659.</em></p>
+      <p className="text-stone-700 leading-relaxed text-lg font-serif mb-6">
+        India Club of Greater Dayton is a non-profit organization serving the Indo-Dayton community.
+      </p>
+      <h3 className="font-display text-2xl text-[#8B1A1A] mb-4">The objectives of the India Club are:</h3>
+      <ul className="space-y-3 mb-8">
+        {[
+          "To promote the welfare and assimilation of Asian Indians of greater Dayton and vicinity",
+          "To sustain and perpetuate the heritage and culture of India",
+          "To centralize resources, energies and talents for general betterment of Asian Indians",
+          "To promote educational, literacy, and cultural activities",
+          "To disseminate information and foster amiable attitudes among the various cultural groups for better understanding and cooperation",
+          "To raise funds for specified welfare projects",
+        ].map((it, i) => (
+          <li key={i} className="flex gap-3 p-4 bg-white border border-amber-100 rounded-lg">
+            <span className="flex-shrink-0 w-7 h-7 rounded-full bg-[#8B1A1A] text-amber-50 flex items-center justify-center font-cinzel text-xs">{i + 1}</span>
+            <span className="text-stone-700">{it}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="text-stone-700 leading-relaxed mb-8 italic font-serif">
+        The Club periodically organizes cultural and social programs; welfare, charitable and scientific projects; concerts, seminars, and lectures in art and music; and engages in such other activities as may be necessary to meet its objectives.
+      </p>
+      <div className="grid md:grid-cols-2 gap-5">
+        {[
+          { t: "Cultural", d: "Preserve & celebrate Indian heritage through festivals, dance, music and arts." },
+          { t: "Charity", d: "Support community welfare via fundraising drives, food drives & disaster relief." },
+          { t: "Educational", d: "Heritage classes, scholarships and mentorship for our youth." },
+          { t: "Welfare", d: "Connect, support and serve the well-being of Asian Indians in Greater Dayton." },
+        ].map((p) => (
+          <div key={p.t} className="p-6 bg-white border border-amber-100 rounded-xl">
+            <div className="font-cinzel text-xs tracking-[0.22em] text-[#E07A1F] mb-1">PILLAR</div>
+            <div className="font-display text-2xl text-[#8B1A1A] mb-2">{p.t}</div>
+            <p className="text-stone-600 text-sm">{p.d}</p>
+          </div>
+        ))}
       </div>
+      <p className="text-stone-500 text-sm mt-8 italic">Tax ID/EIN: 31-1184659 — ICGD does not promote any specific political, religious or social agendas.</p>
     </div>
   </section>
 );
@@ -71,68 +87,179 @@ const TextPage = ({ children }) => (
 );
 
 const Constitution = () => (
-  <TextPage>
-    <h2 className="font-display text-3xl text-[#8B1A1A]">Constitution & Bylaws</h2>
-    <p>The India Club of Greater Dayton is governed by a written constitution and bylaws adopted by its members. These documents outline membership classes, executive committee structure, election procedures, meeting protocols, dissolution procedures and amendment processes.</p>
-    <h3 className="font-display text-2xl text-[#8B1A1A] mt-6">Article I — Name & Purpose</h3>
-    <p>The name of the organization shall be "India Club of Greater Dayton" (ICGD). The purpose is exclusively charitable, cultural, educational and welfare-oriented within the meaning of Section 501(c)(3) of the U.S. Internal Revenue Code.</p>
-    <h3 className="font-display text-2xl text-[#8B1A1A] mt-6">Article II — Membership</h3>
-    <p>Membership shall be open to any person of Asian Indian origin or descent, or any other person interested in the objectives of the Club. Membership classes include Regular, Business, Honorary, Extended and Life.</p>
-    <h3 className="font-display text-2xl text-[#8B1A1A] mt-6">Article III — Executive Committee</h3>
-    <p>The affairs of the Club are managed by an Executive Committee comprising the President, President-Elect, Ex-President, Secretary, Treasurer, and the chairs of standing committees. Members are elected annually at the Annual General Meeting.</p>
-    <p className="text-sm text-stone-500 mt-8">Full PDF document available upon written request to <a href="mailto:contact@indiaclubdayton.org" className="text-[#8B1A1A]">contact@indiaclubdayton.org</a>.</p>
-  </TextPage>
+  <section className="py-20 bg-cream">
+    <div className="max-w-4xl mx-auto px-6">
+      <div className="text-center mb-10">
+        <h2 className="font-display text-4xl text-[#8B1A1A]">India Club of Greater Dayton</h2>
+        <p className="font-cinzel text-sm tracking-[0.3em] text-[#E07A1F] mt-2">CONSTITUTION & BYLAWS</p>
+      </div>
+      <div className="space-y-4">
+        {CONSTITUTION.map((a) => (
+          <details key={a.n} className="group bg-white border border-amber-100 rounded-xl overflow-hidden">
+            <summary className="cursor-pointer px-6 py-4 flex items-center justify-between hover:bg-amber-50/40 transition">
+              <div className="flex items-center gap-4">
+                <span className="w-10 h-10 rounded-full bg-[#8B1A1A] text-amber-50 flex items-center justify-center font-cinzel text-sm">{a.n}</span>
+                <h3 className="font-display text-xl text-stone-900">Article {a.n} — {a.title}</h3>
+              </div>
+              <span className="text-[#E07A1F] group-open:rotate-180 transition">▼</span>
+            </summary>
+            <div className="px-6 pb-6 pt-2 border-t border-amber-100">
+              <ul className="space-y-2 mt-4">
+                {a.items.map((it, i) => (
+                  <li key={i} className="text-stone-700 text-sm leading-relaxed pl-3 border-l-2 border-amber-200">{it}</li>
+                ))}
+              </ul>
+            </div>
+          </details>
+        ))}
+      </div>
+      <p className="text-sm text-stone-500 mt-10 text-center">Full PDF available upon written request to <a href="mailto:contact@indiaclubdayton.org" className="text-[#8B1A1A] hover:text-[#E07A1F]">contact@indiaclubdayton.org</a>.</p>
+    </div>
+  </section>
 );
 
 const Nonprofit = () => (
-  <TextPage>
-    <h2 className="font-display text-3xl text-[#8B1A1A]">Nonprofit Determination Affirmation</h2>
-    <p>India Club of Greater Dayton is a tax-exempt organization recognized under Section 501(c)(3) of the U.S. Internal Revenue Code. Contributions are deductible to the fullest extent allowed by law.</p>
-    <div className="p-6 bg-white border border-amber-100 rounded-xl mt-6 not-prose">
-      <div className="grid sm:grid-cols-2 gap-4 text-sm">
-        <div><div className="font-cinzel text-xs tracking-[0.22em] text-[#E07A1F]">EIN</div><div className="text-stone-800 font-semibold mt-1">31-1184659</div></div>
-        <div><div className="font-cinzel text-xs tracking-[0.22em] text-[#E07A1F]">STATUS</div><div className="text-stone-800 font-semibold mt-1">501(c)(3) Public Charity</div></div>
-        <div><div className="font-cinzel text-xs tracking-[0.22em] text-[#E07A1F]">YEAR RECOGNIZED</div><div className="text-stone-800 font-semibold mt-1">1967</div></div>
-        <div><div className="font-cinzel text-xs tracking-[0.22em] text-[#E07A1F]">STATE</div><div className="text-stone-800 font-semibold mt-1">Ohio, USA</div></div>
+  <section className="py-20 bg-cream">
+    <div className="max-w-4xl mx-auto px-6">
+      <div className="text-center mb-10">
+        <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#8B1A1A]/10 border border-[#8B1A1A]/20 rounded-full mb-4">
+          <FileText className="w-4 h-4 text-[#8B1A1A]" />
+          <span className="font-cinzel text-xs tracking-[0.22em] text-[#8B1A1A]">501(c)(3) AFFIRMATION</span>
+        </div>
+        <h2 className="font-display text-4xl text-stone-900">India Club is a 501(c)(3) nonprofit organization</h2>
+        <p className="text-stone-600 mt-3 font-serif">Recognized by the United States Internal Revenue Service since 1967.</p>
+      </div>
+
+      <div className="grid sm:grid-cols-2 gap-5 mb-10">
+        <div className="p-6 bg-white border border-amber-100 rounded-xl">
+          <div className="font-cinzel text-xs tracking-[0.22em] text-[#E07A1F]">EMPLOYER IDENTIFICATION NUMBER</div>
+          <div className="text-stone-800 font-display text-2xl mt-2">31-1184659</div>
+        </div>
+        <div className="p-6 bg-white border border-amber-100 rounded-xl">
+          <div className="font-cinzel text-xs tracking-[0.22em] text-[#E07A1F]">STATUS</div>
+          <div className="text-stone-800 font-display text-2xl mt-2">501(c)(3) Public Charity</div>
+        </div>
+        <div className="p-6 bg-white border border-amber-100 rounded-xl">
+          <div className="font-cinzel text-xs tracking-[0.22em] text-[#E07A1F]">YEAR RECOGNIZED</div>
+          <div className="text-stone-800 font-display text-2xl mt-2">1967</div>
+        </div>
+        <div className="p-6 bg-white border border-amber-100 rounded-xl">
+          <div className="font-cinzel text-xs tracking-[0.22em] text-[#E07A1F]">STATE OF REGISTRATION</div>
+          <div className="text-stone-800 font-display text-2xl mt-2">Ohio, USA</div>
+        </div>
+      </div>
+
+      <div className="bg-white border-2 border-dashed border-amber-200 rounded-2xl p-10 text-center">
+        <FileText className="w-12 h-12 text-[#E07A1F] mx-auto mb-4" />
+        <h3 className="font-display text-2xl text-[#8B1A1A] mb-2">IRS Determination Letter</h3>
+        <p className="text-stone-600 mb-5 max-w-md mx-auto">Two-page IRS letter confirming ICGD's tax-exempt status under section 501(c)(3) of the Internal Revenue Code.</p>
+        <div className="flex flex-wrap gap-3 justify-center">
+          <a href="#" className="px-5 py-2.5 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded-md text-sm font-medium transition">View Page 1</a>
+          <a href="#" className="px-5 py-2.5 border-2 border-[#8B1A1A] text-[#8B1A1A] hover:bg-[#8B1A1A] hover:text-amber-50 rounded-md text-sm font-medium transition">View Page 2</a>
+        </div>
+        <p className="text-xs text-stone-400 mt-4 italic">Contributions to ICGD are tax-deductible to the fullest extent allowed by law.</p>
       </div>
     </div>
-  </TextPage>
+  </section>
 );
 
 const TaxReturns = () => (
-  <TextPage>
-    <h2 className="font-display text-3xl text-[#8B1A1A]">Tax Returns & Financial Statements</h2>
-    <p>Per IRS guidelines, India Club of Greater Dayton makes its three most recent Form 990 filings publicly available.</p>
-    <div className="mt-6 grid sm:grid-cols-2 gap-4 not-prose">
-      {[2024, 2023, 2022, 2021].map((y) => (
-        <a key={y} href="#" className="flex items-center justify-between p-5 bg-white border border-amber-100 rounded-xl hover:border-[#8B1A1A] transition">
-          <div>
-            <div className="font-display text-xl text-[#8B1A1A]">Form 990 — FY {y}</div>
-            <div className="text-xs text-stone-500">PDF • Approx 1.2 MB</div>
-          </div>
-          <span className="text-[#E07A1F] font-medium text-sm">Download</span>
-        </a>
-      ))}
+  <section className="py-20 bg-cream">
+    <div className="max-w-5xl mx-auto px-6">
+      <p className="text-stone-700 leading-relaxed mb-6">
+        The India Club of Greater Dayton is an Ohio State Registered, Tax Exempt 501(c)(3) non-profit organization. Below are our compliance documents available for public view.
+      </p>
+      <div className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-amber-200 rounded-md mb-8">
+        <span className="font-cinzel text-xs tracking-[0.22em] text-[#E07A1F]">TAX ID / EIN</span>
+        <span className="font-semibold text-stone-900">31-1184659</span>
+      </div>
+      <div className="bg-white border border-amber-100 rounded-2xl overflow-hidden">
+        <div className="h-1 bg-gradient-to-r from-[#8B1A1A] via-[#E07A1F] to-[#C9A961]" />
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-amber-50/60 text-stone-700">
+              <tr>
+                <th className="text-left px-5 py-3 font-cinzel tracking-wider text-xs">YEAR</th>
+                <th className="text-left px-5 py-3 font-cinzel tracking-wider text-xs">FILED BY</th>
+                <th className="text-left px-5 py-3 font-cinzel tracking-wider text-xs">PRESIDENT</th>
+                <th className="text-right px-5 py-3 font-cinzel tracking-wider text-xs">DOCUMENT</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-amber-100">
+              {TAX_RETURNS.map((t) => (
+                <tr key={t.year} className="hover:bg-amber-50/40 transition">
+                  <td className="px-5 py-3 font-display text-lg text-[#8B1A1A]">{t.year}</td>
+                  <td className="px-5 py-3 text-stone-700">{t.filedBy}</td>
+                  <td className="px-5 py-3 text-stone-700">{t.president}</td>
+                  <td className="px-5 py-3 text-right">
+                    {t.available ? (
+                      <a href="#" className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded text-xs font-medium transition">View {t.year}</a>
+                    ) : (
+                      <span className="text-stone-400 text-xs italic">Not Available</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
-  </TextPage>
+  </section>
 );
 
 const PastPresidents = () => (
   <section className="py-20 bg-cream">
-    <div className="max-w-4xl mx-auto px-6">
-      <h2 className="font-display text-3xl text-[#8B1A1A] mb-2">Past Presidents</h2>
-      <p className="text-stone-600 mb-8">Honoring the visionary leaders who shaped ICGD across the decades.</p>
-      <div className="divide-y divide-amber-100 bg-white border border-amber-100 rounded-xl overflow-hidden">
-        {PAST_PRESIDENTS.map((p, i) => (
-          <div key={i} className="flex items-center justify-between p-5 hover:bg-amber-50/50 transition">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-full bg-[#8B1A1A] text-amber-50 flex items-center justify-center font-cinzel text-sm">{PAST_PRESIDENTS.length - i}</div>
-              <div>
-                <div className="font-display text-lg text-stone-900">{p.name}</div>
-                <div className="text-xs text-stone-500">President</div>
+    <div className="max-w-5xl mx-auto px-6">
+      <p className="text-stone-600 mb-8 font-serif text-lg">
+        Honoring the visionary leaders who shaped India Club of Greater Dayton across the decades. Below is the chronological list of our Presidents based on our publicly available IRS filings.
+      </p>
+      <div className="relative">
+        <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gradient-to-b from-[#8B1A1A] via-[#E07A1F] to-[#C9A961]" />
+        <ul className="space-y-4">
+          {PAST_PRESIDENTS.map((p, i) => (
+            <li key={i} className="relative pl-14">
+              <div className="absolute left-0 top-3 w-8 h-8 rounded-full bg-white border-4 border-[#E07A1F] flex items-center justify-center">
+                <div className="w-2 h-2 rounded-full bg-[#8B1A1A]" />
               </div>
+              <div className="bg-white border border-amber-100 rounded-xl p-5 flex items-center justify-between card-hover">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-[#8B1A1A] text-amber-50 flex items-center justify-center font-cinzel text-sm">
+                    {p.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                  </div>
+                  <div>
+                    <div className="font-display text-xl text-stone-900">{p.name}</div>
+                    <div className="text-xs text-stone-500 font-cinzel tracking-[0.18em]">PRESIDENT</div>
+                  </div>
+                </div>
+                <div className="font-display text-2xl text-[#E07A1F]">{p.year}</div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  </section>
+);
+
+const CommunityServiceAwardees = () => (
+  <section className="py-20 bg-cream">
+    <div className="max-w-5xl mx-auto px-6">
+      <p className="text-stone-700 leading-relaxed font-serif text-lg mb-8">
+        Each year India Club of Greater Dayton honors a community member whose volunteer service has uplifted our families and the broader Dayton community. The award is presented at the annual Diwali Mela.
+      </p>
+      <div className="grid md:grid-cols-2 gap-5">
+        {COMMUNITY_SERVICE_AWARDEES.map((a) => (
+          <div key={a.year} className="card-hover p-6 bg-white border border-amber-100 rounded-xl">
+            <div className="flex items-start justify-between mb-3">
+              <div className="font-cinzel text-xs tracking-[0.22em] text-[#E07A1F]">RECIPIENT</div>
+              <div className="font-display text-3xl text-[#8B1A1A]">{a.year}</div>
             </div>
-            <div className="font-cinzel text-xs tracking-[0.2em] text-[#E07A1F]">{p.year}</div>
+            <div className="flex items-center gap-3 mb-2">
+              <Award className="w-5 h-5 text-[#E07A1F]" />
+              <div className="font-display text-2xl text-stone-900">{a.name}</div>
+            </div>
+            <p className="text-sm text-stone-600 leading-relaxed">{a.contribution}</p>
           </div>
         ))}
       </div>
@@ -140,45 +267,31 @@ const PastPresidents = () => (
   </section>
 );
 
-const CommunityServiceAwardees = () => (
-  <TextPage>
-    <h2 className="font-display text-3xl text-[#8B1A1A]">Community Service Awardees</h2>
-    <p>Each year ICGD honors a community member whose volunteer service has uplifted our families and the broader Dayton community.</p>
-    <div className="grid sm:grid-cols-2 gap-4 mt-6 not-prose">
-      {[
-        { y: 2024, n: "Dr. Suresh Gupta", c: "Health & education advocacy" },
-        { y: 2023, n: "Mrs. Lalita Rao", c: "Senior care & community kitchen" },
-        { y: 2022, n: "Pradeep Mehta", c: "Youth mentorship & STEM camps" },
-        { y: 2021, n: "Dr. Anjali Verma", c: "COVID-19 community response" },
-      ].map((a) => (
-        <div key={a.y} className="p-5 bg-white border border-amber-100 rounded-xl">
-          <div className="font-cinzel text-xs tracking-[0.2em] text-[#E07A1F]">{a.y}</div>
-          <div className="font-display text-xl text-[#8B1A1A] mt-1">{a.n}</div>
-          <div className="text-sm text-stone-600">{a.c}</div>
-        </div>
-      ))}
-    </div>
-  </TextPage>
-);
-
 const DIFIAwards = () => (
-  <TextPage>
-    <h2 className="font-display text-3xl text-[#8B1A1A]">DIFI Awards Received</h2>
-    <p>The Dayton International Festival Institute (DIFI) has recognized ICGD multiple times for our cultural and service contributions.</p>
-    <ul className="space-y-3 mt-6 not-prose">
-      {[
-        "2024 — Outstanding Cultural Showcase, Diwali Mela",
-        "2023 — Best Multicultural Booth",
-        "2022 — Community Excellence Award",
-        "2021 — Pandemic Response Recognition",
-      ].map((a, i) => (
-        <li key={i} className="flex items-center gap-3 p-4 bg-white border border-amber-100 rounded-lg">
-          <Trophy className="w-5 h-5 text-[#E07A1F]" />
-          <span className="text-stone-800">{a}</span>
-        </li>
-      ))}
-    </ul>
-  </TextPage>
+  <section className="py-20 bg-cream">
+    <div className="max-w-5xl mx-auto px-6">
+      <p className="text-stone-700 leading-relaxed font-serif text-lg mb-8">
+        The Dayton International Festival Inc. (DIFI) has recognized India Club of Greater Dayton multiple times for our cultural showcases, multicultural booths and community contributions over the years.
+      </p>
+      <div className="space-y-3">
+        {DIFI_AWARDS.map((a, i) => (
+          <div key={i} className="card-hover flex items-center gap-5 p-5 bg-white border border-amber-100 rounded-xl">
+            <div className="flex-shrink-0 w-16 h-16 rounded-xl bg-gradient-to-br from-[#E07A1F] to-[#8B1A1A] flex items-center justify-center text-amber-50">
+              <Trophy className="w-7 h-7" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-1 flex-wrap">
+                <span className="font-display text-2xl text-[#8B1A1A]">{a.year}</span>
+                <span className="font-cinzel text-[10px] tracking-[0.22em] text-stone-500 px-2 py-0.5 bg-amber-50 rounded">DIFI AWARD</span>
+              </div>
+              <div className="font-display text-xl text-stone-900">{a.title}</div>
+              <div className="text-sm text-stone-600 mt-0.5">{a.note}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
 );
 
 const ExecutiveCommittee = () => (

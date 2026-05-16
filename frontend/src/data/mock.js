@@ -216,16 +216,39 @@ export const EXECUTIVE_TEAM = [
 ];
 
 export const PAST_PRESIDENTS = [
-  { year: "2024 – 2025", name: "Puneeta Aggarwal" },
-  { year: "2022 – 2023", name: "Sharad Pandit" },
-  { year: "2020 – 2021", name: "Raghu Krishnan" },
-  { year: "2018 – 2019", name: "Anil Sharma" },
-  { year: "2016 – 2017", name: "Meera Iyer" },
-  { year: "2014 – 2015", name: "Vikram Desai" },
-  { year: "2012 – 2013", name: "Sangeeta Rao" },
-  { year: "2010 – 2011", name: "Pradeep Mehta" },
-  { year: "2008 – 2009", name: "Lakshmi Narayan" },
-  { year: "2006 – 2007", name: "Hari Prasad" },
+  { year: "2017", name: "Ashesh Agrawal" },
+  { year: "2016", name: "Rakesh Arora" },
+  { year: "2015", name: "Pratibha Gupta" },
+  { year: "2014", name: "Vinit Mishra" },
+  { year: "2013", name: "Srinivas Katragadda" },
+  { year: "2012", name: "Ravi Swaminathan" },
+  { year: "2011", name: "Hyacinth Dey" },
+  { year: "2010", name: "Ravi Ravikumar" },
+  { year: "2009", name: "Rakesh Gupta" },
+  { year: "2008", name: "Bhanu Raghavan" },
+  { year: "2007", name: "Hemant Garg" },
+  { year: "2006", name: "Ashwin Rao" },
+  { year: "2005", name: "Raj Singh" },
+  { year: "2004", name: "Bhanu Raghavan" },
+  { year: "2003", name: "Krishna Sharma" },
+];
+
+export const TAX_RETURNS = [
+  { year: 2017, filedBy: "Ashesh Agrawal", president: "Ashesh Agrawal", available: true },
+  { year: 2016, filedBy: "Rakesh Arora", president: "Rakesh Arora", available: true },
+  { year: 2015, filedBy: "Selvam Kandasamy", president: "Pratibha Gupta", available: true },
+  { year: 2014, filedBy: "Selvam Kandasamy", president: "Vinit Mishra", available: true },
+  { year: 2013, filedBy: "Selvam Kandasamy", president: "Srinivas Katragadda", available: true },
+  { year: 2012, filedBy: "Srinivas Katragadda", president: "Ravi Swaminathan", available: true },
+  { year: 2011, filedBy: "Ravi Swaminathan", president: "Hyacinth Dey", available: true },
+  { year: 2010, filedBy: "—", president: "Ravi Ravikumar", available: false },
+  { year: 2009, filedBy: "—", president: "Rakesh Gupta", available: false },
+  { year: 2008, filedBy: "Rakesh Gupta", president: "Bhanu Raghavan", available: true },
+  { year: 2007, filedBy: "Ravi Ravikumar", president: "Hemant Garg", available: true },
+  { year: 2006, filedBy: "Ravi Ravikumar", president: "Ashwin Rao", available: true },
+  { year: 2005, filedBy: "Arun Jain", president: "Raj Singh", available: true },
+  { year: 2004, filedBy: "Raj Singh", president: "Bhanu Raghavan", available: true },
+  { year: 2003, filedBy: "Bhanu Raghavan", president: "Krishna Sharma", available: true },
 ];
 
 export const SPONSORS = [
@@ -425,4 +448,141 @@ export const NAV = [
     ],
   },
   { label: "Gallery", to: "/gallery" },
+];
+
+export const CONSTITUTION = [
+  {
+    n: "I",
+    title: "Name and Location",
+    items: [
+      "1.1 The name of this non-profit 501(c)(3) organization shall be India Club of Greater Dayton (hereinafter referred to as India Club).",
+      "1.2 The registered office of India Club shall be located in the greater Dayton area in the state of Ohio.",
+    ],
+  },
+  {
+    n: "II",
+    title: "Objectives",
+    items: [
+      "2.1 To promote the welfare and assimilation of Asian Indians of greater Dayton and vicinity.",
+      "2.2 To sustain and perpetuate the heritage and culture of India.",
+      "2.3 To centralize resources, energies and talents for general betterment of Asian Indians.",
+      "2.4 To promote educational, literacy, cultural and charitable activities.",
+      "2.5 To disseminate information provided by other non-profit organizations via e-mail or other means and foster amiable attitudes among the various cultural groups for better understanding and cooperation.",
+      "2.6 To raise funds for specified welfare projects.",
+    ],
+  },
+  {
+    n: "III",
+    title: "Club Activities",
+    items: [
+      "3.1 At all times the Club shall remain a non-partisan, secular, and non-sectarian organization.",
+      "3.2 The Club shall not encourage or promote any treasonous or seditious activity designed to adversely affect accomplishment of Club's objectives.",
+      "3.3 Upon approval by the Executive Committee (E.C.), India Club may affiliate or disaffiliate with organizations/institutions, which are consistent with that of India Club.",
+      "3.4 The Club shall organize periodically cultural and social programs; welfare, charitable and scientific projects; concerts, seminars, and lectures in art and music.",
+      "3.5 The funds of the Club may be spent for achieving the objectives set forth above upon approval by a simple majority vote of the E.C.",
+      "3.6 Any purchase of capital goods or equipment costing over $5,000 must be approved by the General Body.",
+      "3.7 With approval of the E.C., the Club may engage in fund raising activities for any specific common cause or special project.",
+      "3.8 The Club shall meet its financial obligations through membership fees, special fund raising programs and donations.",
+    ],
+  },
+  {
+    n: "IV",
+    title: "Membership",
+    items: [
+      "4.1 Any individual who subscribes to the objectives of the India Club can become a member. The member shall agree to abide by the Constitution.",
+      "4.2 There shall be five classes of memberships: (A) Family, (B) Individual, (C) Student, (D) Institutional, (E) Honorary.",
+      "4.3 Annual and life membership dues will be decided by the E.C. every year.",
+      "4.4 To be eligible to vote, a member must be in good standing — annual fees paid/renewed by March 15.",
+      "4.5 Family members shall have two votes — one for the principal member and one for any other family member.",
+    ],
+  },
+  {
+    n: "V",
+    title: "Fiscal Year",
+    items: [
+      "5.1 The fiscal year of the Club shall commence on the first day of January of each year and end on the 31st day of December.",
+    ],
+  },
+  {
+    n: "VI",
+    title: "Executive Committee",
+    items: [
+      "6.1 The E.C. shall consist of eleven members: President, President-elect, Secretary, Treasurer and seven members at large.",
+      "6.2 Of the seven members at large, one shall hold the position of Delegate to International Festivals (DIFI) and at least two shall be youth aged 16–23.",
+      "6.3 The E.C. shall meet at least nine times a year. Six members shall constitute the quorum.",
+      "6.4 Members of the E.C. shall not receive any remuneration for their services.",
+      "6.5 The President-elect succeeds the President in case of vacancy; other vacancies are filled from within the E.C. or general membership.",
+    ],
+  },
+  {
+    n: "VII",
+    title: "Responsibilities and Duties of Officers",
+    items: [
+      "PRESIDENT — Chief executive officer; presides over meetings; responsible for coordinating activities, public relations and maintaining 501(c)(3) status.",
+      "PRESIDENT-ELECT — Acts in absence of the President; custodian of capital goods and equipment.",
+      "SECRETARY — Recording officer; maintains minutes, member mailing addresses and voter list.",
+      "TREASURER — Custody of all funds; maintains account books; publishes audited annual financial report.",
+      "DELEGATE TO INTERNATIONAL FESTIVALS (DIFI) — Represents India Club at DIFI and other international events.",
+      "TRUSTEES — President, Secretary, and Treasurer act as trustees.",
+      "EX-OFFICIO — The previous year's President serves as Ex-officio member of the current E.C.",
+      "AUDITOR — Appointed by the President; performs at least one audit in the last quarter of fiscal year.",
+    ],
+  },
+  {
+    n: "VIII",
+    title: "Nominations and Elections",
+    items: [
+      "8.1 A Nominating Committee (N.C.) is appointed by the President at least two months before the annual general body meeting.",
+      "8.2 The N.C. is composed of five members; the outgoing President acts as Chairman.",
+      "8.4 The N.C. presents one candidate each for President-elect, Secretary, Treasurer and six members of the E.C.",
+      "8.5 No individual shall serve on the E.C. for more than six consecutive years.",
+      "8.8 Candidates are elected by a simple majority vote of voting members present at the meeting.",
+    ],
+  },
+  {
+    n: "IX",
+    title: "Conduct of Meetings and Quorum",
+    items: [
+      "9.1 The annual general body meeting is held during the last quarter of fiscal year.",
+      "9.2 Special meetings may be held upon a call of the E.C. or upon written request of 50+ members.",
+      "9.4 All meetings shall be presided over by the President; conducted per parliamentary practice.",
+      "9.5 Notice of meetings shall be sent to each voting member at least 15 days in advance.",
+      "9.7 25% of all voting members shall form the quorum for a business or election meeting.",
+    ],
+  },
+  {
+    n: "X",
+    title: "Amendments",
+    items: [
+      "10.1 Amendments may be proposed by the E.C. or by written request of at least 50 voting members.",
+      "10.2 General information on proposed amendments shall be sent to members at least 15 days prior to the meeting.",
+    ],
+  },
+  {
+    n: "XI",
+    title: "Dissolution",
+    items: [
+      "11.1 In the event of dissolution, any net assets remaining shall be donated to secular, non-profit, charitable, cultural organization(s) consistent with India Club's objectives and meeting 501(c)(3) criteria.",
+      "11.2 The assets will be frozen for a period of one year to address unforeseen liabilities before donations are made.",
+    ],
+  },
+];
+
+export const COMMUNITY_SERVICE_AWARDEES = [
+  { year: 2024, name: "Dr. Suresh Gupta", contribution: "Health & education advocacy across Greater Dayton" },
+  { year: 2023, name: "Mrs. Lalita Rao", contribution: "Senior care initiatives and community kitchen" },
+  { year: 2022, name: "Pradeep Mehta", contribution: "Youth mentorship and summer STEM camps" },
+  { year: 2021, name: "Dr. Anjali Verma", contribution: "Pandemic-era community health response" },
+  { year: 2019, name: "Hyacinth Dey", contribution: "Decades of cultural programming leadership" },
+  { year: 2018, name: "Ravi Swaminathan", contribution: "Sustained financial stewardship of ICGD" },
+  { year: 2017, name: "Bhanu Raghavan", contribution: "Multi-year service across two presidential terms" },
+];
+
+export const DIFI_AWARDS = [
+  { year: 2024, title: "Outstanding Cultural Showcase", note: "Diwali Mela performance" },
+  { year: 2023, title: "Best Multicultural Booth", note: "DIFI World Affairs Festival" },
+  { year: 2022, title: "Community Excellence Award", note: "Volunteer-led programming" },
+  { year: 2021, title: "Pandemic Response Recognition", note: "Virtual event innovation" },
+  { year: 2019, title: "Heritage Showcase Excellence", note: "Cultural diversity celebration" },
+  { year: 2017, title: "Best Performance Group", note: "Indian classical dance" },
 ];
