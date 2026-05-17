@@ -1,5 +1,5 @@
 """Seed initial data into MongoDB on startup if collections are empty."""
-from datetime import datetime
+from datetime import datetime, timedelta
 from database import db
 from auth import hash_password
 
@@ -406,3 +406,66 @@ async def seed_if_empty():
             },
         ]
         await db.perks.insert_many(perks)
+
+
+    # ---- Demo Members (for testing the member flow) ----
+    if await db.members.count_documents({"email": "demo@indiaclubdayton.org"}) == 0:
+        now = datetime.utcnow()
+        await db.members.insert_one({
+            "id": "demo-member-active",
+            "email": "demo@indiaclubdayton.org",
+            "password_hash": hash_password("demo1234"),
+            "first_name": "Priya",
+            "last_name": "Demo",
+            "gender": "Female",
+            "phone": "937-555-0123",
+            "phone_alt": None,
+            "address": "100 Main Street",
+            "address2": "Apt 4B",
+            "city": "Dayton",
+            "state": "OH",
+            "zip": "45402",
+            "country": "United States",
+            "membership": {
+                "plan": "regular", "tier": "family", "status": "active",
+                "school_name": None, "degree_program": None,
+                "donation_amount": 25.0, "payment_method": "paypal", "family_count": 4,
+                "submitted_at": now - timedelta(days=10),
+                "start_date": now - timedelta(days=10),
+                "end_date": now + timedelta(days=355),
+                "approved_at": now - timedelta(days=8),
+                "approved_by": "admin",
+                "rejection_reason": None,
+            },
+            "created_at": now - timedelta(days=12),
+            "updated_at": now,
+        })
+
+    if await db.members.count_documents({"email": "demo.pending@indiaclubdayton.org"}) == 0:
+        now = datetime.utcnow()
+        await db.members.insert_one({
+            "id": "demo-member-pending",
+            "email": "demo.pending@indiaclubdayton.org",
+            "password_hash": hash_password("demo1234"),
+            "first_name": "Arjun",
+            "last_name": "Newcomer",
+            "gender": "Male",
+            "phone": "937-555-9876",
+            "phone_alt": None,
+            "address": "55 Riverside Drive",
+            "address2": None,
+            "city": "Beavercreek",
+            "state": "OH",
+            "zip": "45434",
+            "country": "United States",
+            "membership": {
+                "plan": "regular", "tier": "individual", "status": "pending",
+                "school_name": None, "degree_program": None,
+                "donation_amount": 10.0, "payment_method": "check", "family_count": 1,
+                "submitted_at": now - timedelta(days=1),
+                "start_date": None, "end_date": None,
+                "approved_at": None, "approved_by": None, "rejection_reason": None,
+            },
+            "created_at": now - timedelta(days=2),
+            "updated_at": now - timedelta(days=1),
+        })
