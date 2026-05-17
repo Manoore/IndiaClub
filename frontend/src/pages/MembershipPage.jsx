@@ -14,7 +14,39 @@ const US_STATES = [
   "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY",
 ];
 
-const PlanCard = ({ p, onJoin }) => (
+// Returns { label, action, disabled } based on auth + membership state
+const getPlanCta = (plan, { isAuthed, member }) => {
+  if (plan.price <= 0) return { label: "Learn More", action: "join" };
+  if (!isAuthed) return { label: "Sign Up to Join", action: "join" };
+
+  const ms = member?.membership || {};
+  const status = ms.status || "none";
+  const samePlan = ms.plan === plan.slug;
+
+  if (status === "active" && samePlan) {
+    return { label: "Your Current Plan", action: "dashboard", disabled: true };
+  }
+  if (status === "active" && !samePlan) {
+    return { label: "Upgrade / Switch", action: "join" };
+  }
+  if (status === "pending" && samePlan) {
+    return { label: "Application Pending", action: "dashboard", disabled: true };
+  }
+  if (status === "pending" && !samePlan) {
+    return { label: "Switch Plan", action: "join" };
+  }
+  if (status === "expired") return { label: "Renew Now", action: "join" };
+  if (status === "rejected") return { label: "Re-apply", action: "join" };
+  return { label: "Subscribe Now", action: "join" };
+};
+
+const PlanCard = ({ p, onJoin, authState, navigate }) => {
+  const cta = getPlanCta(p, authState);
+  const handleClick = () => {
+    if (cta.action === "dashboard") navigate("/member/dashboard");
+    else onJoin(p);
+  };
+  return (
   <div
     className={`relative p-8 rounded-2xl border ${
       p.featured ? "bg-[#1a0e0a] text-amber-50 border-[#E07A1F]" : "bg-white border-amber-100"
@@ -48,16 +80,22 @@ const PlanCard = ({ p, onJoin }) => (
       ))}
     </ul>
     <button
-      onClick={() => onJoin(p)}
+      onClick={handleClick}
+      disabled={cta.disabled}
       className={`w-full py-3 rounded-md font-medium transition ${
-        p.featured ? "bg-[#E07A1F] hover:bg-[#c66c1a] text-white" : "bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50"
+        cta.disabled
+          ? "bg-stone-200 text-stone-500 cursor-not-allowed"
+          : p.featured
+          ? "bg-[#E07A1F] hover:bg-[#c66c1a] text-white"
+          : "bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50"
       }`}
       data-testid={`join-${p.slug}`}
     >
-      {p.price > 0 ? "Join Now" : "Learn More"}
+      {cta.label}
     </button>
   </div>
-);
+  );
+};
 
 const LoginPrompt = ({ onClose }) => {
   const nav = useNavigate();
@@ -367,7 +405,7 @@ const JoinModal = ({ plan, onClose }) => {
   );
 };
 
-const TierGrid = ({ tiers, onJoin, focusedPlan }) => (
+const TierGrid = ({ tiers, onJoin, focusedPlan, authState, navigate }) => (
   <section className="py-20 bg-cream">
     <div className="max-w-7xl mx-auto px-6">
       <div className="text-center mb-12">
@@ -376,52 +414,72 @@ const TierGrid = ({ tiers, onJoin, focusedPlan }) => (
         <p className="text-stone-600 mt-3 max-w-2xl mx-auto font-serif">{focusedPlan.description}</p>
       </div>
       <div className={`grid md:grid-cols-2 ${tiers.length === 4 ? "lg:grid-cols-4" : ""} gap-5`}>
-        {tiers.map((t) => (
-          <div
-            key={t.slug}
-            className={`relative p-7 rounded-2xl border-2 ${
-              t.recommended ? "border-[#E07A1F] bg-amber-50/40" : "border-amber-100 bg-white"
-            } card-hover`}
-            data-testid={`tier-${t.slug}`}
-          >
-            {t.recommended && (
-              <div className="absolute -top-3 left-7 px-3 py-1 bg-[#E07A1F] text-white text-xs font-cinzel tracking-wider rounded">
-                RECOMMENDED
-              </div>
-            )}
-            <div className="font-cinzel text-xs tracking-[0.22em] text-stone-500 mb-1">MEMBERSHIP</div>
-            <div className="font-display text-2xl text-[#8B1A1A] mb-3">{t.name}</div>
-            {t.tagline && (
-              <div className="text-xs font-cinzel tracking-wider text-[#E07A1F] mb-2">{t.tagline}</div>
-            )}
-            <div className="font-display text-4xl text-stone-900 mb-5">
-              ${t.price}
-              <span className="text-base text-stone-500">.00</span>
-            </div>
-            <ul className="space-y-2 mb-6">
-              {t.benefits.map((b) => (
-                <li key={b} className="flex items-start gap-2 text-sm text-stone-700">
-                  <Check className="w-4 h-4 mt-0.5 text-[#8B1A1A] flex-shrink-0" />
-                  <span>{b}</span>
-                </li>
-              ))}
-            </ul>
-            <button
-              onClick={() =>
-                onJoin({
-                  ...focusedPlan,
-                  name: `${focusedPlan.name} — ${t.name}`,
-                  price: t.price,
-                  tier: t.slug,
-                })
-              }
-              className="w-full py-3 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded-md font-medium transition"
-              data-testid={`signup-${t.slug}`}
+        {tiers.map((t) => {
+          const planForCta = { ...focusedPlan, slug: focusedPlan.slug, tier: t.slug, price: t.price };
+          const cta = getPlanCta(planForCta, authState);
+          const sameSelection =
+            authState.member?.membership?.plan === focusedPlan.slug &&
+            authState.member?.membership?.tier === t.slug;
+          // Override cta label for tier specificity
+          let label = cta.label;
+          if (cta.disabled && sameSelection) {
+            label = authState.member?.membership?.status === "pending" ? "Application Pending" : "Your Current Tier";
+          }
+          const handleClick = () => {
+            if (cta.action === "dashboard") navigate("/member/dashboard");
+            else
+              onJoin({
+                ...focusedPlan,
+                name: `${focusedPlan.name} — ${t.name}`,
+                price: t.price,
+                tier: t.slug,
+              });
+          };
+          return (
+            <div
+              key={t.slug}
+              className={`relative p-7 rounded-2xl border-2 ${
+                t.recommended ? "border-[#E07A1F] bg-amber-50/40" : "border-amber-100 bg-white"
+              } card-hover`}
+              data-testid={`tier-${t.slug}`}
             >
-              Sign Up
-            </button>
-          </div>
-        ))}
+              {t.recommended && (
+                <div className="absolute -top-3 left-7 px-3 py-1 bg-[#E07A1F] text-white text-xs font-cinzel tracking-wider rounded">
+                  RECOMMENDED
+                </div>
+              )}
+              <div className="font-cinzel text-xs tracking-[0.22em] text-stone-500 mb-1">MEMBERSHIP</div>
+              <div className="font-display text-2xl text-[#8B1A1A] mb-3">{t.name}</div>
+              {t.tagline && (
+                <div className="text-xs font-cinzel tracking-wider text-[#E07A1F] mb-2">{t.tagline}</div>
+              )}
+              <div className="font-display text-4xl text-stone-900 mb-5">
+                ${t.price}
+                <span className="text-base text-stone-500">.00</span>
+              </div>
+              <ul className="space-y-2 mb-6">
+                {t.benefits.map((b) => (
+                  <li key={b} className="flex items-start gap-2 text-sm text-stone-700">
+                    <Check className="w-4 h-4 mt-0.5 text-[#8B1A1A] flex-shrink-0" />
+                    <span>{b}</span>
+                  </li>
+                ))}
+              </ul>
+              <button
+                onClick={handleClick}
+                disabled={cta.disabled && sameSelection}
+                className={`w-full py-3 rounded-md font-medium transition ${
+                  cta.disabled && sameSelection
+                    ? "bg-stone-200 text-stone-500 cursor-not-allowed"
+                    : "bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50"
+                }`}
+                data-testid={`signup-${t.slug}`}
+              >
+                {label}
+              </button>
+            </div>
+          );
+        })}
       </div>
     </div>
   </section>
@@ -431,6 +489,8 @@ export default function MembershipPage() {
   const { sub } = useParams();
   const [active, setActive] = useState(null);
   const { isAuthed, member } = useMemberAuth();
+  const navigate = useNavigate();
+  const authState = { isAuthed, member };
   const focused = MEMBERSHIP_PLANS.find((p) => p.slug === sub);
   const header = focused
     ? {
@@ -480,7 +540,7 @@ export default function MembershipPage() {
       <>
         <PageHeader {...header} />
         {memberBanner}
-        <TierGrid tiers={REGULAR_TIERS} onJoin={setActive} focusedPlan={focused} />
+        <TierGrid tiers={REGULAR_TIERS} onJoin={setActive} focusedPlan={focused} authState={authState} navigate={navigate} />
         {active && <JoinModal plan={active} onClose={() => setActive(null)} />}
       </>
     );
@@ -490,7 +550,7 @@ export default function MembershipPage() {
       <>
         <PageHeader {...header} />
         {memberBanner}
-        <TierGrid tiers={EXTENDED_TIERS} onJoin={setActive} focusedPlan={focused} />
+        <TierGrid tiers={EXTENDED_TIERS} onJoin={setActive} focusedPlan={focused} authState={authState} navigate={navigate} />
         {active && <JoinModal plan={active} onClose={() => setActive(null)} />}
       </>
     );
@@ -533,6 +593,14 @@ export default function MembershipPage() {
     );
   }
   if (sub === "business") {
+    const businessPlan = { ...focused, tier: "business" };
+    const cta = getPlanCta(businessPlan, authState);
+    const samePlan = member?.membership?.plan === "business";
+    const isDisabled = cta.disabled && samePlan;
+    const handleBusinessClick = () => {
+      if (cta.action === "dashboard") navigate("/member/dashboard");
+      else setActive(businessPlan);
+    };
     return (
       <>
         <PageHeader {...header} />
@@ -552,11 +620,16 @@ export default function MembershipPage() {
                 ))}
               </ul>
               <button
-                onClick={() => setActive({ ...focused, tier: "business" })}
-                className="w-full mt-7 py-3.5 bg-[#E07A1F] hover:bg-[#c66c1a] text-white rounded-md font-medium transition"
+                onClick={handleBusinessClick}
+                disabled={isDisabled}
+                className={`w-full mt-7 py-3.5 rounded-md font-medium transition ${
+                  isDisabled
+                    ? "bg-stone-600 text-stone-300 cursor-not-allowed"
+                    : "bg-[#E07A1F] hover:bg-[#c66c1a] text-white"
+                }`}
                 data-testid="signup-business"
               >
-                Sign Up Now
+                {cta.label}
               </button>
             </div>
           </div>
@@ -573,7 +646,7 @@ export default function MembershipPage() {
       <section className="py-20 bg-cream">
         <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 lg:grid-cols-4 gap-6">
           {MEMBERSHIP_PLANS.map((p) => (
-            <PlanCard key={p.slug} p={p} onJoin={setActive} />
+            <PlanCard key={p.slug} p={p} onJoin={setActive} authState={authState} navigate={navigate} />
           ))}
         </div>
       </section>
