@@ -126,6 +126,28 @@ async def member_subscribe(body: MemberSubscribeRequest, member_id: str = Depend
     if not m:
         raise HTTPException(404, "Member not found")
 
+    # Validate plan exists
+    plan_doc = await db.membership_plans.find_one({"slug": body.plan})
+    if not plan_doc:
+        raise HTTPException(400, f"Unknown plan: {body.plan}")
+
+    # Validate tier (if plan has tiers, tier must be one of them)
+    plan_tiers = plan_doc.get("tiers") or []
+    if plan_tiers:
+        if not body.tier:
+            raise HTTPException(400, "Tier is required for this plan")
+        valid_tier_slugs = [t.get("slug") for t in plan_tiers]
+        if body.tier not in valid_tier_slugs:
+            raise HTTPException(400, f"Invalid tier '{body.tier}' for plan '{body.plan}'")
+
+    # Student tier requires school info
+    if body.tier == "student" and (not body.school_name or not body.degree_program):
+        raise HTTPException(400, "School name and degree program are required for student tier")
+
+    # Validate payment method
+    if body.payment_method not in ("paypal", "check", "other"):
+        raise HTTPException(400, "Invalid payment method")
+
     profile_update = {}
     for field in ("address", "address2", "city", "state", "zip", "country", "phone", "gender"):
         v = getattr(body, field, None)

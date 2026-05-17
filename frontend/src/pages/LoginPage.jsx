@@ -16,6 +16,7 @@ export default function LoginPage() {
     phone: "",
   });
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const { toast } = useToast();
   const nav = useNavigate();
   const loc = useLocation();
@@ -25,6 +26,7 @@ export default function LoginPage() {
 
   const submit = async (e) => {
     e.preventDefault();
+    setError("");
     setBusy(true);
     if (tab === "login") {
       const r = await auth.login(form.email.trim().toLowerCase(), form.password);
@@ -33,17 +35,18 @@ export default function LoginPage() {
         toast({ title: "Welcome back!", description: "You're now signed in." });
         nav(nextPath);
       } else {
+        setError(r.error || "Login failed");
         toast({ title: "Login failed", description: r.error });
       }
     } else {
       if (form.password !== form.confirm) {
         setBusy(false);
-        toast({ title: "Passwords don't match", description: "Please check and try again." });
+        setError("Passwords don't match.");
         return;
       }
       if (form.password.length < 6) {
         setBusy(false);
-        toast({ title: "Password too short", description: "Use at least 6 characters." });
+        setError("Password must be at least 6 characters.");
         return;
       }
       const r = await auth.register({
@@ -58,6 +61,7 @@ export default function LoginPage() {
         toast({ title: "Account created", description: "Welcome to India Club!" });
         nav(nextPath);
       } else {
+        setError(r.error || "Registration failed");
         toast({ title: "Registration failed", description: r.error });
       }
     }
@@ -94,6 +98,15 @@ export default function LoginPage() {
               </button>
             </div>
             <form onSubmit={submit} className="space-y-3">
+              {error && (
+                <div
+                  className="px-3 py-2 bg-rose-50 border border-rose-200 text-rose-700 text-sm rounded"
+                  data-testid="login-error-msg"
+                  role="alert"
+                >
+                  {error}
+                </div>
+              )}
               {tab === "register" && (
                 <div className="grid grid-cols-2 gap-3">
                   <input
