@@ -243,6 +243,30 @@ export const MembershipPlansAdmin = () => (
     ]} />
 );
 
+export const PerksAdmin = () => (
+  <CrudPage title="Member Perks" description="Benefits shown on the member dashboard." endpoint="perks"
+    columns={[
+      { key: "image_url", label: "Img", render: (r) => r.image_url ? <img src={r.image_url} alt="" className="w-12 h-12 rounded object-cover" /> : <div className="w-12 h-12 bg-amber-50 border border-amber-100 rounded flex items-center justify-center text-xs text-stone-500">{r.icon || "Gift"}</div> },
+      { key: "title", label: "Title" },
+      { key: "category", label: "Category" },
+      { key: "badge", label: "Badge", render: (r) => r.badge ? <span className="px-2 py-0.5 bg-amber-100 text-amber-900 rounded text-[10px] font-cinzel tracking-wider">{r.badge}</span> : "" },
+      { key: "order", label: "Order" },
+      { key: "active", label: "Active", render: (r) => r.active ? "✓" : "✕" },
+    ]}
+    fields={[
+      { key: "title", label: "Title", type: "text", required: true },
+      { key: "description", label: "Description", type: "textarea", rows: 3, required: true },
+      { key: "icon", label: "Icon (Lucide name)", type: "select", default: "Gift", options: ["Gift", "Ticket", "Tag", "Newspaper", "BookOpen", "Vote", "Users", "Store", "Heart", "Award", "Calendar", "Star", "Sparkles", "ShoppingBag", "GraduationCap"] },
+      { key: "image_url", label: "Image (optional, overrides icon)", type: "image" },
+      { key: "badge", label: "Badge", type: "select", options: [{ label: "(none)", value: "" }, { label: "NEW", value: "NEW" }, { label: "POPULAR", value: "POPULAR" }, { label: "MEMBER-ONLY", value: "MEMBER-ONLY" }, { label: "LIMITED", value: "LIMITED" }] },
+      { key: "category", label: "Category", type: "text", default: "General", placeholder: "e.g. Events, Community, Publications" },
+      { key: "link", label: "Optional link", type: "text", placeholder: "/events or https://…" },
+      { key: "link_label", label: "Link button label", type: "text", placeholder: "Browse Events" },
+      { key: "order", label: "Display order", type: "number", default: 100 },
+      { key: "active", label: "Active (visible to members)", type: "checkbox", default: true },
+    ]} />
+);
+
 // Read-only inbox-style pages
 export const MembershipAppsAdmin = () => (
   <CrudPage title="Membership Applications" endpoint="membership-applications" isInbox readOnly

@@ -19,6 +19,22 @@ Clone https://www.indiaclubdayton.org/ as a modern multi-page React + FastAPI + 
 
 ## ✅ Implemented (as of 2026-02)
 
+### Admin — Mobile Responsive ⭐ NEW
+- Admin sidebar collapses into a drawer on screens < 1024px with hamburger menu
+- Mobile topbar with menu / logout buttons
+- Auto-closes drawer on route change
+- Responsive padding (`px-4 sm:px-6 lg:px-8`) and adaptive table layouts
+- Member admin table now horizontally scrolls on small screens
+- CrudPage header (search + New button) wraps cleanly on mobile
+
+### Member Perks System ⭐ NEW
+- **MemberPerk model**: title, description, icon (Lucide name), image_url, link, link_label, badge (NEW/POPULAR/MEMBER-ONLY/LIMITED), category, active, order
+- **Public**: `GET /api/perks` (active perks only)
+- **Admin CRUD**: `/api/admin/perks` with full create/edit/delete
+- **Admin page**: `/admin/perks` with image/icon preview, badge pills, drag-free order field
+- **Frontend**: `<PerksSection>` component rendered on `/member/dashboard`. Shows all perks with locked styling for non-active members and full styling for active members. Cards link to event/classified/etc. pages
+- **Seed**: 8 default perks pre-loaded (Discounted Events, Free Classifieds, Samachar Newsletter, Namaskaar Magazine, AGM Voting, Member Directory, Booth Rentals, Charity Support)
+
 ### Public Site (35+ routes, real scraped content)
 - Home, About (Mission, Constitution, Past Presidents, Awardees, Tax Returns, Exec Team, Contact)
 - Events (Upcoming, DIFI, Sports, Golden Jewels, Rising Stars, Women's Connect, Picnic, Diwali)

@@ -102,8 +102,8 @@ export default function MembersAdmin() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="font-display text-3xl text-stone-900">Members</h1>
-          <p className="text-stone-500 mt-1">Registered users and their membership status.</p>
+          <h1 className="font-display text-2xl sm:text-3xl text-stone-900">Members</h1>
+          <p className="text-stone-500 mt-1 text-sm">Registered users and their membership status.</p>
         </div>
       </div>
 
@@ -122,13 +122,13 @@ export default function MembersAdmin() {
             {s}
           </button>
         ))}
-        <div className="ml-auto relative">
+        <div className="w-full sm:w-auto sm:ml-auto relative">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by name, email…"
-            className="pl-9 pr-3 py-1.5 rounded border border-stone-200 text-sm w-64 outline-none focus:border-[#8B1A1A]"
+            className="pl-9 pr-3 py-1.5 rounded border border-stone-200 text-sm w-full sm:w-64 outline-none focus:border-[#8B1A1A]"
             data-testid="members-search"
           />
         </div>
@@ -142,7 +142,8 @@ export default function MembersAdmin() {
         ) : filtered.length === 0 ? (
           <div className="p-12 text-center text-stone-500">No members in this view.</div>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[640px]">
             <thead className="bg-stone-50 text-left text-xs uppercase tracking-wider text-stone-500">
               <tr>
                 <th className="px-4 py-3">Member</th>
@@ -232,6 +233,7 @@ export default function MembersAdmin() {
               })}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

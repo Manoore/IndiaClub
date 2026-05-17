@@ -20,6 +20,7 @@ import {
   Loader2,
   KeyRound,
 } from "lucide-react";
+import PerksSection from "../components/PerksSection";
 
 const STATUS_META = {
   none: {
@@ -462,6 +463,13 @@ export default function MemberDashboardPage() {
             <ProfileEditor member={member} onSaved={refresh} />
             <ChangePasswordCard />
           </div>
+
+          {/* Member Perks */}
+          <PerksSection
+            memberStatus={ms}
+            title={ms === "active" ? "Your Member Perks" : "Membership Perks"}
+            subtitle={ms === "active" ? "All the benefits you enjoy as an active member of India Club." : undefined}
+          />
         </div>
       </section>
     </>

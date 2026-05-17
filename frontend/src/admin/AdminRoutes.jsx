@@ -10,7 +10,7 @@ import {
   EventsAdmin, NewsAdmin, ExecTeamAdmin, GalleryAdmin, SponsorsAdmin, DonorsAdmin,
   ClassifiedsAdmin, PastPresidentsAdmin, AwardeesAdmin, TaxReturnsAdmin, ProgramsAdmin,
   MembershipPlansAdmin, MembershipAppsAdmin, SubscribersAdmin, ContactInboxAdmin,
-  DonationsAdmin, SponsorInquiriesAdmin, EventRegistrationsAdmin
+  DonationsAdmin, SponsorInquiriesAdmin, EventRegistrationsAdmin, PerksAdmin
 } from "./AdminPages";
 
 const Protected = ({ children }) => {
@@ -25,6 +25,7 @@ export default function AdminRoutes() {
       <Route path="login" element={<AdminLogin />} />
       <Route path="" element={<Protected><Dashboard /></Protected>} />
       <Route path="members" element={<Protected><MembersAdmin /></Protected>} />
+      <Route path="perks" element={<Protected><PerksAdmin /></Protected>} />
       <Route path="events" element={<Protected><EventsAdmin /></Protected>} />
       <Route path="news" element={<Protected><NewsAdmin /></Protected>} />
       <Route path="exec-team" element={<Protected><ExecTeamAdmin /></Protected>} />

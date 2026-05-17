@@ -246,6 +246,21 @@ class MembershipPlan(BaseModel):
     order: int = 100
 
 
+class MemberPerk(BaseModel):
+    id: str = Field(default_factory=gen_id)
+    title: str
+    description: str
+    icon: Optional[str] = "Gift"  # lucide icon name
+    image_url: Optional[str] = None
+    link: Optional[str] = None
+    link_label: Optional[str] = None
+    badge: Optional[str] = None  # e.g. "NEW", "POPULAR", "MEMBER-ONLY"
+    category: Optional[str] = "General"
+    active: bool = True
+    order: int = 100
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 # ---------- Member (logged-in user) ----------
 class MemberMembership(BaseModel):
     plan: Optional[str] = None  # regular | business | honorary | extended

@@ -71,17 +71,17 @@ export default function CrudPage({ title, description, endpoint, columns, fields
   return (
     <div>
       <div className="flex items-start justify-between gap-3 mb-7 flex-wrap">
-        <div>
-          <h1 className="font-display text-3xl text-stone-900">{title}</h1>
-          {description && <p className="text-stone-500 mt-1">{description}</p>}
+        <div className="min-w-0">
+          <h1 className="font-display text-2xl sm:text-3xl text-stone-900">{title}</h1>
+          {description && <p className="text-stone-500 mt-1 text-sm">{description}</p>}
         </div>
-        <div className="flex items-center gap-3">
-          <div className="relative">
+        <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+          <div className="relative flex-1 sm:flex-initial">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search" className="pl-9 pr-4 py-2 bg-white border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A] text-sm w-56" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search" className="w-full pl-9 pr-3 py-2 bg-white border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A] text-sm sm:w-56" />
           </div>
           {!readOnly && (
-            <button onClick={() => setEditing({})} className="inline-flex items-center gap-2 px-4 py-2 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded-md text-sm font-medium transition">
+            <button onClick={() => setEditing({})} className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded-md text-sm font-medium transition whitespace-nowrap">
               <Plus className="w-4 h-4" /> New
             </button>
           )}

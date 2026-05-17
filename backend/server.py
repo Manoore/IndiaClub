@@ -18,7 +18,7 @@ from models import (
     Classified, Subscriber, ContactMessage, Donation, MembershipApplication, SponsorshipInquiry,
     EventRegistration, PastPresident, Awardee, TaxReturn, Program, MembershipPlan, gen_id,
     Member, MemberRegisterRequest, MemberLoginRequest, MemberProfileUpdate,
-    MemberSubscribeRequest, MemberPasswordChange, MemberRejectRequest
+    MemberSubscribeRequest, MemberPasswordChange, MemberRejectRequest, MemberPerk
 )
 from seed import seed_if_empty
 
@@ -350,6 +350,11 @@ async def list_plans():
     return _strip(await db.membership_plans.find().sort("order", 1).to_list(100))
 
 
+@api.get("/perks")
+async def list_perks():
+    return _strip(await db.perks.find({"active": True}).sort("order", 1).to_list(200))
+
+
 # ===================== Admin CRUD =====================
 COLLECTIONS = {
     "events": Event,
@@ -364,12 +369,13 @@ COLLECTIONS = {
     "tax-returns": TaxReturn,
     "programs": Program,
     "membership-plans": MembershipPlan,
+    "perks": MemberPerk,
 }
 COLL_NAMES = {
     "events": "events", "news": "news", "exec-team": "exec_team", "gallery": "gallery",
     "sponsors": "sponsors", "donors": "donors", "classifieds": "classifieds",
     "past-presidents": "past_presidents", "awardees": "awardees", "tax-returns": "tax_returns",
-    "programs": "programs", "membership-plans": "membership_plans",
+    "programs": "programs", "membership-plans": "membership_plans", "perks": "perks",
 }
 
 # Generic admin CRUD endpoints

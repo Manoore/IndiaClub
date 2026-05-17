@@ -313,3 +313,96 @@ async def seed_if_empty():
             {"id": f"g-{i}", "title": t, "album": "2026", "image_url": f"https://images.unsplash.com/photo-{ids[i]}?crop=entropy&cs=srgb&fm=jpg&q=85&w=900", "created_at": datetime.utcnow()}
             for i, t in enumerate(titles)
         ])
+
+
+    # ---- Member Perks ----
+    if await db.perks.count_documents({}) == 0:
+        perks = [
+            {
+                "id": "perk-events",
+                "title": "Discounted Event Tickets",
+                "description": "Members pay member pricing on all ICGD events — Diwali, DIFI, Rising Stars and more. Typical savings of 30–40% per ticket.",
+                "icon": "Ticket",
+                "badge": "POPULAR",
+                "category": "Events",
+                "link": "/events",
+                "link_label": "Browse Events",
+                "active": True,
+                "order": 1,
+                "created_at": datetime.utcnow(),
+            },
+            {
+                "id": "perk-classifieds",
+                "title": "Free Classified Ads",
+                "description": "Post unlimited classified ads — buy/sell, rentals, services, jobs — completely free for active members.",
+                "icon": "Tag",
+                "category": "Community",
+                "link": "/classified/post-ads",
+                "link_label": "Post an Ad",
+                "active": True,
+                "order": 2,
+                "created_at": datetime.utcnow(),
+            },
+            {
+                "id": "perk-newsletter",
+                "title": "Samachar Newsletter",
+                "description": "Quarterly community newsletter with event highlights, member stories, recipes, and cultural articles — delivered to your inbox.",
+                "icon": "Newspaper",
+                "category": "Publications",
+                "active": True,
+                "order": 3,
+                "created_at": datetime.utcnow(),
+            },
+            {
+                "id": "perk-namaskar",
+                "title": "Namaskaar Magazine",
+                "description": "Annual full-color souvenir magazine celebrating community achievements, sponsors, and the year's events. Free for members.",
+                "icon": "BookOpen",
+                "category": "Publications",
+                "active": True,
+                "order": 4,
+                "created_at": datetime.utcnow(),
+            },
+            {
+                "id": "perk-voting",
+                "title": "AGM Voting Rights",
+                "description": "Vote in the Annual General Meeting, help elect the next Executive Committee, and shape the direction of the club.",
+                "icon": "Vote",
+                "badge": "MEMBER-ONLY",
+                "category": "Governance",
+                "active": True,
+                "order": 5,
+                "created_at": datetime.utcnow(),
+            },
+            {
+                "id": "perk-directory",
+                "title": "Member Directory",
+                "description": "Connect with 1000+ Indian families in the Dayton area. A trusted private directory of fellow members for networking and friendship.",
+                "icon": "Users",
+                "category": "Community",
+                "active": True,
+                "order": 6,
+                "created_at": datetime.utcnow(),
+            },
+            {
+                "id": "perk-booth",
+                "title": "Event Booth Rentals",
+                "description": "Business members get discounted booth rentals at Diwali, DIFI, and other major events to promote their services.",
+                "icon": "Store",
+                "category": "Business",
+                "active": True,
+                "order": 7,
+                "created_at": datetime.utcnow(),
+            },
+            {
+                "id": "perk-charity",
+                "title": "Support Local Charity",
+                "description": "Your membership directly funds ICGD's foodbank partnership, scholarship program, and disaster-relief contributions back home in India.",
+                "icon": "Heart",
+                "category": "Impact",
+                "active": True,
+                "order": 8,
+                "created_at": datetime.utcnow(),
+            },
+        ]
+        await db.perks.insert_many(perks)
