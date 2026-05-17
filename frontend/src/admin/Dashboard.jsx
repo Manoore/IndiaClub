@@ -3,8 +3,10 @@ import { apiClient } from "../api/client";
 import { Users, Inbox, DollarSign, Calendar, ClipboardList, Building2, Newspaper, Image, Tag, Award } from "lucide-react";
 
 const CARDS = [
-  { key: "members", label: "Membership Apps", icon: ClipboardList, color: "#8B1A1A" },
-  { key: "subscribers", label: "Newsletter Subs", icon: Users, color: "#E07A1F" },
+  { key: "members_active", label: "Active Members", icon: Users, color: "#2E5E3E" },
+  { key: "members_pending", label: "Pending Approvals", icon: ClipboardList, color: "#E07A1F" },
+  { key: "members", label: "Total Members", icon: Users, color: "#8B1A1A" },
+  { key: "subscribers", label: "Newsletter Subs", icon: Users, color: "#C9A961" },
   { key: "donations", label: "Donations", icon: DollarSign, color: "#2E5E3E" },
   { key: "contact", label: "Contact Inbox", icon: Inbox, color: "#C9A961" },
   { key: "events", label: "Events", icon: Calendar, color: "#8B1A1A" },

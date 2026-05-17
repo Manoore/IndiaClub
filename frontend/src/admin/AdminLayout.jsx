@@ -9,6 +9,12 @@ const NAV_GROUPS = [
     items: [{ to: "/admin", label: "Dashboard", icon: LayoutDashboard }],
   },
   {
+    label: "Members",
+    items: [
+      { to: "/admin/members", label: "Members", icon: Users },
+    ],
+  },
+  {
     label: "Content",
     items: [
       { to: "/admin/events", label: "Events", icon: Calendar },

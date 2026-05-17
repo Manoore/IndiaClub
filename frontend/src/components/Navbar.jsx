@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, ChevronDown, Phone, Mail, LogIn } from "lucide-react";
+import { Menu, X, ChevronDown, Phone, Mail, LogIn, User } from "lucide-react";
 import { NAV } from "../data/mock";
 import { Button } from "./ui/button";
+import { useMemberAuth } from "../api/MemberAuthContext";
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [openSubmenu, setOpenSubmenu] = useState(null);
   const location = useLocation();
+  const { isAuthed, member } = useMemberAuth();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -34,7 +36,15 @@ export default function Navbar() {
             <Link to="/classified/all-ads" className="hover:text-amber-200 transition">Classifieds</Link>
             <Link to="/sponsorship/donate" className="hover:text-amber-200 transition">Donate</Link>
             <Link to="/sponsorship/become-sponsor" className="hover:text-amber-200 transition">Advertise With Us</Link>
-            <Link to="/login" className="flex items-center gap-1 hover:text-amber-200 transition"><LogIn className="w-3.5 h-3.5" /> Member Login</Link>
+            {isAuthed ? (
+              <Link to="/member/dashboard" className="flex items-center gap-1 hover:text-amber-200 transition" data-testid="navbar-dashboard-link">
+                <User className="w-3.5 h-3.5" /> Hi, {member?.first_name || "Member"}
+              </Link>
+            ) : (
+              <Link to="/login" className="flex items-center gap-1 hover:text-amber-200 transition" data-testid="navbar-login-link">
+                <LogIn className="w-3.5 h-3.5" /> Member Login
+              </Link>
+            )}
           </div>
         </div>
       </div>

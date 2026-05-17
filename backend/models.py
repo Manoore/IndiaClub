@@ -244,3 +244,96 @@ class MembershipPlan(BaseModel):
     featured: bool = False
     tiers: List[MembershipTier] = []
     order: int = 100
+
+
+# ---------- Member (logged-in user) ----------
+class MemberMembership(BaseModel):
+    plan: Optional[str] = None  # regular | business | honorary | extended
+    tier: Optional[str] = None  # student | individual | family | business | silver | gold
+    status: str = "none"  # none | pending | active | rejected | expired
+    school_name: Optional[str] = None
+    degree_program: Optional[str] = None
+    donation_amount: float = 0
+    payment_method: Optional[str] = None  # paypal | check | other
+    family_count: int = 1
+    submitted_at: Optional[datetime] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    approved_at: Optional[datetime] = None
+    approved_by: Optional[str] = None
+    rejection_reason: Optional[str] = None
+
+
+class Member(BaseModel):
+    id: str = Field(default_factory=gen_id)
+    email: EmailStr
+    password_hash: str
+    first_name: str
+    last_name: str
+    gender: Optional[str] = None
+    phone: Optional[str] = None
+    phone_alt: Optional[str] = None
+    address: Optional[str] = None
+    address2: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    zip: Optional[str] = None
+    country: Optional[str] = "United States"
+    membership: MemberMembership = Field(default_factory=MemberMembership)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class MemberRegisterRequest(BaseModel):
+    email: EmailStr
+    password: str
+    first_name: str
+    last_name: str
+    phone: Optional[str] = None
+
+
+class MemberLoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class MemberProfileUpdate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    gender: Optional[str] = None
+    phone: Optional[str] = None
+    phone_alt: Optional[str] = None
+    address: Optional[str] = None
+    address2: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    zip: Optional[str] = None
+    country: Optional[str] = None
+
+
+class MemberPasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class MemberSubscribeRequest(BaseModel):
+    plan: str
+    tier: Optional[str] = None
+    school_name: Optional[str] = None
+    degree_program: Optional[str] = None
+    donation_amount: float = 0
+    payment_method: str  # paypal | check | other
+    family_count: int = 1
+    # Address fields (also update profile during subscribe)
+    address: Optional[str] = None
+    address2: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    zip: Optional[str] = None
+    country: Optional[str] = None
+    phone: Optional[str] = None
+    gender: Optional[str] = None
+
+
+class MemberRejectRequest(BaseModel):
+    reason: Optional[str] = ""

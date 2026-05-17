@@ -1,0 +1,52 @@
+{
+  "summary": "End-to-end testing of new member account flow + admin member management. Backend: 34/34 pytest cases passed covering member auth (register/login/me/update/change-password/subscribe), admin member endpoints (list/filter/approve/reject/delete), token isolation (admin↔member), admin stats new fields, and existing public/admin CRUD smoke. Frontend: Register → auto-login → /member/dashboard works; Navbar reflects auth state ('Hi, {firstName}'); Dashboard shows status badge + Browse Plans button + profile editor + password changer; /membership tier 'Sign Up' button opens JoinModal with full subscribe form (gender/phone/address/family/donation/payment method); Admin /admin/members panel renders full table with filter pills (All/Pending/Active/None/Rejected/Expired), search box, Revoke action for active members, and delete buttons. Admin login (admin/admin123) still works; new Members nav entry visible in sidebar.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "LoginPage Sign In tab",
+        "issue": "After submitting wrong credentials, the error/toast text 'Invalid email or password' was not detected in DOM 2s after click. Toast may be auto-dismissing too quickly OR rendered outside expected selectors. Visually the request returns 401 from backend (verified by backend tests). Please verify toast surfaces a visible message and remains visible long enough for users to read.",
+        "selector": "[data-testid=member-login-submit] + toaster",
+        "priority": "MEDIUM"
+      },
+      {
+        "component": "MembershipPage <option> elements",
+        "issue": "React hydration warning in console: 'In HTML, <span> cannot be a child of <option>'. Originates from dev visual-editor instrumentation injecting <span> wrappers inside <option> elements in /app/frontend/src/pages/MembershipPage.jsx (line ~270, donation/state select options). Non-blocking in current build but will produce hydration mismatch in SSR or strict mode. Render dynamic option labels as plain text, not wrapped expressions.",
+        "selector": "select > option",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_members_and_admin.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Verify the Sign-In error toast (wrong password) is rendered with sufficient duration and surfaced via a stable selector (consider data-testid='login-error-toast').",
+    "Clean up the option/span hydration warning in MembershipPage.jsx (donation amount & state select)."
+  ],
+  "critical_code_review_comments": [
+    "server.py /api/members/me/subscribe sets membership.status='pending' but does NOT validate that body.tier is consistent with body.plan (e.g. plan=regular accepts tier=silver). Add server-side enforcement using the seeded membership_plans collection.",
+    "Student-tier validation: backend accepts subscribe with tier='student' without school_name/degree_program (currently optional). Spec says these are required for student tier — add conditional validator in MemberSubscribeRequest.",
+    "auth.decode_token: legacy admin tokens (created before typ='admin' was added) default to 'admin' typ via .get('typ', 'admin'). OK for backward-compat but means a forged token without typ claim is treated as admin. Recommend strict typ check (no default) in production.",
+    "_public_member strips password_hash but admin_list_members returns full address/phone — that's fine for admin only; ensure require_admin dependency on admin router covers /members route (it does via router-level dependency, verified)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_members_and_admin.py (new)",
+    "/app/test_reports/pytest/pytest_results.xml (generated)"
+  ],
+  "success_rate": {
+    "backend": "100% (34/34)",
+    "frontend": "~95% (all critical flows working; 1 toast-visibility concern + 1 console warning)"
+  },
+  "test_credentials": "Admin: admin / admin123. Members are created on-the-fly with e2eui+{random}@example.com / test1234. Test data is cleaned up by the final test case where possible; some 'TEST_' / 'e2eui+' members remain in DB and are visible in the admin Members panel.",
+  "seed_data_creation": "5+ member records created during testing (e2eui+*, e2ereject+*, e2edel+*) — visible in /admin/members. Test event 'TEST_event' is created and deleted within test_admin_events_crud.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend test suite at /app/backend/tests/test_members_and_admin.py covers all member + admin-member endpoints, token isolation, stats, and a CRUD smoke for events. Re-run with: pytest /app/backend/tests/test_members_and_admin.py -v. Public URL: REACT_APP_BACKEND_URL from /app/frontend/.env. Login flow testids: member-email, member-password, member-register-first-name, member-register-last-name, member-register-phone, member-register-confirm, member-register-submit, signup-{student|individual|family|business}. JoinModal exposes data-testid='join-modal'. Admin login page does NOT expose data-testid on its username/password inputs — main agent could add them to ease future testing."
+}

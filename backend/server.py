@@ -4,6 +4,7 @@ from starlette.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from pathlib import Path
 from typing import List, Optional
+from datetime import datetime, timedelta
 import base64
 import logging
 import os
@@ -11,11 +12,13 @@ import os
 load_dotenv(Path(__file__).parent / ".env")
 
 from database import db
-from auth import verify_password, hash_password, create_token, require_admin
+from auth import verify_password, hash_password, create_token, require_admin, require_member
 from models import (
     LoginRequest, ChangePasswordRequest, Event, News, ExecMember, GalleryImage, Sponsor, Donor,
     Classified, Subscriber, ContactMessage, Donation, MembershipApplication, SponsorshipInquiry,
-    EventRegistration, PastPresident, Awardee, TaxReturn, Program, MembershipPlan, gen_id
+    EventRegistration, PastPresident, Awardee, TaxReturn, Program, MembershipPlan, gen_id,
+    Member, MemberRegisterRequest, MemberLoginRequest, MemberProfileUpdate,
+    MemberSubscribeRequest, MemberPasswordChange, MemberRejectRequest
 )
 from seed import seed_if_empty
 
@@ -51,6 +54,105 @@ async def change_password(body: ChangePasswordRequest, username: str = Depends(r
         raise HTTPException(401, "Current password incorrect")
     await db.admin_users.update_one({"username": username}, {"$set": {"password_hash": hash_password(body.new_password)}})
     return {"ok": True}
+
+
+# ===================== Members =====================
+def _public_member(m: dict) -> dict:
+    d = dict(m)
+    d.pop("_id", None)
+    d.pop("password_hash", None)
+    return d
+
+
+@api.post("/members/register")
+async def member_register(body: MemberRegisterRequest):
+    email = body.email.lower()
+    existing = await db.members.find_one({"email": email})
+    if existing:
+        raise HTTPException(409, "Email already registered")
+    m = Member(
+        email=email,
+        password_hash=hash_password(body.password),
+        first_name=body.first_name.strip(),
+        last_name=body.last_name.strip(),
+        phone=body.phone,
+    )
+    d = m.model_dump()
+    await db.members.insert_one(d)
+    return {"token": create_token(m.id, typ="member"), "member": _public_member(d)}
+
+
+@api.post("/members/login")
+async def member_login(body: MemberLoginRequest):
+    email = body.email.lower()
+    m = await db.members.find_one({"email": email})
+    if not m or not verify_password(body.password, m["password_hash"]):
+        raise HTTPException(401, "Invalid email or password")
+    return {"token": create_token(m["id"], typ="member"), "member": _public_member(m)}
+
+
+@api.get("/members/me")
+async def member_me(member_id: str = Depends(require_member)):
+    m = await db.members.find_one({"id": member_id})
+    if not m:
+        raise HTTPException(404, "Member not found")
+    return _public_member(m)
+
+
+@api.put("/members/me")
+async def update_member(body: MemberProfileUpdate, member_id: str = Depends(require_member)):
+    update = {k: v for k, v in body.model_dump().items() if v is not None}
+    update["updated_at"] = datetime.utcnow()
+    await db.members.update_one({"id": member_id}, {"$set": update})
+    m = await db.members.find_one({"id": member_id})
+    return _public_member(m)
+
+
+@api.post("/members/me/change-password")
+async def member_change_password(body: MemberPasswordChange, member_id: str = Depends(require_member)):
+    m = await db.members.find_one({"id": member_id})
+    if not m or not verify_password(body.current_password, m["password_hash"]):
+        raise HTTPException(401, "Current password incorrect")
+    await db.members.update_one(
+        {"id": member_id},
+        {"$set": {"password_hash": hash_password(body.new_password), "updated_at": datetime.utcnow()}},
+    )
+    return {"ok": True}
+
+
+@api.post("/members/me/subscribe")
+async def member_subscribe(body: MemberSubscribeRequest, member_id: str = Depends(require_member)):
+    m = await db.members.find_one({"id": member_id})
+    if not m:
+        raise HTTPException(404, "Member not found")
+
+    profile_update = {}
+    for field in ("address", "address2", "city", "state", "zip", "country", "phone", "gender"):
+        v = getattr(body, field, None)
+        if v is not None and v != "":
+            profile_update[field] = v
+
+    membership = {
+        "plan": body.plan,
+        "tier": body.tier,
+        "status": "pending",
+        "school_name": body.school_name,
+        "degree_program": body.degree_program,
+        "donation_amount": body.donation_amount or 0,
+        "payment_method": body.payment_method,
+        "family_count": body.family_count or 1,
+        "submitted_at": datetime.utcnow(),
+        "start_date": None,
+        "end_date": None,
+        "approved_at": None,
+        "approved_by": None,
+        "rejection_reason": None,
+    }
+
+    update = {**profile_update, "membership": membership, "updated_at": datetime.utcnow()}
+    await db.members.update_one({"id": member_id}, {"$set": update})
+    m = await db.members.find_one({"id": member_id})
+    return _public_member(m)
 
 
 # ===================== Files =====================
@@ -326,11 +428,80 @@ async def reject_classified(id: str):
     return {"ok": True}
 
 
+# ===================== Admin Members =====================
+@admin.get("/members")
+async def admin_list_members(status: Optional[str] = None):
+    f = {}
+    if status and status != "all":
+        f["membership.status"] = status
+    items = await db.members.find(f).sort("created_at", -1).to_list(2000)
+    return [_public_member(m) for m in items]
+
+
+@admin.get("/members/{id}")
+async def admin_get_member(id: str):
+    m = await db.members.find_one({"id": id})
+    if not m:
+        raise HTTPException(404, "Not found")
+    return _public_member(m)
+
+
+@admin.post("/members/{id}/approve")
+async def admin_approve_member(id: str, username: str = Depends(require_admin)):
+    m = await db.members.find_one({"id": id})
+    if not m:
+        raise HTTPException(404, "Not found")
+    now = datetime.utcnow()
+    end = now + timedelta(days=365)
+    await db.members.update_one({"id": id}, {"$set": {
+        "membership.status": "active",
+        "membership.start_date": now,
+        "membership.end_date": end,
+        "membership.approved_at": now,
+        "membership.approved_by": username,
+        "membership.rejection_reason": None,
+        "updated_at": now,
+    }})
+    return {"ok": True}
+
+
+@admin.post("/members/{id}/reject")
+async def admin_reject_member(id: str, body: MemberRejectRequest):
+    await db.members.update_one({"id": id}, {"$set": {
+        "membership.status": "rejected",
+        "membership.rejection_reason": body.reason or "",
+        "updated_at": datetime.utcnow(),
+    }})
+    return {"ok": True}
+
+
+@admin.delete("/members/{id}")
+async def admin_delete_member(id: str):
+    r = await db.members.delete_one({"id": id})
+    return {"ok": True, "deleted": r.deleted_count}
+
+
+# Legacy membership-applications approval (for anonymous submissions)
+@admin.post("/membership-applications/{id}/approve")
+async def approve_membership_app(id: str):
+    await db.membership_applications.update_one({"id": id}, {"$set": {"status": "approved"}})
+    return {"ok": True}
+
+
+@admin.post("/membership-applications/{id}/reject")
+async def reject_membership_app(id: str):
+    await db.membership_applications.update_one({"id": id}, {"$set": {"status": "rejected"}})
+    return {"ok": True}
+
+
 # Dashboard stats
 @admin.get("/stats")
 async def stats():
     return {
-        "members": await db.membership_applications.count_documents({}),
+        "members": await db.members.count_documents({}),
+        "members_active": await db.members.count_documents({"membership.status": "active"}),
+        "members_pending": await db.members.count_documents({"membership.status": "pending"}),
+        "applications": await db.membership_applications.count_documents({}),
         "subscribers": await db.subscribers.count_documents({}),
         "donations": await db.donations.count_documents({}),
         "contact": await db.contact_messages.count_documents({}),

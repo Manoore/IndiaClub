@@ -5,6 +5,7 @@ import AdminLayout from "./AdminLayout";
 import Dashboard from "./Dashboard";
 import AdminLogin from "./AdminLogin";
 import AdminSettings from "./AdminSettings";
+import MembersAdmin from "./MembersAdmin";
 import {
   EventsAdmin, NewsAdmin, ExecTeamAdmin, GalleryAdmin, SponsorsAdmin, DonorsAdmin,
   ClassifiedsAdmin, PastPresidentsAdmin, AwardeesAdmin, TaxReturnsAdmin, ProgramsAdmin,
@@ -23,6 +24,7 @@ export default function AdminRoutes() {
     <Routes>
       <Route path="login" element={<AdminLogin />} />
       <Route path="" element={<Protected><Dashboard /></Protected>} />
+      <Route path="members" element={<Protected><MembersAdmin /></Protected>} />
       <Route path="events" element={<Protected><EventsAdmin /></Protected>} />
       <Route path="news" element={<Protected><NewsAdmin /></Protected>} />
       <Route path="exec-team" element={<Protected><ExecTeamAdmin /></Protected>} />
