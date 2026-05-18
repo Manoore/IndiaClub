@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, UploadFile, File, Response
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, UploadFile, File, Response, Header
 from fastapi.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -18,7 +18,8 @@ from models import (
     Classified, Subscriber, ContactMessage, Donation, MembershipApplication, SponsorshipInquiry,
     EventRegistration, PastPresident, Awardee, TaxReturn, Program, MembershipPlan, gen_id,
     Member, MemberRegisterRequest, MemberLoginRequest, MemberProfileUpdate,
-    MemberSubscribeRequest, MemberPasswordChange, MemberRejectRequest, MemberPerk
+    MemberSubscribeRequest, MemberPasswordChange, MemberRejectRequest, MemberPerk,
+    GoogleSignInRequest, SiteSettings, SiteSettingsUpdate, TicketPurchaseRequest, TicketOrder
 )
 from seed import seed_if_empty
 
@@ -91,6 +92,53 @@ async def member_login(body: MemberLoginRequest):
     return {"token": create_token(m["id"], typ="member"), "member": _public_member(m)}
 
 
+@api.post("/members/google-signin")
+async def member_google_signin(body: GoogleSignInRequest):
+    """Verify a Google ID token and either log in an existing member or create a new one."""
+    try:
+        from google.oauth2 import id_token
+        from google.auth.transport import requests as g_requests
+        client_id = os.environ.get("GOOGLE_CLIENT_ID")
+        if not client_id:
+            raise HTTPException(500, "Google sign-in is not configured on the server")
+        info = id_token.verify_oauth2_token(body.credential, g_requests.Request(), client_id)
+    except ValueError:
+        raise HTTPException(401, "Invalid Google credential")
+
+    email = (info.get("email") or "").lower()
+    if not email:
+        raise HTTPException(400, "Google account did not return an email")
+
+    m = await db.members.find_one({"email": email})
+    if not m:
+        first_name = info.get("given_name") or (info.get("name") or "Friend").split(" ")[0]
+        last_name = info.get("family_name") or ""
+        new_member = Member(
+            email=email,
+            password_hash="",  # Google-only — no local password yet
+            first_name=first_name,
+            last_name=last_name,
+        )
+        doc = new_member.model_dump()
+        doc["google_id"] = info.get("sub")
+        doc["picture"] = info.get("picture")
+        await db.members.insert_one(doc)
+        m = doc
+    else:
+        # Link Google to existing account
+        await db.members.update_one(
+            {"id": m["id"]},
+            {"$set": {
+                "google_id": info.get("sub"),
+                "picture": info.get("picture"),
+                "updated_at": datetime.utcnow(),
+            }},
+        )
+        m = await db.members.find_one({"id": m["id"]})
+
+    return {"token": create_token(m["id"], typ="member"), "member": _public_member(m)}
+
+
 @api.get("/members/me")
 async def member_me(member_id: str = Depends(require_member)):
     m = await db.members.find_one({"id": member_id})
@@ -157,17 +205,18 @@ async def member_subscribe(body: MemberSubscribeRequest, member_id: str = Depend
     membership = {
         "plan": body.plan,
         "tier": body.tier,
-        "status": "pending",
+        "status": "active",  # auto-approved on subscription
         "school_name": body.school_name,
         "degree_program": body.degree_program,
         "donation_amount": body.donation_amount or 0,
         "payment_method": body.payment_method,
         "family_count": body.family_count or 1,
         "submitted_at": datetime.utcnow(),
-        "start_date": None,
-        "end_date": None,
-        "approved_at": None,
-        "approved_by": None,
+        "start_date": datetime.utcnow(),
+        "end_date": datetime.utcnow() + timedelta(days=365),
+        "approved_at": datetime.utcnow(),
+        "approved_by": "auto",
+        "payment_received": False,  # admin marks True once they confirm payment
         "rejection_reason": None,
     }
 
@@ -355,6 +404,111 @@ async def list_perks():
     return _strip(await db.perks.find({"active": True}).sort("order", 1).to_list(200))
 
 
+@api.get("/site-settings")
+async def get_site_settings():
+    s = await db.site_settings.find_one({"id": "main"})
+    if not s:
+        default = SiteSettings().model_dump()
+        await db.site_settings.insert_one(default)
+        s = default
+    s.pop("_id", None)
+    return s
+
+
+# -------- Event Ticket Purchase (public, optionally as member) --------
+@api.post("/events/{event_id}/purchase-tickets")
+async def purchase_tickets(event_id: str, body: TicketPurchaseRequest, authorization: Optional[str] = Header(None)):
+    event = await db.events.find_one({"id": event_id})
+    if not event:
+        raise HTTPException(404, "Event not found")
+    types = event.get("ticket_types") or []
+    if not types:
+        raise HTTPException(400, "This event does not have tickets configured")
+
+    # Optional member token (member-only types require this)
+    member = None
+    if authorization and authorization.startswith("Bearer "):
+        from auth import decode_token
+        mid = decode_token(authorization.split(" ", 1)[1].strip(), expected_typ="member")
+        if mid:
+            member = await db.members.find_one({"id": mid})
+
+    types_by_id = {t["id"]: t for t in types}
+    now = datetime.utcnow()
+    order_items = []
+    subtotal = 0.0
+
+    for item in body.items:
+        tid = item.get("ticket_type_id")
+        qty = int(item.get("quantity") or 0)
+        if qty <= 0:
+            continue
+        t = types_by_id.get(tid)
+        if not t:
+            raise HTTPException(400, f"Unknown ticket type {tid}")
+        # Member-only check
+        if t.get("members_only") and (not member or (member.get("membership") or {}).get("status") != "active"):
+            raise HTTPException(403, f"Ticket '{t['name']}' is for active members only")
+        # Sale window
+        def _parse(d):
+            if not d: return None
+            if isinstance(d, datetime): return d
+            try: return datetime.fromisoformat(str(d).replace("Z", "+00:00")).replace(tzinfo=None)
+            except: return None
+        ss = _parse(t.get("sale_start")); se = _parse(t.get("sale_end"))
+        if ss and now < ss:
+            raise HTTPException(400, f"Ticket '{t['name']}' is not on sale yet")
+        if se and now > se:
+            raise HTTPException(400, f"Ticket '{t['name']}' sales have ended")
+        # Quantity
+        total_q = int(t.get("quantity_total") or 0)
+        sold_q = int(t.get("quantity_sold") or 0)
+        if total_q and sold_q + qty > total_q:
+            available = total_q - sold_q
+            raise HTTPException(400, f"Only {available} '{t['name']}' tickets remain")
+
+        price = float(t.get("price") or 0)
+        order_items.append({
+            "ticket_type_id": tid,
+            "ticket_type_name": t["name"],
+            "unit_price": price,
+            "quantity": qty,
+        })
+        subtotal += price * qty
+
+    if not order_items:
+        raise HTTPException(400, "Please select at least one ticket")
+
+    order = TicketOrder(
+        event_id=event_id,
+        event_title=event.get("title", ""),
+        member_id=member.get("id") if member else None,
+        buyer_name=body.buyer_name,
+        buyer_email=body.buyer_email,
+        buyer_phone=body.buyer_phone,
+        items=[],
+        subtotal=subtotal,
+        total=subtotal,
+        payment_method=body.payment_method,
+        payment_status="pending",
+        notes=body.notes or "",
+    ).model_dump()
+    order["items"] = order_items
+    await db.ticket_orders.insert_one(order)
+
+    # Increment sold counters on the event
+    updated_types = []
+    for t in types:
+        sold_inc = sum(i["quantity"] for i in order_items if i["ticket_type_id"] == t["id"])
+        nt = dict(t)
+        nt["quantity_sold"] = int(t.get("quantity_sold") or 0) + sold_inc
+        updated_types.append(nt)
+    await db.events.update_one({"id": event_id}, {"$set": {"ticket_types": updated_types}})
+
+    order.pop("_id", None)
+    return order
+
+
 # ===================== Admin CRUD =====================
 COLLECTIONS = {
     "events": Event,
@@ -500,6 +654,70 @@ async def admin_reject_member(id: str, body: MemberRejectRequest):
         "membership.rejection_reason": body.reason or "",
         "updated_at": datetime.utcnow(),
     }})
+    return {"ok": True}
+
+
+@admin.post("/members/{id}/mark-paid")
+async def admin_mark_paid(id: str, paid: bool = True):
+    await db.members.update_one({"id": id}, {"$set": {
+        "membership.payment_received": bool(paid),
+        "updated_at": datetime.utcnow(),
+    }})
+    return {"ok": True}
+
+
+@admin.get("/site-settings")
+async def admin_get_site_settings():
+    s = await db.site_settings.find_one({"id": "main"})
+    if not s:
+        default = SiteSettings().model_dump()
+        await db.site_settings.insert_one(default)
+        s = default
+    s.pop("_id", None)
+    return s
+
+
+@admin.put("/site-settings")
+async def admin_update_site_settings(body: SiteSettingsUpdate):
+    update = {k: v for k, v in body.model_dump().items() if v is not None}
+    update["updated_at"] = datetime.utcnow()
+    await db.site_settings.update_one({"id": "main"}, {"$set": update}, upsert=True)
+    s = await db.site_settings.find_one({"id": "main"})
+    s.pop("_id", None)
+    return s
+
+
+@admin.get("/ticket-orders")
+async def admin_list_ticket_orders(event_id: Optional[str] = None, status: Optional[str] = None):
+    f = {}
+    if event_id: f["event_id"] = event_id
+    if status: f["payment_status"] = status
+    return _strip(await db.ticket_orders.find(f).sort("created_at", -1).to_list(2000))
+
+
+@admin.post("/ticket-orders/{order_id}/mark-paid")
+async def admin_mark_order_paid(order_id: str, status: str = "paid"):
+    if status not in ("pending", "paid", "refunded"):
+        raise HTTPException(400, "Invalid status")
+    await db.ticket_orders.update_one({"id": order_id}, {"$set": {"payment_status": status}})
+    return {"ok": True}
+
+
+@admin.delete("/ticket-orders/{order_id}")
+async def admin_delete_ticket_order(order_id: str):
+    # Decrement sold counters when deleting
+    order = await db.ticket_orders.find_one({"id": order_id})
+    if order:
+        event = await db.events.find_one({"id": order["event_id"]})
+        if event and event.get("ticket_types"):
+            updated = []
+            for t in event["ticket_types"]:
+                nt = dict(t)
+                refund_qty = sum(i["quantity"] for i in order.get("items", []) if i["ticket_type_id"] == t["id"])
+                nt["quantity_sold"] = max(0, int(t.get("quantity_sold") or 0) - refund_qty)
+                updated.append(nt)
+            await db.events.update_one({"id": order["event_id"]}, {"$set": {"ticket_types": updated}})
+    await db.ticket_orders.delete_one({"id": order_id})
     return {"ok": True}
 
 

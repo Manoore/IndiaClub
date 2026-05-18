@@ -19,6 +19,13 @@ Clone https://www.indiaclubdayton.org/ as a modern multi-page React + FastAPI + 
 
 ## ✅ Implemented (as of 2026-02)
 
+### Auto-approval + Google Sign-In + Site CMS + Event Tickets ⭐ NEW
+- **Auto-approve**: members are now `active` immediately on subscribe (no admin approval needed). Admin "Mark as Paid" tracks actual payment via POST `/admin/members/{id}/mark-paid?paid=true`
+- **Google Sign-In**: POST `/api/members/google-signin` verifies Google ID token, upserts member by email, issues member JWT. Frontend uses `@react-oauth/google`. Auto-links Google to existing email accounts. Requires `GOOGLE_CLIENT_ID` env var on backend and `REACT_APP_GOOGLE_CLIENT_ID` on frontend
+- **Site Content CMS**: single-doc `site_settings` collection with 29 editable fields (hero, stats, contact, social, footer, about). Admin at `/admin/site-content` with 7 tabs. Public `GET /api/site-settings`, admin `PUT /api/admin/site-settings`
+- **Event Ticket Categories**: each event has `ticket_types[]` with name, price, members_only flag, sale_start/sale_end, quantity_total. Public `POST /api/events/{id}/purchase-tickets` validates inventory/sale-window/member-eligibility. Admin at `/admin/ticket-orders` with filter, mark-paid, refund, delete (auto-restores inventory)
+- **Demo accounts** (seeded): `demo@indiaclubdayton.org` / `demo1234` (active Regular/Family) and `demo.pending@indiaclubdayton.org` / `demo1234`
+
 ### Admin — Mobile Responsive ⭐ NEW
 - Admin sidebar collapses into a drawer on screens < 1024px with hamburger menu
 - Mobile topbar with menu / logout buttons

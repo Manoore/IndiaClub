@@ -24,6 +24,7 @@ export const EventsAdmin = () => (
       { key: "description", label: "Short Description", type: "textarea", rows: 2 },
       { key: "long_description", label: "Long Description", type: "textarea", rows: 5 },
       { key: "highlights", label: "Highlights", type: "tags", hint: "One bullet per line" },
+      { key: "ticket_types", label: "Ticket Types (for online sales)", type: "ticket-types", hint: "Add Early Bird / Member / Regular / VIP / Child tiers with their own prices, sale windows and quantity limits." },
       { key: "registration_open", label: "Registration Open", type: "checkbox", hint: "Allow public registration" },
       { key: "featured", label: "Featured", type: "checkbox", hint: "Show on homepage" },
     ]} />

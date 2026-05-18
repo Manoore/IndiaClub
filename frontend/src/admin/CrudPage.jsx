@@ -206,6 +206,8 @@ function EditModal({ isNew, initial, fields, title, onClose, onSave }) {
                 <textarea rows={3} value={(data[f.key] || []).join("\n")} onChange={(e) => updateField(f.key, e.target.value.split("\n").filter(Boolean))} placeholder={"One per line"} className="w-full px-3 py-2 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]" />
               ) : f.type === "array-of-objects" ? (
                 <ArrayOfObjects value={data[f.key] || []} onChange={(v) => updateField(f.key, v)} schema={f.schema} />
+              ) : f.type === "ticket-types" ? (
+                <TicketTypesEditor value={data[f.key] || []} onChange={(v) => updateField(f.key, v)} />
               ) : (
                 <input type="text" value={data[f.key] || ""} required={f.required} onChange={(e) => updateField(f.key, e.target.value)} placeholder={f.placeholder} className="w-full px-3 py-2 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]" />
               )}
@@ -241,6 +243,66 @@ function ArrayOfObjects({ value, onChange, schema = [] }) {
         </div>
       ))}
       <button type="button" onClick={add} className="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-[#8B1A1A] rounded text-xs font-medium"><Plus className="w-3.5 h-3.5" /> Add</button>
+    </div>
+  );
+}
+
+function TicketTypesEditor({ value, onChange }) {
+  const genId = () => Math.random().toString(36).slice(2, 10);
+  const add = () =>
+    onChange([
+      ...value,
+      {
+        id: genId(),
+        name: "Regular",
+        description: "",
+        price: 0,
+        members_only: false,
+        sale_start: "",
+        sale_end: "",
+        quantity_total: 0,
+        quantity_sold: 0,
+        order: (value?.length || 0) + 1,
+      },
+    ]);
+  const update = (i, key, v) => onChange(value.map((it, idx) => (idx === i ? { ...it, [key]: v } : it)));
+  const remove = (i) => onChange(value.filter((_, idx) => idx !== i));
+  const cls = "px-2 py-1.5 border border-stone-200 rounded text-sm outline-none focus:border-[#8B1A1A] w-full";
+  return (
+    <div className="space-y-3">
+      {(value || []).map((t, i) => (
+        <div key={t.id || i} className="p-3 bg-stone-50 rounded border border-stone-200">
+          <div className="flex items-start justify-between gap-2 mb-2">
+            <div className="text-xs text-stone-500 font-cinzel tracking-wider">TICKET TYPE #{i + 1}</div>
+            <button type="button" onClick={() => remove(i)} className="p-1.5 text-red-600 hover:bg-red-50 rounded">
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <input placeholder="Name (e.g. Early Bird)" value={t.name || ""} onChange={(e) => update(i, "name", e.target.value)} className={cls} />
+            <input type="number" placeholder="Price (USD)" value={t.price ?? 0} onChange={(e) => update(i, "price", Number(e.target.value))} className={cls} />
+          </div>
+          <input placeholder="Short description (optional)" value={t.description || ""} onChange={(e) => update(i, "description", e.target.value)} className={`${cls} mt-2`} />
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            <input type="datetime-local" placeholder="Sale start" value={t.sale_start || ""} onChange={(e) => update(i, "sale_start", e.target.value)} className={cls} />
+            <input type="datetime-local" placeholder="Sale end" value={t.sale_end || ""} onChange={(e) => update(i, "sale_end", e.target.value)} className={cls} />
+          </div>
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            <input type="number" placeholder="Total quantity (0 = unlimited)" value={t.quantity_total ?? 0} onChange={(e) => update(i, "quantity_total", Number(e.target.value))} className={cls} />
+            <div className="flex items-center gap-2 text-sm text-stone-600">
+              Sold: <span className="font-medium">{t.quantity_sold || 0}</span>
+              {t.quantity_total > 0 && <span className="text-stone-400">/ {t.quantity_total}</span>}
+            </div>
+          </div>
+          <label className="inline-flex items-center gap-2 cursor-pointer mt-2">
+            <input type="checkbox" checked={!!t.members_only} onChange={(e) => update(i, "members_only", e.target.checked)} className="w-4 h-4 accent-[#8B1A1A]" />
+            <span className="text-sm text-stone-700">Members only (only active members can purchase)</span>
+          </label>
+        </div>
+      ))}
+      <button type="button" onClick={add} className="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-[#8B1A1A] rounded text-xs font-medium">
+        <Plus className="w-3.5 h-3.5" /> Add Ticket Type
+      </button>
     </div>
   );
 }

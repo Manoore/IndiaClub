@@ -177,8 +177,8 @@ const SubscribeForm = ({ plan, onSuccess, onClose, member }) => {
       }
       await apiClient.post("/members/me/subscribe", body);
       toast({
-        title: "Application submitted!",
-        description: "We've received your subscription. Check your dashboard for payment instructions.",
+        title: "Welcome to India Club! 🎉",
+        description: "Your membership is now active. Check your dashboard for payment instructions.",
       });
       onSuccess();
     } catch (err) {

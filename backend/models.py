@@ -52,6 +52,7 @@ class Event(BaseModel):
     featured: bool = False
     color: Optional[str] = "#8B1A1A"
     typical_timing: Optional[str] = None
+    ticket_types: List[dict] = []  # see TicketType model schema
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -250,15 +251,137 @@ class MemberPerk(BaseModel):
     id: str = Field(default_factory=gen_id)
     title: str
     description: str
-    icon: Optional[str] = "Gift"  # lucide icon name
+    icon: Optional[str] = "Gift"
     image_url: Optional[str] = None
     link: Optional[str] = None
     link_label: Optional[str] = None
-    badge: Optional[str] = None  # e.g. "NEW", "POPULAR", "MEMBER-ONLY"
+    badge: Optional[str] = None
     category: Optional[str] = "General"
     active: bool = True
     order: int = 100
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class TicketType(BaseModel):
+    id: str = Field(default_factory=gen_id)
+    name: str
+    description: Optional[str] = ""
+    price: float = 0
+    members_only: bool = False
+    sale_start: Optional[datetime] = None  # if None, available immediately
+    sale_end: Optional[datetime] = None  # if None, available until event date
+    quantity_total: int = 0  # 0 = unlimited
+    quantity_sold: int = 0
+    order: int = 100
+
+
+class TicketOrderItem(BaseModel):
+    ticket_type_id: str
+    ticket_type_name: str
+    unit_price: float
+    quantity: int
+
+
+class TicketOrder(BaseModel):
+    id: str = Field(default_factory=gen_id)
+    event_id: str
+    event_title: str
+    member_id: Optional[str] = None
+    buyer_name: str
+    buyer_email: EmailStr
+    buyer_phone: Optional[str] = None
+    items: List[TicketOrderItem] = []
+    subtotal: float = 0
+    total: float = 0
+    payment_method: str = "paypal"  # paypal | check | cash | stripe
+    payment_status: str = "pending"  # pending | paid | refunded
+    notes: Optional[str] = ""
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class TicketPurchaseRequest(BaseModel):
+    event_id: str
+    items: List[dict]  # [{ticket_type_id, quantity}]
+    buyer_name: str
+    buyer_email: EmailStr
+    buyer_phone: Optional[str] = None
+    payment_method: str = "paypal"
+    notes: Optional[str] = ""
+
+
+class GoogleSignInRequest(BaseModel):
+    credential: str  # Google ID token from frontend
+
+
+class SiteSettings(BaseModel):
+    """Single-document collection holding all editable site content."""
+    id: str = "main"
+    # General
+    site_name: str = "India Club of Greater Dayton"
+    contact_email: str = "contact@indiaclubdayton.org"
+    contact_phone: str = "(937) 314-8870"
+    contact_address: str = "Dayton, OH"
+    social_facebook: Optional[str] = ""
+    social_twitter: Optional[str] = ""
+    social_instagram: Optional[str] = ""
+    social_youtube: Optional[str] = ""
+    # Home hero
+    home_hero_eyebrow: str = "SINCE 1967"
+    home_hero_title: str = "India Club of Greater Dayton"
+    home_hero_subtitle: str = "A vibrant home for 1000+ Indian-American families — celebrating heritage, culture and community for 58 years and counting."
+    home_hero_cta_primary: str = "Become a Member"
+    home_hero_cta_secondary: str = "Explore Events"
+    home_hero_image: Optional[str] = ""
+    # Stats
+    home_stat_1_value: str = "1967"
+    home_stat_1_label: str = "Founded"
+    home_stat_2_value: str = "1000+"
+    home_stat_2_label: str = "Families"
+    home_stat_3_value: str = "40+"
+    home_stat_3_label: str = "Events / Year"
+    # Why Join
+    home_why_join_title: str = "Why join India Club?"
+    home_why_join_text: str = "Members enjoy discounted tickets to all our cultural events, voting rights at the AGM, a quarterly newsletter, and the unmatched joy of belonging to a 1000+ family Indian community in the heart of Ohio."
+    # About page
+    about_mission: str = "India Club of Greater Dayton is dedicated to preserving and promoting Indian heritage, culture, and community values."
+    about_history: str = "Founded in 1967, ICGD has been the cornerstone of the Indian-American community in Dayton, Ohio."
+    # Footer
+    footer_tagline: str = "Celebrating Indian heritage, culture, and community since 1967."
+    footer_copyright: str = "© 2026 India Club of Greater Dayton. All rights reserved."
+    # Honorary
+    honorary_contact_email: str = "president@indiaclubdayton.org"
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class SiteSettingsUpdate(BaseModel):
+    """Partial update — any subset of SiteSettings fields."""
+    site_name: Optional[str] = None
+    contact_email: Optional[str] = None
+    contact_phone: Optional[str] = None
+    contact_address: Optional[str] = None
+    social_facebook: Optional[str] = None
+    social_twitter: Optional[str] = None
+    social_instagram: Optional[str] = None
+    social_youtube: Optional[str] = None
+    home_hero_eyebrow: Optional[str] = None
+    home_hero_title: Optional[str] = None
+    home_hero_subtitle: Optional[str] = None
+    home_hero_cta_primary: Optional[str] = None
+    home_hero_cta_secondary: Optional[str] = None
+    home_hero_image: Optional[str] = None
+    home_stat_1_value: Optional[str] = None
+    home_stat_1_label: Optional[str] = None
+    home_stat_2_value: Optional[str] = None
+    home_stat_2_label: Optional[str] = None
+    home_stat_3_value: Optional[str] = None
+    home_stat_3_label: Optional[str] = None
+    home_why_join_title: Optional[str] = None
+    home_why_join_text: Optional[str] = None
+    about_mission: Optional[str] = None
+    about_history: Optional[str] = None
+    footer_tagline: Optional[str] = None
+    footer_copyright: Optional[str] = None
+    honorary_contact_email: Optional[str] = None
 
 
 # ---------- Member (logged-in user) ----------

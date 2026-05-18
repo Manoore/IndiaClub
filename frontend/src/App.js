@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { GoogleOAuthProvider } from "@react-oauth/google";
 import "./App.css";
 
 import Navbar from "./components/Navbar";
@@ -20,6 +21,8 @@ import ContactPage from "./pages/ContactPage";
 import LoginPage from "./pages/LoginPage";
 import MemberDashboardPage from "./pages/MemberDashboardPage";
 import AdminRoutes from "./admin/AdminRoutes";
+
+const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID || "";
 
 const ScrollToTop = () => {
   const { pathname } = useLocation();
@@ -75,15 +78,17 @@ function AppRoutes() {
 function App() {
   return (
     <div className="App">
-      <BrowserRouter>
-        <AdminAuthProvider>
-          <MemberAuthProvider>
-            <ScrollToTop />
-            <AppRoutes />
-            <Toaster />
-          </MemberAuthProvider>
-        </AdminAuthProvider>
-      </BrowserRouter>
+      <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+        <BrowserRouter>
+          <AdminAuthProvider>
+            <MemberAuthProvider>
+              <ScrollToTop />
+              <AppRoutes />
+              <Toaster />
+            </MemberAuthProvider>
+          </AdminAuthProvider>
+        </BrowserRouter>
+      </GoogleOAuthProvider>
     </div>
   );
 }

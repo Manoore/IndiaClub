@@ -60,6 +60,21 @@ export const MemberAuthProvider = ({ children }) => {
     }
   };
 
+  const loginWithGoogle = async (credential) => {
+    setLoading(true);
+    try {
+      const r = await apiClient.post("/members/google-signin", { credential });
+      localStorage.setItem("icgd_member_token", r.data.token);
+      setToken(r.data.token);
+      setMember(r.data.member);
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e.response?.data?.detail || "Google sign-in failed" };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem("icgd_member_token");
     setToken(null);
@@ -85,6 +100,7 @@ export const MemberAuthProvider = ({ children }) => {
         bootstrapping,
         login,
         register,
+        loginWithGoogle,
         logout,
         refresh,
         isAuthed: !!token && !!member,

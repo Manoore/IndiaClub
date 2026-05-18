@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { GoogleLogin } from "@react-oauth/google";
 import PageHeader from "../components/PageHeader";
 import { useToast } from "../hooks/use-toast";
 import { LogIn, UserPlus, Loader2 } from "lucide-react";
@@ -107,6 +108,31 @@ export default function LoginPage() {
                   {error}
                 </div>
               )}
+              <div className="flex justify-center" data-testid="google-signin-container">
+                <GoogleLogin
+                  onSuccess={async (resp) => {
+                    setError("");
+                    setBusy(true);
+                    const r = await auth.loginWithGoogle(resp.credential);
+                    setBusy(false);
+                    if (r.ok) {
+                      toast({ title: "Welcome!", description: "Signed in with Google." });
+                      nav(nextPath);
+                    } else {
+                      setError(r.error || "Google sign-in failed");
+                    }
+                  }}
+                  onError={() => setError("Google sign-in failed")}
+                  width="320"
+                  text={tab === "login" ? "signin_with" : "signup_with"}
+                  shape="rectangular"
+                />
+              </div>
+              <div className="relative flex items-center my-2">
+                <div className="flex-grow border-t border-stone-200"></div>
+                <span className="px-3 text-xs text-stone-400 uppercase tracking-wider">or</span>
+                <div className="flex-grow border-t border-stone-200"></div>
+              </div>
               {tab === "register" && (
                 <div className="grid grid-cols-2 gap-3">
                   <input
