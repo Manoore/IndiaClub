@@ -8,6 +8,7 @@ import Footer from "./components/Footer";
 import { Toaster } from "./components/ui/toaster";
 import { AdminAuthProvider } from "./api/AdminAuthContext";
 import { MemberAuthProvider } from "./api/MemberAuthContext";
+import { SiteSettingsProvider } from "./api/SiteSettingsContext";
 
 import Home from "./pages/Home";
 import AboutPage from "./pages/AboutPage";
@@ -82,9 +83,11 @@ function App() {
         <BrowserRouter>
           <AdminAuthProvider>
             <MemberAuthProvider>
-              <ScrollToTop />
-              <AppRoutes />
-              <Toaster />
+              <SiteSettingsProvider>
+                <ScrollToTop />
+                <AppRoutes />
+                <Toaster />
+              </SiteSettingsProvider>
             </MemberAuthProvider>
           </AdminAuthProvider>
         </BrowserRouter>

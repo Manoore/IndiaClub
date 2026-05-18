@@ -4,6 +4,8 @@ import PageHeader from "../components/PageHeader";
 import { EXECUTIVE_TEAM, PAST_PRESIDENTS, TAX_RETURNS, CONSTITUTION, COMMUNITY_SERVICE_AWARDEES, DIFI_AWARDS } from "../data/mock";
 import { Award, FileText, Heart, Scroll, Trophy, Users, Building, Phone, Mail, MapPin } from "lucide-react";
 import Mandala from "../components/Mandala";
+import { useSiteSettings } from "../api/SiteSettingsContext";
+import { apiClient } from "../api/client";
 
 const AboutHub = () => {
   const cards = [
@@ -36,11 +38,16 @@ const AboutHub = () => {
   );
 };
 
-const Mission = () => (
+const Mission = () => {
+  const s = useSiteSettings();
+  return (
   <section className="py-20 bg-cream">
     <div className="max-w-4xl mx-auto px-6">
-      <p className="text-stone-700 leading-relaxed text-lg font-serif mb-6">
-        India Club of Greater Dayton is a non-profit organization serving the Indo-Dayton community.
+      <p className="text-stone-700 leading-relaxed text-lg font-serif mb-6" data-testid="mission-statement">
+        {s.about_mission}
+      </p>
+      <p className="text-stone-700 leading-relaxed mb-6" data-testid="mission-history">
+        {s.about_history}
       </p>
       <h3 className="font-display text-2xl text-[#8B1A1A] mb-4">The objectives of the India Club are:</h3>
       <ul className="space-y-3 mb-8">
@@ -78,7 +85,8 @@ const Mission = () => (
       <p className="text-stone-500 text-sm mt-8 italic">Tax ID/EIN: 31-1184659 — ICGD does not promote any specific political, religious or social agendas.</p>
     </div>
   </section>
-);
+  );
+};
 
 const TextPage = ({ children }) => (
   <section className="py-20 bg-cream">
@@ -313,31 +321,39 @@ const ExecutiveCommittee = () => (
   </section>
 );
 
-const Contact = () => (
+const Contact = () => {
+  const s = useSiteSettings();
+  return (
   <section className="py-20 bg-cream">
     <div className="max-w-6xl mx-auto px-6 grid lg:grid-cols-2 gap-12">
       <div>
         <h2 className="font-display text-3xl text-[#8B1A1A] mb-3">Get in Touch</h2>
         <p className="text-stone-600 mb-8">We'd love to hear from you. Drop us a note, call us, or join our next event.</p>
         <div className="space-y-4">
-          <div className="flex items-start gap-4 p-4 bg-white border border-amber-100 rounded-xl"><Phone className="w-5 h-5 text-[#E07A1F] mt-0.5" /><div><div className="font-semibold text-stone-900">Call</div><div className="text-sm text-stone-600">(937) 314-8870</div></div></div>
-          <div className="flex items-start gap-4 p-4 bg-white border border-amber-100 rounded-xl"><Mail className="w-5 h-5 text-[#E07A1F] mt-0.5" /><div><div className="font-semibold text-stone-900">Email</div><div className="text-sm text-stone-600">contact@indiaclubdayton.org</div></div></div>
-          <div className="flex items-start gap-4 p-4 bg-white border border-amber-100 rounded-xl"><MapPin className="w-5 h-5 text-[#E07A1F] mt-0.5" /><div><div className="font-semibold text-stone-900">Location</div><div className="text-sm text-stone-600">Greater Dayton, Ohio, USA</div></div></div>
+          <a href={`tel:${(s.contact_phone || "").replace(/[^\d+]/g, "")}`} className="flex items-start gap-4 p-4 bg-white border border-amber-100 rounded-xl hover:border-[#E07A1F] transition" data-testid="contact-phone-card"><Phone className="w-5 h-5 text-[#E07A1F] mt-0.5" /><div><div className="font-semibold text-stone-900">Call</div><div className="text-sm text-stone-600">{s.contact_phone}</div></div></a>
+          <a href={`mailto:${s.contact_email}`} className="flex items-start gap-4 p-4 bg-white border border-amber-100 rounded-xl hover:border-[#E07A1F] transition" data-testid="contact-email-card"><Mail className="w-5 h-5 text-[#E07A1F] mt-0.5" /><div><div className="font-semibold text-stone-900">Email</div><div className="text-sm text-stone-600">{s.contact_email}</div></div></a>
+          <div className="flex items-start gap-4 p-4 bg-white border border-amber-100 rounded-xl" data-testid="contact-address-card"><MapPin className="w-5 h-5 text-[#E07A1F] mt-0.5" /><div><div className="font-semibold text-stone-900">Location</div><div className="text-sm text-stone-600">{s.contact_address}</div></div></div>
         </div>
       </div>
       <ContactForm />
     </div>
   </section>
-);
+  );
+};
 
 const ContactForm = () => {
   const [data, setData] = React.useState({ name: "", email: "", subject: "", message: "" });
   const [sent, setSent] = React.useState(false);
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
-    const inbox = JSON.parse(localStorage.getItem("icgd_inbox") || "[]");
-    inbox.push({ ...data, date: new Date().toISOString() });
-    localStorage.setItem("icgd_inbox", JSON.stringify(inbox));
+    try {
+      await apiClient.post("/contact", data);
+    } catch {
+      // fallback to localStorage if API fails
+      const inbox = JSON.parse(localStorage.getItem("icgd_inbox") || "[]");
+      inbox.push({ ...data, date: new Date().toISOString() });
+      localStorage.setItem("icgd_inbox", JSON.stringify(inbox));
+    }
     setSent(true);
     setData({ name: "", email: "", subject: "", message: "" });
     setTimeout(() => setSent(false), 4000);

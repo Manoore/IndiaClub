@@ -4,6 +4,7 @@ import HeroCarousel from "../components/HeroCarousel";
 import { FEATURE_HIGHLIGHTS, EVENT_CATEGORIES, UPCOMING_EVENTS, EXECUTIVE_TEAM, SPONSORS, TESTIMONIALS, CLASSIFIEDS } from "../data/mock";
 import { Calendar, MapPin, ArrowRight, Quote, Sparkles, Star } from "lucide-react";
 import Mandala from "../components/Mandala";
+import { useSiteSettings } from "../api/SiteSettingsContext";
 
 const SectionHeader = ({ eyebrow, title, subtitle, center = false }) => (
   <div className={`mb-10 ${center ? "text-center mx-auto max-w-3xl" : ""}`}>
@@ -18,6 +19,12 @@ const SectionHeader = ({ eyebrow, title, subtitle, center = false }) => (
 );
 
 export default function Home() {
+  const s = useSiteSettings();
+  // Compute "years of service" from Stat 1 if it looks like a year, else default to 58
+  const founded = parseInt(s.home_stat_1_value, 10);
+  const yearsOfService = !isNaN(founded) && founded > 1900 && founded < 2100
+    ? new Date().getFullYear() - founded
+    : 58;
   return (
     <>
       <HeroCarousel />
@@ -28,11 +35,11 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-6 grid lg:grid-cols-2 gap-12 items-center relative">
           <div>
             <SectionHeader eyebrow="WELCOME" title="A Home Away From Home" />
-            <p className="text-stone-700 leading-relaxed mb-5">
-              India Club of Greater Dayton is a non-profit organization representing and serving Asian Indians living in and around the Dayton metro area. Started in <strong>1967</strong>, the Club has a membership of over 1000 families and is growing every day.
+            <p className="text-stone-700 leading-relaxed mb-5" data-testid="home-about-intro">
+              {s.about_mission}
             </p>
             <p className="text-stone-700 leading-relaxed mb-5">
-              Asian Indians represent a growing community of professionals — doctors, engineers, educators and entrepreneurs — and the Dayton area is well-served by this community.
+              {s.about_history}
             </p>
             <p className="text-stone-700 leading-relaxed mb-7">
               ICGD is a membership-based and member-run organization. As a member you will network with hundreds of families who share Asian Indian heritage, and attend all our cultural events and concerts at member pricing.
@@ -46,7 +53,7 @@ export default function Home() {
             <div className="absolute -inset-3 bg-[#E07A1F]/15 rounded-2xl -rotate-2" />
             <img src="https://images.unsplash.com/photo-1605292356183-a77d0a9c9d1d?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600" alt="Cultural performance" className="relative rounded-2xl shadow-2xl w-full object-cover h-[520px]" />
             <div className="absolute -bottom-6 -left-6 bg-white rounded-xl shadow-xl px-5 py-4 border border-amber-100">
-              <div className="font-display text-3xl text-[#8B1A1A]">58<span className="text-[#E07A1F]">+</span></div>
+              <div className="font-display text-3xl text-[#8B1A1A]" data-testid="home-years-badge">{yearsOfService}<span className="text-[#E07A1F]">+</span></div>
               <div className="font-cinzel text-[10px] tracking-[0.2em] text-stone-500">YEARS OF SERVICE</div>
             </div>
           </div>
@@ -243,10 +250,10 @@ export default function Home() {
         <Mandala className="absolute -right-32 -top-20 w-[500px] h-[500px]" color="#FFD89B" opacity={0.18} />
         <div className="max-w-4xl mx-auto px-6 text-center text-amber-50 relative">
           <div className="font-cinzel text-xs tracking-[0.3em] text-[#E07A1F] mb-4">JOIN OUR FAMILY</div>
-          <h2 className="font-display text-4xl md:text-5xl mb-5">Together, we keep our culture alive.</h2>
-          <p className="text-amber-50/80 font-serif text-lg leading-relaxed mb-8">Be part of a 1000+ family community. Celebrate with us at every festival, every milestone, every chai gathering.</p>
+          <h2 className="font-display text-4xl md:text-5xl mb-5" data-testid="home-cta-title">{s.home_why_join_title}</h2>
+          <p className="text-amber-50/80 font-serif text-lg leading-relaxed mb-8" data-testid="home-cta-text">{s.home_why_join_text}</p>
           <div className="flex flex-wrap gap-3 justify-center">
-            <Link to="/membership/regular" className="px-7 py-3.5 bg-[#E07A1F] hover:bg-[#c66c1a] text-white rounded-md font-medium transition">Become a Member</Link>
+            <Link to="/membership/regular" className="px-7 py-3.5 bg-[#E07A1F] hover:bg-[#c66c1a] text-white rounded-md font-medium transition">{s.home_hero_cta_primary}</Link>
             <Link to="/sponsorship/donate" className="px-7 py-3.5 bg-white/10 backdrop-blur border border-amber-100/30 hover:bg-white/20 text-amber-50 rounded-md font-medium transition">Donate</Link>
           </div>
         </div>
