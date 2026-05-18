@@ -1,10 +1,12 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
 import { EVENT_CATEGORIES, UPCOMING_EVENTS, EVENT_DETAILS } from "../data/mock";
-import { Calendar, Clock, MapPin, ArrowRight, Sparkles, Users, Star } from "lucide-react";
+import { Calendar, Clock, MapPin, Sparkles, Star, Ticket, Loader2 } from "lucide-react";
 import { useToast } from "../hooks/use-toast";
 import Mandala from "../components/Mandala";
+import TicketPurchaseModal from "../components/TicketPurchaseModal";
+import { apiClient } from "../api/client";
 
 const EventsHub = () => (
   <section className="py-20 bg-cream">
@@ -25,37 +27,92 @@ const EventsHub = () => (
   </section>
 );
 
-const EventCard = ({ e, onRegister }) => (
-  <div className="card-hover bg-white border border-stone-200 rounded-xl overflow-hidden flex flex-col">
-    <div className="relative h-52 overflow-hidden">
-      <img src={e.image} alt={e.title} className="w-full h-full object-cover hover:scale-105 transition duration-700" />
-      <div className="absolute top-3 left-3 bg-white rounded-md px-2.5 py-1 text-[#8B1A1A] text-xs font-semibold">{e.category}</div>
-      <div className="absolute top-3 right-3 bg-[#1a0e0a]/85 backdrop-blur text-amber-100 rounded-md px-2.5 py-1.5 text-center"><div className="font-display text-lg leading-none">{e.date.split(" ")[1].replace(",","")}</div><div className="font-cinzel text-[9px] tracking-[0.2em]">{e.date.split(" ")[0].toUpperCase()}</div></div>
-    </div>
-    <div className="p-5 flex-1 flex flex-col">
-      <h3 className="font-display text-xl text-stone-900 mb-2">{e.title}</h3>
-      <div className="flex items-center gap-3 text-xs text-stone-500 mb-3 flex-wrap">
-        <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {e.date}</span>
-        <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {e.time}</span>
-        <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {e.venue.split(",")[0]}</span>
-      </div>
-      <p className="text-sm text-stone-600 leading-relaxed mb-5 flex-1">{e.description}</p>
-      <div className="flex items-center justify-between">
-        <span className={`text-xs font-cinzel tracking-wider ${e.registrationOpen ? "text-green-700" : "text-stone-400"}`}>{e.registrationOpen ? "REGISTRATION OPEN" : "COMING SOON"}</span>
-        {e.registrationOpen ? (
-          <button onClick={() => onRegister(e)} className="px-4 py-2 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 text-sm rounded-md font-medium transition">Register</button>
-        ) : (
-          <button disabled className="px-4 py-2 bg-stone-200 text-stone-500 text-sm rounded-md cursor-not-allowed">Notify Me</button>
+const EventCard = ({ e, onRegister, onBuyTickets }) => {
+  const hasTickets = Array.isArray(e.ticket_types) && e.ticket_types.length > 0;
+  // Cheapest price for "From $X" display
+  const minPrice = hasTickets
+    ? Math.min(...e.ticket_types.map((t) => Number(t.price || 0)))
+    : null;
+  // Date parsing
+  const dateParts = (e.date || "").split(" ");
+  const day = (dateParts[1] || "").replace(",", "");
+  const month = (dateParts[0] || "").toUpperCase();
+  return (
+    <div className="card-hover bg-white border border-stone-200 rounded-xl overflow-hidden flex flex-col">
+      <div className="relative h-52 overflow-hidden">
+        <img src={e.image_url || e.image} alt={e.title} className="w-full h-full object-cover hover:scale-105 transition duration-700" />
+        <div className="absolute top-3 left-3 bg-white rounded-md px-2.5 py-1 text-[#8B1A1A] text-xs font-semibold">{e.category}</div>
+        <div className="absolute top-3 right-3 bg-[#1a0e0a]/85 backdrop-blur text-amber-100 rounded-md px-2.5 py-1.5 text-center">
+          <div className="font-display text-lg leading-none">{day}</div>
+          <div className="font-cinzel text-[9px] tracking-[0.2em]">{month}</div>
+        </div>
+        {hasTickets && (
+          <div className="absolute bottom-3 left-3 bg-[#E07A1F] text-white rounded-md px-2.5 py-1 text-xs font-medium flex items-center gap-1">
+            <Ticket className="w-3.5 h-3.5" /> From ${minPrice.toFixed(0)}
+          </div>
         )}
       </div>
+      <div className="p-5 flex-1 flex flex-col">
+        <h3 className="font-display text-xl text-stone-900 mb-2">{e.title}</h3>
+        <div className="flex items-center gap-3 text-xs text-stone-500 mb-3 flex-wrap">
+          <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {e.date}</span>
+          {e.time && <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {e.time}</span>}
+          {e.venue && <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {e.venue.split(",")[0]}</span>}
+        </div>
+        <p className="text-sm text-stone-600 leading-relaxed mb-5 flex-1 line-clamp-3">{e.description}</p>
+        <div className="flex items-center justify-between">
+          <span className={`text-xs font-cinzel tracking-wider ${(e.registration_open ?? e.registrationOpen) ? "text-green-700" : "text-stone-400"}`}>
+            {(e.registration_open ?? e.registrationOpen) ? (hasTickets ? "TICKETS ON SALE" : "REGISTRATION OPEN") : "COMING SOON"}
+          </span>
+          {(e.registration_open ?? e.registrationOpen) ? (
+            hasTickets ? (
+              <button onClick={() => onBuyTickets(e)} className="px-4 py-2 bg-[#E07A1F] hover:bg-[#c66c1a] text-white text-sm rounded-md font-medium transition flex items-center gap-1.5" data-testid={`buy-tickets-${e.slug || e.id}`}>
+                <Ticket className="w-3.5 h-3.5" /> Buy Tickets
+              </button>
+            ) : (
+              <button onClick={() => onRegister(e)} className="px-4 py-2 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 text-sm rounded-md font-medium transition" data-testid={`register-${e.slug || e.id}`}>Register</button>
+            )
+          ) : (
+            <button disabled className="px-4 py-2 bg-stone-200 text-stone-500 text-sm rounded-md cursor-not-allowed">Notify Me</button>
+          )}
+        </div>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const UpcomingList = ({ filterSlug }) => {
   const [registered, setRegistered] = useState(JSON.parse(localStorage.getItem("icgd_regs") || "[]"));
+  const [liveEvents, setLiveEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTicketEvent, setActiveTicketEvent] = useState(null);
   const { toast } = useToast();
-  const list = filterSlug && filterSlug !== "upcoming" ? UPCOMING_EVENTS.filter((e) => e.category.toLowerCase().replace("'", "").replace("'", "").replace(" ", "-").includes(filterSlug)) : UPCOMING_EVENTS;
+
+  // Fetch live events from backend (merges with mocked for richer display)
+  useEffect(() => {
+    apiClient
+      .get("/events")
+      .then((r) => setLiveEvents(r.data || []))
+      .catch(() => setLiveEvents([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Merge: live events take precedence over mocked; mocked are used for visual fallback
+  const merged = liveEvents.length > 0
+    ? liveEvents.map((live) => {
+        const mockMatch = UPCOMING_EVENTS.find((m) => m.slug === live.slug || m.title === live.title);
+        return {
+          ...mockMatch,
+          ...live,
+          image: live.image_url || mockMatch?.image,
+        };
+      })
+    : UPCOMING_EVENTS;
+
+  const list = filterSlug && filterSlug !== "upcoming"
+    ? merged.filter((e) => (e.category || "").toLowerCase().replace(/[^a-z]/g, "").includes(filterSlug.replace(/[^a-z]/g, "")))
+    : merged;
+
   const handleRegister = (e) => {
     if (registered.includes(e.id)) return;
     const next = [...registered, e.id];
@@ -63,10 +120,19 @@ const UpcomingList = ({ filterSlug }) => {
     localStorage.setItem("icgd_regs", JSON.stringify(next));
     toast({ title: "You're registered!", description: `See you at ${e.title} on ${e.date}.` });
   };
+
+  const handleBuyTickets = (e) => {
+    setActiveTicketEvent(e);
+  };
+
   return (
     <section className="py-16 bg-cream">
       <div className="max-w-7xl mx-auto px-6">
-        {list.length === 0 ? (
+        {loading ? (
+          <div className="text-center py-20">
+            <Loader2 className="w-8 h-8 animate-spin text-[#8B1A1A] mx-auto" />
+          </div>
+        ) : list.length === 0 ? (
           <div className="text-center py-20">
             <Sparkles className="w-12 h-12 text-[#E07A1F] mx-auto mb-4" />
             <h3 className="font-display text-2xl text-stone-700">More events coming soon</h3>
@@ -74,10 +140,22 @@ const UpcomingList = ({ filterSlug }) => {
           </div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {list.map((e) => <EventCard key={e.id} e={e} onRegister={handleRegister} />)}
+            {list.map((e) => (
+              <EventCard key={e.id || e.slug} e={e} onRegister={handleRegister} onBuyTickets={handleBuyTickets} />
+            ))}
           </div>
         )}
       </div>
+      {activeTicketEvent && (
+        <TicketPurchaseModal
+          event={activeTicketEvent}
+          onClose={() => setActiveTicketEvent(null)}
+          onSuccess={() => {
+            // Refresh live counts after purchase
+            apiClient.get("/events").then((r) => setLiveEvents(r.data || []));
+          }}
+        />
+      )}
     </section>
   );
 };
