@@ -30,13 +30,15 @@ export default function TicketOrdersAdmin() {
       if (statusFilter) params.push(`status=${statusFilter}`);
       const qs = params.length ? "?" + params.join("&") : "";
       const r = await apiClient.get(`/admin/ticket-orders${qs}`);
-      setOrders(r.data);
+      setOrders(Array.isArray(r.data) ? r.data : []);
+    } catch {
+      setOrders([]);
     } finally {
       setLoading(false);
     }
   }, [eventFilter, statusFilter]);
 
-  useEffect(() => { apiClient.get("/admin/events").then((r) => setEvents(r.data)); }, []);
+  useEffect(() => { apiClient.get("/admin/events").then((r) => setEvents(Array.isArray(r.data) ? r.data : [])).catch(() => setEvents([])); }, []);
   useEffect(() => { load(); }, [load]);
 
   const markStatus = async (id, status) => {

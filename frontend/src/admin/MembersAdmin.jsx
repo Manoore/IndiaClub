@@ -36,7 +36,9 @@ export default function MembersAdmin() {
     try {
       const qs = filter !== "all" ? `?status=${filter}` : "";
       const r = await apiClient.get(`/admin/members${qs}`);
-      setItems(r.data);
+      setItems(Array.isArray(r.data) ? r.data : []);
+    } catch {
+      setItems([]);
     } finally {
       setLoading(false);
     }
