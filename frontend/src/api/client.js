@@ -1,6 +1,33 @@
 import axios from "axios";
 
-const BASE = process.env.REACT_APP_BACKEND_URL || "";
+// Resolve API base URL.
+// Priority:
+//  - Local dev / Emergent preview hosts → use REACT_APP_BACKEND_URL (.env)
+//  - Anywhere else (Firebase / custom domain) → use window.__ICGD_API_URL__
+//    (editable in build/index.html post-build), fall back to env var.
+const envUrl = (process.env.REACT_APP_BACKEND_URL || "").replace(/\/+$/, "");
+const runtimeUrl =
+  ((typeof window !== "undefined" && window.__ICGD_API_URL__) || "").replace(/\/+$/, "");
+const host =
+  typeof window !== "undefined" ? window.location.hostname : "";
+const isDevOrPreview =
+  /^(localhost|127\.0\.0\.1)$/.test(host) ||
+  host.endsWith(".preview.emergentagent.com");
+const BASE = isDevOrPreview ? envUrl || runtimeUrl : runtimeUrl || envUrl;
+
+if (typeof window !== "undefined") {
+  const isLocal = /^(localhost|127\.0\.0\.1)$/.test(host);
+  if (!BASE && !isLocal) {
+    // eslint-disable-next-line no-console
+    console.error(
+      "[ICGD] No backend URL configured. Edit window.__ICGD_API_URL__ in build/index.html or set REACT_APP_BACKEND_URL before build."
+    );
+  } else if (BASE) {
+    // eslint-disable-next-line no-console
+    console.info("[ICGD] API base:", BASE);
+  }
+}
+
 export const API = `${BASE}/api`;
 
 export const apiClient = axios.create({ baseURL: API });

@@ -3,6 +3,9 @@ import { Plus, Pencil, Trash2, X, Upload, Search } from "lucide-react";
 import { apiClient } from "../api/client";
 import { useToast } from "../hooks/use-toast";
 
+const RESOLVED_BASE =
+  ((typeof window !== "undefined" && window.__ICGD_API_URL__) || process.env.REACT_APP_BACKEND_URL || "").replace(/\/+$/, "");
+
 /**
  * Generic admin CRUD page.
  * Props:
@@ -155,7 +158,7 @@ function EditModal({ isNew, initial, fields, title, onClose, onSave }) {
     const fd = new FormData(); fd.append("file", file);
     try {
       const r = await apiClient.post("/files/upload", fd, { headers: { "Content-Type": "multipart/form-data" } });
-      const fullUrl = (process.env.REACT_APP_BACKEND_URL || "") + r.data.url;
+      const fullUrl = RESOLVED_BASE + r.data.url;
       updateField(key, fullUrl);
       toast({ title: "Uploaded" });
     } catch (e) {

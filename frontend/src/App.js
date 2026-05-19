@@ -23,7 +23,10 @@ import LoginPage from "./pages/LoginPage";
 import MemberDashboardPage from "./pages/MemberDashboardPage";
 import AdminRoutes from "./admin/AdminRoutes";
 
-const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID || "";
+const GOOGLE_CLIENT_ID =
+  (typeof window !== "undefined" && window.__ICGD_GOOGLE_CLIENT_ID__) ||
+  process.env.REACT_APP_GOOGLE_CLIENT_ID ||
+  "";
 
 const ScrollToTop = () => {
   const { pathname } = useLocation();
