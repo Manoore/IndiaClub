@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, Loader2, Ticket, Lock, Plus, Minus, CheckCircle2 } from "lucide-react";
+import { X, Loader2, Ticket, Lock, Plus, Minus, CheckCircle2, Calendar, Video, MapPin, Tag } from "lucide-react";
 import { apiClient } from "../api/client";
 import { useToast } from "../hooks/use-toast";
 import { useMemberAuth } from "../api/MemberAuthContext";
@@ -36,6 +36,11 @@ export default function TicketPurchaseModal({ event, onClose, onSuccess }) {
   });
   const [busy, setBusy] = useState(false);
   const [success, setSuccess] = useState(null);
+  // Phase 5: promo code state
+  const [promoInput, setPromoInput] = useState("");
+  const [promo, setPromo] = useState(null);
+  const [promoBusy, setPromoBusy] = useState(false);
+  const [promoErr, setPromoErr] = useState("");
 
   const types = event.ticket_types || [];
   const isActiveMember = isAuthed && member?.membership?.status === "active";
@@ -55,6 +60,23 @@ export default function TicketPurchaseModal({ event, onClose, onSuccess }) {
     setQuantities((prev) => ({ ...prev, [id]: q }));
   };
 
+  // Mirror of backend _effective_ticket_price()
+  const now = new Date();
+  const priceOf = (t) => {
+    const eb = t.early_bird_end_date ? new Date(t.early_bird_end_date) : null;
+    if (t.early_bird_price != null && eb && now <= eb) return Number(t.early_bird_price);
+    if (isActiveMember && t.member_price != null) return Number(t.member_price);
+    return Number(t.price || 0);
+  };
+  const priceLabel = (t) => {
+    const eb = t.early_bird_end_date ? new Date(t.early_bird_end_date) : null;
+    const ebActive = t.early_bird_price != null && eb && now <= eb;
+    const memberActive = !ebActive && isActiveMember && t.member_price != null;
+    const eff = priceOf(t);
+    const regular = Number(t.price || 0);
+    return { eff, regular, ebActive, memberActive, eb };
+  };
+
   const items = visibleTypes
     .map((t) => ({
       type: t,
@@ -62,8 +84,30 @@ export default function TicketPurchaseModal({ event, onClose, onSuccess }) {
     }))
     .filter((i) => i.qty > 0);
 
-  const subtotal = items.reduce((s, i) => s + i.qty * Number(i.type.price || 0), 0);
+  const subtotal = items.reduce((s, i) => s + i.qty * priceOf(i.type), 0);
   const totalTickets = items.reduce((s, i) => s + i.qty, 0);
+
+  const computedDiscount = promo
+    ? (promo.kind === "percent" ? subtotal * (Number(promo.value) / 100) : Math.min(Number(promo.value), subtotal))
+    : 0;
+  const total = Math.max(0, subtotal - computedDiscount);
+
+  const applyPromo = async () => {
+    const code = (promoInput || "").trim();
+    if (!code) return;
+    setPromoBusy(true);
+    setPromoErr("");
+    try {
+      const r = await apiClient.post(`/events/${event.id}/validate-promo`, { code });
+      setPromo(r.data);
+      toast({ title: `Promo applied: ${r.data.code}`, description: `${r.data.kind === "percent" ? r.data.value + "% off" : "$" + r.data.value + " off"}` });
+    } catch (err) {
+      setPromo(null);
+      setPromoErr(err?.response?.data?.detail || "Invalid promo code");
+    } finally {
+      setPromoBusy(false);
+    }
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -80,6 +124,7 @@ export default function TicketPurchaseModal({ event, onClose, onSuccess }) {
         buyer_email: buyer.buyer_email.trim(),
         buyer_phone: buyer.buyer_phone?.trim() || undefined,
         payment_method: buyer.payment_method,
+        promo_code: promo?.code || undefined,
         notes: buyer.notes || "",
       };
       const r = await apiClient.post(`/events/${event.id}/purchase-tickets`, payload);
@@ -166,7 +211,17 @@ export default function TicketPurchaseModal({ event, onClose, onSuccess }) {
             <div>
               <div className="font-cinzel text-xs tracking-[0.22em] text-[#E07A1F]">BUY TICKETS</div>
               <h3 className="font-display text-xl text-[#8B1A1A]">{event.title}</h3>
-              <div className="text-xs text-stone-500">{event.date} · {event.venue}</div>
+              <div className="text-xs text-stone-500 flex items-center gap-2 flex-wrap mt-0.5" data-testid="ticket-event-meta">
+                {(event.start_date || event.date) && (
+                  <span className="inline-flex items-center gap-1"><Calendar className="w-3 h-3" />{event.start_date ? new Date(event.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : event.date}{event.end_date && event.end_date !== event.start_date ? ` → ${new Date(event.end_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : ""}</span>
+                )}
+                {event.event_format === "online" || event.event_format === "hybrid" ? (
+                  <span className="inline-flex items-center gap-1 text-emerald-700"><Video className="w-3 h-3" />{event.event_format === "hybrid" ? "Hybrid" : "Online"}</span>
+                ) : null}
+                {(event.event_format !== "online") && event.venue && (
+                  <span className="inline-flex items-center gap-1"><MapPin className="w-3 h-3" />{event.venue.split(",")[0]}</span>
+                )}
+              </div>
             </div>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-stone-100 rounded-md">
@@ -250,8 +305,24 @@ export default function TicketPurchaseModal({ event, onClose, onSuccess }) {
                         {t.description && (
                           <div className="text-xs text-stone-500 mt-0.5">{t.description}</div>
                         )}
-                        <div className="text-sm text-[#8B1A1A] font-display mt-1">
-                          ${Number(t.price).toFixed(2)}
+                        <div className="mt-1 flex items-baseline gap-2 flex-wrap" data-testid={`ticket-price-${t.id}`}>
+                          {(() => {
+                            const p = priceLabel(t);
+                            return (
+                              <>
+                                <span className="text-base text-[#8B1A1A] font-display">${p.eff.toFixed(2)}</span>
+                                {(p.ebActive || p.memberActive) && p.regular > p.eff && (
+                                  <span className="text-xs text-stone-400 line-through">${p.regular.toFixed(2)}</span>
+                                )}
+                                {p.ebActive && (
+                                  <span className="px-1.5 py-0.5 bg-[#E07A1F]/15 text-[#E07A1F] rounded text-[10px] font-cinzel tracking-wider">EARLY BIRD</span>
+                                )}
+                                {p.memberActive && (
+                                  <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded text-[10px] font-cinzel tracking-wider">MEMBER PRICE</span>
+                                )}
+                              </>
+                            );
+                          })()}
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -341,17 +412,50 @@ export default function TicketPurchaseModal({ event, onClose, onSuccess }) {
             </div>
           )}
 
+          {/* Promo code */}
+          {totalTickets > 0 && (
+            <div className="pt-3 border-t border-stone-100" data-testid="promo-section">
+              <div className="text-xs font-cinzel tracking-wider text-stone-500 mb-2 flex items-center gap-1.5"><Tag className="w-3 h-3" /> PROMO CODE</div>
+              {promo ? (
+                <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2 text-sm" data-testid="promo-applied">
+                  <span><strong>{promo.code}</strong> applied — {promo.kind === "percent" ? `${promo.value}% off` : `$${promo.value} off`}</span>
+                  <button type="button" onClick={() => { setPromo(null); setPromoInput(""); }} className="text-emerald-700 hover:text-emerald-900 text-xs underline" data-testid="promo-remove">Remove</button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    value={promoInput}
+                    onChange={(e) => { setPromoInput(e.target.value.toUpperCase()); setPromoErr(""); }}
+                    placeholder="Enter code"
+                    className="flex-1 px-3 py-2 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A] text-sm uppercase"
+                    data-testid="promo-input"
+                  />
+                  <button type="button" onClick={applyPromo} disabled={promoBusy || !promoInput.trim()} className="px-4 py-2 bg-[#8B1A1A] hover:bg-[#6f1414] disabled:opacity-50 text-amber-50 rounded-md text-sm font-medium flex items-center gap-1.5" data-testid="promo-apply">
+                    {promoBusy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                    Apply
+                  </button>
+                </div>
+              )}
+              {promoErr && <div className="text-xs text-rose-600 mt-1.5" data-testid="promo-error">{promoErr}</div>}
+            </div>
+          )}
+
           {/* Summary + Submit */}
           {totalTickets > 0 && (
-            <div className="bg-amber-50/60 border border-amber-200 rounded-md p-3 flex items-center justify-between">
-              <div className="text-sm text-stone-700">
-                {totalTickets} ticket{totalTickets > 1 ? "s" : ""}
+            <div className="bg-amber-50/60 border border-amber-200 rounded-md p-3 space-y-1.5">
+              <div className="flex items-center justify-between text-sm text-stone-700">
+                <span>Subtotal · {totalTickets} ticket{totalTickets > 1 ? "s" : ""}</span>
+                <span data-testid="ticket-subtotal">${subtotal.toFixed(2)}</span>
               </div>
-              <div>
-                <span className="text-stone-500 text-sm">Total: </span>
-                <span className="font-display text-xl text-[#8B1A1A]" data-testid="ticket-total">
-                  ${subtotal.toFixed(2)}
-                </span>
+              {promo && (
+                <div className="flex items-center justify-between text-sm text-emerald-700" data-testid="ticket-discount-line">
+                  <span>Discount ({promo.code})</span>
+                  <span>−${computedDiscount.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between pt-1.5 border-t border-amber-200">
+                <span className="text-stone-700 text-sm">Total</span>
+                <span className="font-display text-xl text-[#8B1A1A]" data-testid="ticket-total">${total.toFixed(2)}</span>
               </div>
             </div>
           )}

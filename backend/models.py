@@ -41,7 +41,7 @@ class Event(BaseModel):
     title: str
     slug: str
     category: str
-    date: str
+    date: str  # legacy free-text display (kept for backward compat); prefer start_date
     time: Optional[str] = None
     venue: Optional[str] = None
     description: Optional[str] = None
@@ -53,6 +53,13 @@ class Event(BaseModel):
     color: Optional[str] = "#8B1A1A"
     typical_timing: Optional[str] = None
     ticket_types: List[dict] = []  # see TicketType model schema
+    # ---- Phase 5: structured scheduling + format ----
+    event_format: str = "in_person"  # in_person | online | hybrid
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None  # if set and != start_date → multi-day
+    online_url: Optional[str] = None  # Zoom / Meet / YouTube link
+    schedule: List[dict] = []  # [{day, time, title, location_or_link}]
+    promo_codes: List[dict] = []  # [{code, kind, value, max_uses, used}]
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -266,7 +273,10 @@ class TicketType(BaseModel):
     id: str = Field(default_factory=gen_id)
     name: str
     description: Optional[str] = ""
-    price: float = 0
+    price: float = 0  # legacy/default; treat as regular non-member price
+    member_price: Optional[float] = None  # if set, active members pay this
+    early_bird_price: Optional[float] = None  # if set, anyone pays this until early_bird_end_date
+    early_bird_end_date: Optional[datetime] = None
     members_only: bool = False
     sale_start: Optional[datetime] = None  # if None, available immediately
     sale_end: Optional[datetime] = None  # if None, available until event date
@@ -306,6 +316,7 @@ class TicketPurchaseRequest(BaseModel):
     buyer_email: EmailStr
     buyer_phone: Optional[str] = None
     payment_method: str = "paypal"
+    promo_code: Optional[str] = None  # Phase 5: apply discount if valid
     notes: Optional[str] = ""
 
 

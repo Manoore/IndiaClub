@@ -228,6 +228,60 @@ async def member_subscribe(body: MemberSubscribeRequest, member_id: str = Depend
     return _public_member(m)
 
 
+@api.post("/members/me/renew")
+async def member_renew(member_id: str = Depends(require_member)):
+    """Renew an active or expired membership: extend end_date by 365 days from
+    today (or from existing end_date if it's still in the future)."""
+    m = await db.members.find_one({"id": member_id})
+    if not m:
+        raise HTTPException(404, "Member not found")
+    mem = m.get("membership") or {}
+    if not mem.get("plan"):
+        raise HTTPException(400, "No membership to renew — subscribe to a plan first")
+    now = datetime.utcnow()
+    cur_end = mem.get("end_date")
+    if isinstance(cur_end, str):
+        try:
+            cur_end = datetime.fromisoformat(cur_end.replace("Z", "+00:00")).replace(tzinfo=None)
+        except Exception:
+            cur_end = None
+    base = cur_end if (cur_end and cur_end > now) else now
+    new_end = base + timedelta(days=365)
+    await db.members.update_one({"id": member_id}, {"$set": {
+        "membership.status": "active",
+        "membership.end_date": new_end,
+        "membership.payment_received": False,  # admin marks True once payment received
+        "updated_at": now,
+    }})
+    m = await db.members.find_one({"id": member_id})
+    return _public_member(m)
+
+
+@api.post("/events/{event_id}/validate-promo")
+async def validate_promo_code(event_id: str, body: dict):
+    """Return the discount info for a promo code so the UI can preview before purchase."""
+    code = (body.get("code") or "").strip().upper()
+    if not code:
+        raise HTTPException(400, "Promo code required")
+    event = await db.events.find_one({"id": event_id})
+    if not event:
+        raise HTTPException(404, "Event not found")
+    for p in (event.get("promo_codes") or []):
+        if (p.get("code") or "").strip().upper() != code:
+            continue
+        max_uses = int(p.get("max_uses") or 0)
+        used = int(p.get("used") or 0)
+        if max_uses and used >= max_uses:
+            raise HTTPException(400, "Promo code usage limit reached")
+        return {
+            "code": code,
+            "kind": (p.get("kind") or "percent").lower(),
+            "value": float(p.get("value") or 0),
+            "remaining": (max_uses - used) if max_uses else None,
+        }
+    raise HTTPException(404, f"Promo code '{body.get('code')}' not found for this event")
+
+
 # ===================== Files =====================
 @api.post("/files/upload")
 async def upload_file(file: UploadFile = File(...), _: str = Depends(require_admin)):
@@ -467,6 +521,31 @@ async def get_site_settings():
 
 
 # -------- Event Ticket Purchase (public, optionally as member) --------
+def _parse_dt(d):
+    if not d:
+        return None
+    if isinstance(d, datetime):
+        return d
+    try:
+        return datetime.fromisoformat(str(d).replace("Z", "+00:00")).replace(tzinfo=None)
+    except Exception:
+        return None
+
+
+def _effective_ticket_price(t: dict, is_active_member: bool, now: datetime) -> float:
+    """Pick the right price for a ticket given member status + early-bird window.
+    Precedence: early-bird (if active) → member price → regular price.
+    """
+    eb_end = _parse_dt(t.get("early_bird_end_date"))
+    eb_price = t.get("early_bird_price")
+    if eb_price is not None and eb_end and now <= eb_end:
+        return float(eb_price)
+    mem_price = t.get("member_price")
+    if is_active_member and mem_price is not None:
+        return float(mem_price)
+    return float(t.get("price") or 0)
+
+
 @api.post("/events/{event_id}/purchase-tickets")
 async def purchase_tickets(event_id: str, body: TicketPurchaseRequest, authorization: Optional[str] = Header(None)):
     event = await db.events.find_one({"id": event_id})
@@ -483,6 +562,7 @@ async def purchase_tickets(event_id: str, body: TicketPurchaseRequest, authoriza
         mid = decode_token(authorization.split(" ", 1)[1].strip(), expected_typ="member")
         if mid:
             member = await db.members.find_one({"id": mid})
+    is_active_member = bool(member and (member.get("membership") or {}).get("status") == "active")
 
     types_by_id = {t["id"]: t for t in types}
     now = datetime.utcnow()
@@ -498,15 +578,11 @@ async def purchase_tickets(event_id: str, body: TicketPurchaseRequest, authoriza
         if not t:
             raise HTTPException(400, f"Unknown ticket type {tid}")
         # Member-only check
-        if t.get("members_only") and (not member or (member.get("membership") or {}).get("status") != "active"):
+        if t.get("members_only") and not is_active_member:
             raise HTTPException(403, f"Ticket '{t['name']}' is for active members only")
         # Sale window
-        def _parse(d):
-            if not d: return None
-            if isinstance(d, datetime): return d
-            try: return datetime.fromisoformat(str(d).replace("Z", "+00:00")).replace(tzinfo=None)
-            except: return None
-        ss = _parse(t.get("sale_start")); se = _parse(t.get("sale_end"))
+        ss = _parse_dt(t.get("sale_start"))
+        se = _parse_dt(t.get("sale_end"))
         if ss and now < ss:
             raise HTTPException(400, f"Ticket '{t['name']}' is not on sale yet")
         if se and now > se:
@@ -518,7 +594,7 @@ async def purchase_tickets(event_id: str, body: TicketPurchaseRequest, authoriza
             available = total_q - sold_q
             raise HTTPException(400, f"Only {available} '{t['name']}' tickets remain")
 
-        price = float(t.get("price") or 0)
+        price = _effective_ticket_price(t, is_active_member, now)
         order_items.append({
             "ticket_type_id": tid,
             "ticket_type_name": t["name"],
@@ -530,6 +606,32 @@ async def purchase_tickets(event_id: str, body: TicketPurchaseRequest, authoriza
     if not order_items:
         raise HTTPException(400, "Please select at least one ticket")
 
+    # Promo code application
+    discount = 0.0
+    promo_applied = None
+    if body.promo_code:
+        code_norm = body.promo_code.strip().upper()
+        promos = event.get("promo_codes") or []
+        for p in promos:
+            if (p.get("code") or "").strip().upper() != code_norm:
+                continue
+            max_uses = int(p.get("max_uses") or 0)
+            used = int(p.get("used") or 0)
+            if max_uses and used >= max_uses:
+                raise HTTPException(400, "Promo code usage limit reached")
+            kind = (p.get("kind") or "percent").lower()
+            value = float(p.get("value") or 0)
+            if kind == "percent":
+                discount = subtotal * (value / 100.0)
+            else:
+                discount = min(value, subtotal)
+            promo_applied = code_norm
+            break
+        if promo_applied is None:
+            raise HTTPException(400, f"Invalid promo code '{body.promo_code}'")
+
+    total = max(0.0, subtotal - discount)
+
     order = TicketOrder(
         event_id=event_id,
         event_title=event.get("title", ""),
@@ -539,12 +641,15 @@ async def purchase_tickets(event_id: str, body: TicketPurchaseRequest, authoriza
         buyer_phone=body.buyer_phone,
         items=[],
         subtotal=subtotal,
-        total=subtotal,
+        total=total,
         payment_method=body.payment_method,
         payment_status="pending",
         notes=body.notes or "",
     ).model_dump()
     order["items"] = order_items
+    if promo_applied:
+        order["promo_code"] = promo_applied
+        order["discount"] = round(discount, 2)
     await db.ticket_orders.insert_one(order)
 
     # Increment sold counters on the event
@@ -554,7 +659,16 @@ async def purchase_tickets(event_id: str, body: TicketPurchaseRequest, authoriza
         nt = dict(t)
         nt["quantity_sold"] = int(t.get("quantity_sold") or 0) + sold_inc
         updated_types.append(nt)
-    await db.events.update_one({"id": event_id}, {"$set": {"ticket_types": updated_types}})
+    update_doc = {"ticket_types": updated_types}
+    if promo_applied:
+        new_promos = []
+        for p in (event.get("promo_codes") or []):
+            np = dict(p)
+            if (np.get("code") or "").strip().upper() == promo_applied:
+                np["used"] = int(np.get("used") or 0) + 1
+            new_promos.append(np)
+        update_doc["promo_codes"] = new_promos
+    await db.events.update_one({"id": event_id}, {"$set": update_doc})
 
     order.pop("_id", None)
     return order
@@ -841,6 +955,17 @@ logging.basicConfig(level=logging.INFO)
 @app.on_event("startup")
 async def on_startup():
     await seed_if_empty()
+    # Phase 5: auto-expire memberships whose end_date has passed
+    try:
+        now = datetime.utcnow()
+        r = await db.members.update_many(
+            {"membership.status": "active", "membership.end_date": {"$lt": now}},
+            {"$set": {"membership.status": "expired", "updated_at": now}},
+        )
+        if r.modified_count:
+            logging.info(f"[startup] auto-expired {r.modified_count} memberships")
+    except Exception as e:
+        logging.warning(f"[startup] auto-expire skipped: {e}")
     logging.info("ICGD API started + seed verified")
 
 

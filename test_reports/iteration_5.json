@@ -1,0 +1,36 @@
+{
+  "summary": "Phase 5 (ticket pricing matrix + event format + promo codes + member renewal) — fully tested. Backend: 17/17 new Phase 5 pytest cases pass + 19/19 Phase 4 regression pass = 36/36 green in combined run. Pricing precedence verified end-to-end: non-member + EB-active=$40 (EB beats nothing); member-no-EB=$15 (member price wins); member + EB-active=$40 (EB beats member ✅); no EB & no member=$25 (regular); EB-expired falls correctly to member ($22) or regular ($30). Promo codes: percent (DIWALI20 → 20% off → $80→$64), amount (FLAT5 → $25→$20), case-insensitive matching, invalid code 400, max-uses-exhausted 400, /validate-promo returns 200 for valid + 404 for invalid. Membership renewal: active member end_date extends +365 days from existing end (additive, not from now); expired member flips to status=active with end=now+365 (verified by directly seeding an expired member in Mongo); no-plan member returns 400. Admin event CRUD round-trip: event_format/online_url/start_date/promo_codes/ticket_types with member_price+EB+EB_end persist on POST and reflect identically on GET. Legacy events with only `price` (no member_price/EB) still purchase correctly at regular price. _id never leaks. Frontend: TicketPurchaseModal shows EARLY BIRD badge with strikethrough $50, Hybrid format meta in header (icon + 'Hybrid' + venue 'ICGD Hall'), promo-code input with Apply, applied-promo state with Remove, discount line in summary, error message for bad code — DIWALI20 on 2x adult correctly computed total $64.00 in UI. MemberDashboard: seeded a member with end_date=now+10 days → 'membership-renewal-banner' rendered with text 'Renews in 10 days — extend by 1 year now…'; clicking 'member-renew-btn' fired POST /api/members/me/renew, success toast 'Membership renewed! Valid until 5/29/2027' appeared, banner disappeared on refresh.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_phase5_pricing.py",
+    "/app/backend/tests/_phase5_ui_seed.py",
+    "/app/test_reports/pytest/pytest_phase5.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is now 974 lines — past the 700-line guideline. Recommend splitting into routers (auth, members, events/tickets, admin CRUD, site_settings).",
+    "purchase_tickets has TWO copies of the promo-code lookup logic (one inside the order-creation block at L612-631, and the increment-used block at L664-670). Consider extracting `_find_promo(event, code)` to keep them in sync if business rules change.",
+    "validate_promo_code endpoint receives `body: dict` — should use a Pydantic model (e.g., `PromoValidateRequest`) for consistent input validation + auto-generated OpenAPI.",
+    "_effective_ticket_price uses `now <= eb_end` (inclusive on the end) — fine, but document timezone assumption (it compares naive UTC). If admin enters an EB end-date in local time via the datetime-local input, it will be off by tz offset. Make sure CrudPage.jsx datetime input serialises to UTC ISO before POST.",
+    "renew endpoint resets payment_received=False but doesn't notify admin or create an audit event — for a real renewal-payment workflow, add a renewal record in ticket_orders/donations or a dedicated `renewals` collection so admins can mark paid without losing history.",
+    "Auto-expire on startup runs only once at boot — for a long-running deployment, memberships that expire while the server is up never flip until next restart. Consider a daily background task (FastAPI background or cron).",
+    "Promo-code `used` counter is incremented inside purchase_tickets *after* the order is inserted, but is not protected by a transaction. Under high concurrency a single-use code could be redeemed twice. Use an atomic Mongo update like `find_one_and_update({id, promo_codes.code:X, promo_codes.used: {$lt: '$max_uses'}}, {$inc: {'promo_codes.$.used': 1}})`.",
+    "(Carry-over) test_members_and_admin.py::test_member_subscribe_pending + test_admin_list_members_filter_pending still expect status='pending' but business logic auto-approves to 'active' (server.py:210). 2 stale tests, not a Phase-5 issue."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_phase5_pricing.py (new — 17 tests, all pass)",
+    "/app/backend/tests/_phase5_ui_seed.py (new — one-off seeder/cleaner for UI fixtures)",
+    "/app/test_reports/pytest/pytest_phase5.xml (generated)"
+  ],
+  "success_rate": {
+    "backend": "100% (17/17 Phase 5 + 19/19 Phase 4 regression = 36/36)",
+    "frontend": "100% — all 5 frontend Phase 5 checks verified: EARLY BIRD badge, MEMBER PRICE badge path (logic verified via backend), format meta header, promo apply/remove with discount line, renewal banner + renew button + success toast"
+  },
+  "test_credentials": "admin/admin123 ✓, demo@indiaclubdayton.org/demo1234 ✓ (end_date now extended by ~1 year after the renewal-extends test — was already ~2028 from prior agent's curl test, now ~2029). Seeded + cleaned up test_expiring_ui@example.com for banner test.",
+  "seed_data_creation": "Created (and cleaned up) TEST_phase5_ui_event + test_expiring_ui@example.com via /app/backend/tests/_phase5_ui_seed.py — both removed at end. Phase-5 pytest creates+deletes its own events via admin API in fixtures (no residue). A handful of TEST_* ticket_orders with $40/$25 prices remain in Mongo (acceptable: append-only, easy to find by buyer_email prefix test_*).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Phase 5 backend tests in /app/backend/tests/test_phase5_pricing.py — run with `REACT_APP_BACKEND_URL=<url> python -m pytest backend/tests/test_phase5_pricing.py -v`. UI seeder at /app/backend/tests/_phase5_ui_seed.py (PYTHONPATH=/app/backend python3 tests/_phase5_ui_seed.py seed|cleanup). Reliable testids: ticket-purchase-modal, ticket-event-meta, ticket-type-<id>, ticket-price-<id>, qty-plus-<id>, qty-minus-<id>, qty-<id>, promo-section, promo-input, promo-apply, promo-applied, promo-remove, promo-error, ticket-subtotal, ticket-discount-line, ticket-total, ticket-submit, ticket-success-modal, membership-renewal-banner, member-renew-btn. Demo member end_date was already ~2028 from previous renew tests; do not assert exact dates — assert delta within ±2 days of +365.",
+  "rca_of_the_issue": "No bugs found. All Phase 5 features implemented correctly and match the spec including the early-bird precedence over member price (verified numerically: EB $40 wins over member $35 on the same Adult ticket for an authenticated active member). The expired-member-renew code path (cur_end < now → base=now) was verified by directly seeding a member with end_date=-10 days in Mongo then logging in and calling /api/members/me/renew — correctly flipped status to active and set end_date to now+365."
+}

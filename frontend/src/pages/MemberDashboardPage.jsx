@@ -415,6 +415,7 @@ export default function MemberDashboardPage() {
                   <Info label="Valid From" value={formatDate(member.membership.start_date)} />
                   <Info label="Valid Until" value={formatDate(member.membership.end_date)} />
                 </div>
+                <RenewBanner end={member.membership.end_date} onRenew={refresh} />
                 <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 flex items-start gap-2">
                   <CheckCircle2 className="w-5 h-5 text-emerald-700 mt-0.5 flex-shrink-0" />
                   <div>
@@ -446,14 +447,9 @@ export default function MemberDashboardPage() {
             )}
 
             {ms === "expired" && (
-              <div className="space-y-3">
+              <div className="space-y-3" data-testid="membership-expired-section">
                 <p className="text-stone-700">Your membership expired on {formatDate(member.membership.end_date)}.</p>
-                <Link
-                  to="/membership"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded-md font-medium"
-                >
-                  Renew Now
-                </Link>
+                <RenewButton onRenew={refresh} label="Renew Now (+1 year)" />
               </div>
             )}
           </div>
@@ -482,3 +478,44 @@ const Info = ({ label, value }) => (
     <div className="text-stone-900 mt-0.5 capitalize">{String(value)}</div>
   </div>
 );
+
+const RenewButton = ({ onRenew, label = "Renew (+1 year)" }) => {
+  const [busy, setBusy] = useState(false);
+  const { toast } = useToast();
+  const click = async () => {
+    setBusy(true);
+    try {
+      const r = await apiClient.post("/members/me/renew");
+      toast({ title: "Membership renewed!", description: `Valid until ${new Date(r.data?.membership?.end_date).toLocaleDateString()}.` });
+      if (onRenew) await onRenew();
+    } catch (err) {
+      toast({ title: "Couldn't renew", description: err?.response?.data?.detail || "Please try again.", variant: "destructive" });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <button onClick={click} disabled={busy} className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#8B1A1A] hover:bg-[#6f1414] disabled:opacity-70 text-amber-50 rounded-md font-medium" data-testid="member-renew-btn">
+      {busy && <Loader2 className="w-4 h-4 animate-spin" />}
+      {label}
+    </button>
+  );
+};
+
+const RenewBanner = ({ end, onRenew }) => {
+  if (!end) return null;
+  const endDt = new Date(end);
+  if (isNaN(endDt)) return null;
+  const days = Math.ceil((endDt - new Date()) / (1000 * 60 * 60 * 24));
+  if (days > 30) return null; // only show banner if within 30 days of expiry
+  const urgent = days <= 7;
+  return (
+    <div className={`rounded-lg p-4 border flex items-center justify-between flex-wrap gap-3 ${urgent ? "bg-rose-50 border-rose-200" : "bg-amber-50 border-amber-200"}`} data-testid="membership-renewal-banner">
+      <div className={`text-sm ${urgent ? "text-rose-900" : "text-amber-900"}`}>
+        <strong>{days > 0 ? `Renews in ${days} day${days === 1 ? "" : "s"}` : "Expires today"}</strong>
+        <span className="ml-2 opacity-80">— extend by 1 year now to keep member pricing & perks.</span>
+      </div>
+      <RenewButton onRenew={onRenew} label="Renew Now" />
+    </div>
+  );
+};
