@@ -475,3 +475,51 @@ class MemberSubscribeRequest(BaseModel):
 
 class MemberRejectRequest(BaseModel):
     reason: Optional[str] = ""
+
+
+
+# ---------- Home page CMS content ----------
+class HeroSlide(BaseModel):
+    id: str = Field(default_factory=gen_id)
+    image_url: str
+    headline: Optional[str] = None
+    subhead: Optional[str] = None
+    cta_label: Optional[str] = None
+    cta_link: Optional[str] = None
+    order: int = 100
+    active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class FeatureHighlight(BaseModel):
+    id: str = Field(default_factory=gen_id)
+    title: str
+    description: str
+    image_url: Optional[str] = None
+    cta: str = "Learn More"
+    link: str = "/"
+    accent: str = "#8B1A1A"  # Hex color
+    order: int = 100
+    active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Testimonial(BaseModel):
+    id: str = Field(default_factory=gen_id)
+    name: str
+    body: str
+    date: Optional[str] = None  # e.g. "Feb 06, 2024" — kept as string for display flexibility
+    rating: int = 5
+    image_url: Optional[str] = None
+    order: int = 100
+    active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class SiteStat(BaseModel):
+    id: str = Field(default_factory=gen_id)
+    label: str
+    value: str
+    order: int = 100
+    active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)

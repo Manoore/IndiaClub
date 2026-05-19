@@ -336,3 +336,82 @@ export const EventRegistrationsAdmin = () => (
       { key: "created_at", label: "Date", render: (r) => r.created_at ? new Date(r.created_at).toLocaleDateString() : "" },
     ]} fields={[]} />
 );
+
+
+export const HeroSlidesAdmin = () => (
+  <CrudPage title="Hero Slides" description="Rotating banner images at the top of the homepage." endpoint="hero-slides"
+    columns={[
+      { key: "image_url", label: "Image", render: (r) => r.image_url ? <img src={r.image_url} alt="" className="w-20 h-12 rounded object-cover" /> : <div className="w-20 h-12 bg-stone-100 rounded" /> },
+      { key: "headline", label: "Headline" },
+      { key: "subhead", label: "Subhead" },
+      { key: "order", label: "Order" },
+      { key: "active", label: "Active", render: (r) => r.active ? "✓" : "✕" },
+    ]}
+    fields={[
+      { key: "image_url", label: "Background Image", type: "image", required: true, hint: "Wide landscape image (1600×900 recommended)" },
+      { key: "headline", label: "Headline", type: "text" },
+      { key: "subhead", label: "Subhead", type: "textarea", rows: 2 },
+      { key: "cta_label", label: "Button Label", type: "text", placeholder: "Become a Member" },
+      { key: "cta_link", label: "Button Link", type: "text", placeholder: "/membership/regular" },
+      { key: "order", label: "Order", type: "number", default: 100 },
+      { key: "active", label: "Active", type: "checkbox", default: true },
+    ]} />
+);
+
+export const FeatureHighlightsAdmin = () => (
+  <CrudPage title="Feature Highlights" description="The 4 promo tiles on the homepage (Become a Member, Sponsor, etc.)." endpoint="feature-highlights"
+    columns={[
+      { key: "image_url", label: "Image", render: (r) => r.image_url ? <img src={r.image_url} alt="" className="w-14 h-14 rounded object-cover" /> : <div className="w-14 h-14 bg-stone-100 rounded" /> },
+      { key: "title", label: "Title" },
+      { key: "cta", label: "CTA" },
+      { key: "link", label: "Link" },
+      { key: "order", label: "Order" },
+      { key: "active", label: "Active", render: (r) => r.active ? "✓" : "✕" },
+    ]}
+    fields={[
+      { key: "title", label: "Title", type: "text", required: true },
+      { key: "description", label: "Description", type: "textarea", rows: 2, required: true },
+      { key: "image_url", label: "Image", type: "image" },
+      { key: "cta", label: "Button Label", type: "text", default: "Learn More" },
+      { key: "link", label: "Link", type: "text", required: true, placeholder: "/membership/regular" },
+      { key: "accent", label: "Accent Color", type: "text", default: "#8B1A1A", hint: "Hex color, e.g. #8B1A1A" },
+      { key: "order", label: "Order", type: "number", default: 100 },
+      { key: "active", label: "Active", type: "checkbox", default: true },
+    ]} />
+);
+
+export const TestimonialsAdmin = () => (
+  <CrudPage title="Testimonials" description="Quotes from community members shown on the homepage." endpoint="testimonials"
+    columns={[
+      { key: "name", label: "Name" },
+      { key: "body", label: "Quote", render: (r) => <span className="text-sm text-stone-600 line-clamp-2 max-w-md inline-block">{r.body}</span> },
+      { key: "date", label: "Date" },
+      { key: "rating", label: "Rating" },
+      { key: "active", label: "Active", render: (r) => r.active ? "✓" : "✕" },
+    ]}
+    fields={[
+      { key: "name", label: "Name", type: "text", required: true },
+      { key: "body", label: "Quote", type: "textarea", rows: 4, required: true },
+      { key: "date", label: "Date", type: "text", placeholder: "Feb 06, 2024" },
+      { key: "rating", label: "Rating (1-5)", type: "number", default: 5 },
+      { key: "image_url", label: "Avatar (optional)", type: "image" },
+      { key: "order", label: "Order", type: "number", default: 100 },
+      { key: "active", label: "Active", type: "checkbox", default: true },
+    ]} />
+);
+
+export const SiteStatsAdmin = () => (
+  <CrudPage title="Site Stats" description="The number tiles shown across the site (e.g. Founded 1967, 1000+ Members)." endpoint="site-stats"
+    columns={[
+      { key: "label", label: "Label" },
+      { key: "value", label: "Value" },
+      { key: "order", label: "Order" },
+      { key: "active", label: "Active", render: (r) => r.active ? "✓" : "✕" },
+    ]}
+    fields={[
+      { key: "label", label: "Label", type: "text", required: true, placeholder: "Founded" },
+      { key: "value", label: "Value", type: "text", required: true, placeholder: "1967" },
+      { key: "order", label: "Order", type: "number", default: 100 },
+      { key: "active", label: "Active", type: "checkbox", default: true },
+    ]} />
+);

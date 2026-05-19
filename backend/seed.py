@@ -469,3 +469,81 @@ async def seed_if_empty():
             "created_at": now - timedelta(days=2),
             "updated_at": now - timedelta(days=1),
         })
+
+
+    # ---- Hero Slides ----
+    if await db.hero_slides.count_documents({}) == 0:
+        slides = [
+            {
+                "image_url": "https://images.unsplash.com/photo-1585607344893-43a4bd91169a?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600",
+                "headline": "Celebrating Indian Heritage",
+                "subhead": "Connecting families across Greater Dayton since 1967",
+                "cta_label": "Become a Member",
+                "cta_link": "/membership/regular",
+            },
+            {
+                "image_url": "https://images.unsplash.com/photo-1467810563316-b5476525c0f9?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600",
+                "headline": "Festival of Lights",
+                "subhead": "Diwali Mela — the warmth of community, the magic of celebration",
+                "cta_label": "See Events",
+                "cta_link": "/events/upcoming",
+            },
+            {
+                "image_url": "https://images.unsplash.com/photo-1716714620140-9ed26b67e900?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600",
+                "headline": "Programs for Every Generation",
+                "subhead": "From Rising Stars to Golden Jewels — there is a place for you",
+                "cta_label": "Explore Programs",
+                "cta_link": "/programs",
+            },
+        ]
+        await db.hero_slides.insert_many([
+            {
+                "id": f"hero-{i}",
+                "image_url": s["image_url"],
+                "headline": s["headline"],
+                "subhead": s["subhead"],
+                "cta_label": s["cta_label"],
+                "cta_link": s["cta_link"],
+                "order": (i + 1) * 10,
+                "active": True,
+                "created_at": datetime.utcnow(),
+            } for i, s in enumerate(slides)
+        ])
+
+    # ---- Feature Highlights ----
+    if await db.feature_highlights.count_documents({}) == 0:
+        feats = [
+            {"title": "Become a Member", "description": "Join 1000+ families and immerse in cultural events, networking and community.", "cta": "Join Today", "link": "/membership/regular", "accent": "#8B1A1A", "image_url": "https://images.unsplash.com/photo-1605302977140-6572a4421aef?crop=entropy&cs=srgb&fm=jpg&q=85&w=1200"},
+            {"title": "Sponsor India Club", "description": "A community-funded institution supported by sponsors and well-wishers.", "cta": "Sponsor Us", "link": "/sponsorship/become-sponsor", "accent": "#E07A1F", "image_url": "https://images.unsplash.com/photo-1716714607603-8aa6a2f16d84?crop=entropy&cs=srgb&fm=jpg&q=85&w=1200"},
+            {"title": "Business Membership", "description": "Grow your business with the largest Indian community in Greater Dayton.", "cta": "Learn More", "link": "/membership/business", "accent": "#C9A961", "image_url": "https://images.unsplash.com/photo-1716714620140-9ed26b67e900?crop=entropy&cs=srgb&fm=jpg&q=85&w=1200"},
+            {"title": "Donate to Own a Place", "description": "Help us build a permanent home so we can serve you more efficiently.", "cta": "Donate Now", "link": "/sponsorship/donate", "accent": "#8B1A1A", "image_url": "https://images.unsplash.com/photo-1467810563316-b5476525c0f9?crop=entropy&cs=srgb&fm=jpg&q=85&w=1200"},
+        ]
+        await db.feature_highlights.insert_many([
+            {"id": f"feat-{i}", **f, "order": (i + 1) * 10, "active": True, "created_at": datetime.utcnow()}
+            for i, f in enumerate(feats)
+        ])
+
+    # ---- Testimonials ----
+    if await db.testimonials.count_documents({}) == 0:
+        quotes = [
+            {"name": "Amrit & Shashi Chadha", "date": "Feb 06, 2024", "body": "Thank you for sharing the program. You guys had done a wonderful job in planning and organizing the program. Congratulations and God Bless."},
+            {"name": "Priya Menon", "date": "Oct 24, 2024", "body": "The Diwali Mela was magical — stalls, dance, fireworks. Felt like home, thousands of miles from India."},
+            {"name": "Suresh & Latha Iyer", "date": "Apr 18, 2025", "body": "Golden Jewels evenings have brought so much joy. The volunteers go above and beyond every single time."},
+        ]
+        await db.testimonials.insert_many([
+            {"id": f"test-{i}", **q, "rating": 5, "image_url": None, "order": (i + 1) * 10, "active": True, "created_at": datetime.utcnow()}
+            for i, q in enumerate(quotes)
+        ])
+
+    # ---- Site Stats ----
+    if await db.site_stats.count_documents({}) == 0:
+        stats = [
+            {"label": "Founded", "value": "1967"},
+            {"label": "Member Families", "value": "1000+"},
+            {"label": "Annual Events", "value": "40+"},
+            {"label": "Years of Service", "value": "58"},
+        ]
+        await db.site_stats.insert_many([
+            {"id": f"stat-{i}", **s, "order": (i + 1) * 10, "active": True, "created_at": datetime.utcnow()}
+            for i, s in enumerate(stats)
+        ])

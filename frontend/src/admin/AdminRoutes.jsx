@@ -12,7 +12,8 @@ import {
   EventsAdmin, NewsAdmin, ExecTeamAdmin, GalleryAdmin, SponsorsAdmin, DonorsAdmin,
   ClassifiedsAdmin, PastPresidentsAdmin, AwardeesAdmin, TaxReturnsAdmin, ProgramsAdmin,
   MembershipPlansAdmin, MembershipAppsAdmin, SubscribersAdmin, ContactInboxAdmin,
-  DonationsAdmin, SponsorInquiriesAdmin, EventRegistrationsAdmin, PerksAdmin
+  DonationsAdmin, SponsorInquiriesAdmin, EventRegistrationsAdmin, PerksAdmin,
+  HeroSlidesAdmin, FeatureHighlightsAdmin, TestimonialsAdmin, SiteStatsAdmin,
 } from "./AdminPages";
 
 const Protected = ({ children }) => {
@@ -49,6 +50,10 @@ export default function AdminRoutes() {
       <Route path="sponsorship-inquiries" element={<Protected><SponsorInquiriesAdmin /></Protected>} />
       <Route path="event-registrations" element={<Protected><EventRegistrationsAdmin /></Protected>} />
       <Route path="settings" element={<Protected><AdminSettings /></Protected>} />
+      <Route path="hero-slides" element={<Protected><HeroSlidesAdmin /></Protected>} />
+      <Route path="feature-highlights" element={<Protected><FeatureHighlightsAdmin /></Protected>} />
+      <Route path="testimonials" element={<Protected><TestimonialsAdmin /></Protected>} />
+      <Route path="site-stats" element={<Protected><SiteStatsAdmin /></Protected>} />
     </Routes>
   );
 }

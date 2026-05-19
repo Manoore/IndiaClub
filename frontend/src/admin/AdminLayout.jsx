@@ -4,6 +4,7 @@ import { useAdminAuth } from "../api/AdminAuthContext";
 import {
   LogOut, LayoutDashboard, Calendar, Newspaper, Users, Image, Building2, Heart, FileText,
   Award, Trophy, Inbox, ClipboardList, DollarSign, Tag, GraduationCap, Settings, Menu, X, Gift, Edit3, Ticket,
+  Sparkles, Quote, BarChart3,
 } from "lucide-react";
 
 const NAV_GROUPS = [
@@ -22,6 +23,10 @@ const NAV_GROUPS = [
     label: "Site",
     items: [
       { to: "/admin/site-content", label: "Site Content", icon: Edit3 },
+      { to: "/admin/hero-slides", label: "Hero Slides", icon: Image },
+      { to: "/admin/feature-highlights", label: "Feature Tiles", icon: Sparkles },
+      { to: "/admin/testimonials", label: "Testimonials", icon: Quote },
+      { to: "/admin/site-stats", label: "Site Stats", icon: BarChart3 },
     ],
   },
   {

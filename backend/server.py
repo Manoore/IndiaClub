@@ -19,7 +19,8 @@ from models import (
     EventRegistration, PastPresident, Awardee, TaxReturn, Program, MembershipPlan, gen_id,
     Member, MemberRegisterRequest, MemberLoginRequest, MemberProfileUpdate,
     MemberSubscribeRequest, MemberPasswordChange, MemberRejectRequest, MemberPerk,
-    GoogleSignInRequest, SiteSettings, SiteSettingsUpdate, TicketPurchaseRequest, TicketOrder
+    GoogleSignInRequest, SiteSettings, SiteSettingsUpdate, TicketPurchaseRequest, TicketOrder,
+    HeroSlide, FeatureHighlight, Testimonial, SiteStat
 )
 from seed import seed_if_empty
 
@@ -268,8 +269,14 @@ async def _list(coll, sort_field="created_at", asc=False, filter_=None):
 
 
 @api.get("/events")
-async def list_events():
-    return await _list("events", sort_field="created_at", asc=False)
+async def list_events(featured: Optional[bool] = None, limit: Optional[int] = None):
+    f = {}
+    if featured is not None:
+        f["featured"] = bool(featured)
+    cursor = db.events.find(f).sort("created_at", -1)
+    if limit and limit > 0:
+        cursor = cursor.limit(int(limit))
+    return _strip(await cursor.to_list(2000))
 
 
 @api.get("/events/{id}")
@@ -404,6 +411,26 @@ async def list_perks():
     return _strip(await db.perks.find({"active": True}).sort("order", 1).to_list(200))
 
 
+@api.get("/hero-slides")
+async def list_hero_slides():
+    return _strip(await db.hero_slides.find({"active": True}).sort("order", 1).to_list(50))
+
+
+@api.get("/feature-highlights")
+async def list_feature_highlights():
+    return _strip(await db.feature_highlights.find({"active": True}).sort("order", 1).to_list(50))
+
+
+@api.get("/testimonials")
+async def list_testimonials():
+    return _strip(await db.testimonials.find({"active": True}).sort("order", 1).to_list(100))
+
+
+@api.get("/site-stats")
+async def list_site_stats():
+    return _strip(await db.site_stats.find({"active": True}).sort("order", 1).to_list(20))
+
+
 @api.get("/site-settings")
 async def get_site_settings():
     s = await db.site_settings.find_one({"id": "main"})
@@ -524,12 +551,18 @@ COLLECTIONS = {
     "programs": Program,
     "membership-plans": MembershipPlan,
     "perks": MemberPerk,
+    "hero-slides": HeroSlide,
+    "feature-highlights": FeatureHighlight,
+    "testimonials": Testimonial,
+    "site-stats": SiteStat,
 }
 COLL_NAMES = {
     "events": "events", "news": "news", "exec-team": "exec_team", "gallery": "gallery",
     "sponsors": "sponsors", "donors": "donors", "classifieds": "classifieds",
     "past-presidents": "past_presidents", "awardees": "awardees", "tax-returns": "tax_returns",
     "programs": "programs", "membership-plans": "membership_plans", "perks": "perks",
+    "hero-slides": "hero_slides", "feature-highlights": "feature_highlights",
+    "testimonials": "testimonials", "site-stats": "site_stats",
 }
 
 # Generic admin CRUD endpoints
@@ -772,6 +805,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+logging.basicConfig(level=logging.INFO)
+
+
+@app.on_event("startup")
+async def on_startup():
+    await seed_if_empty()
+    logging.info("ICGD API started + seed verified")
+
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    pass
+
 
 logging.basicConfig(level=logging.INFO)
 

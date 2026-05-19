@@ -1,10 +1,12 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import HeroCarousel from "../components/HeroCarousel";
-import { FEATURE_HIGHLIGHTS, EVENT_CATEGORIES, UPCOMING_EVENTS, EXECUTIVE_TEAM, SPONSORS, TESTIMONIALS, CLASSIFIEDS } from "../data/mock";
-import { Calendar, MapPin, ArrowRight, Quote, Sparkles, Star } from "lucide-react";
+import { EVENT_CATEGORIES } from "../data/mock";
+import { Calendar, MapPin, ArrowRight, Quote, Sparkles, Star, Ticket } from "lucide-react";
 import Mandala from "../components/Mandala";
 import { useSiteSettings } from "../api/SiteSettingsContext";
+import { apiClient } from "../api/client";
+import TicketPurchaseModal from "../components/TicketPurchaseModal";
 
 const SectionHeader = ({ eyebrow, title, subtitle, center = false }) => (
   <div className={`mb-10 ${center ? "text-center mx-auto max-w-3xl" : ""}`}>
@@ -20,6 +22,36 @@ const SectionHeader = ({ eyebrow, title, subtitle, center = false }) => (
 
 export default function Home() {
   const s = useSiteSettings();
+  const [events, setEvents] = useState([]);
+  const [execTeam, setExecTeam] = useState([]);
+  const [sponsors, setSponsors] = useState([]);
+  const [classifieds, setClassifieds] = useState([]);
+  const [features, setFeatures] = useState([]);
+  const [testimonials, setTestimonials] = useState([]);
+  const [activeTicketEvent, setActiveTicketEvent] = useState(null);
+
+  useEffect(() => {
+    // Featured events for the home page (admin-controlled via "featured" flag on Event)
+    apiClient.get("/events?featured=true&limit=6")
+      .then((r) => setEvents(Array.isArray(r.data) ? r.data : []))
+      .catch(() => setEvents([]));
+    apiClient.get("/exec-team")
+      .then((r) => setExecTeam(Array.isArray(r.data) ? r.data : []))
+      .catch(() => setExecTeam([]));
+    apiClient.get("/sponsors")
+      .then((r) => setSponsors(Array.isArray(r.data) ? r.data : []))
+      .catch(() => setSponsors([]));
+    apiClient.get("/classifieds")
+      .then((r) => setClassifieds(Array.isArray(r.data) ? r.data : []))
+      .catch(() => setClassifieds([]));
+    apiClient.get("/feature-highlights")
+      .then((r) => setFeatures(Array.isArray(r.data) ? r.data : []))
+      .catch(() => setFeatures([]));
+    apiClient.get("/testimonials")
+      .then((r) => setTestimonials(Array.isArray(r.data) ? r.data : []))
+      .catch(() => setTestimonials([]));
+  }, []);
+
   // Compute "years of service" from Stat 1 if it looks like a year, else default to 58
   const founded = parseInt(s.home_stat_1_value, 10);
   const yearsOfService = !isNaN(founded) && founded > 1900 && founded < 2100
@@ -64,25 +96,30 @@ export default function Home() {
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-6">
           <SectionHeader center eyebrow="GET INVOLVED" title="Be Part of the Community" subtitle="Become a member, sponsor, or donor — every contribution helps us celebrate our heritage and serve the community." />
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {FEATURE_HIGHLIGHTS.map((f) => (
-              <Link to={f.link} key={f.title} className="group card-hover bg-white rounded-2xl overflow-hidden border border-stone-200 block">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6" data-testid="home-features">
+            {features.map((f) => (
+              <Link to={f.link || "/"} key={f.id} className="group card-hover bg-white rounded-2xl overflow-hidden border border-stone-200 block">
                 <div className="relative h-44 overflow-hidden">
-                  <img src={f.image} alt={f.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                  {f.image_url && <img src={f.image_url} alt={f.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
                   <div className="absolute bottom-3 left-4 right-4">
-                    <span className="inline-block px-2 py-0.5 text-[10px] font-cinzel tracking-[0.2em] rounded" style={{ background: f.accent, color: "#fff" }}>FEATURED</span>
+                    <span className="inline-block px-2 py-0.5 text-[10px] font-cinzel tracking-[0.2em] rounded" style={{ background: f.accent || "#8B1A1A", color: "#fff" }}>FEATURED</span>
                   </div>
                 </div>
                 <div className="p-6">
                   <h3 className="font-display text-xl text-stone-900 mb-2">{f.title}</h3>
                   <p className="text-sm text-stone-600 leading-relaxed mb-4">{f.description}</p>
                   <span className="inline-flex items-center gap-1 text-sm font-medium text-[#8B1A1A] group-hover:text-[#E07A1F] transition">
-                    {f.cta} <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition" />
+                    {f.cta || "Learn More"} <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition" />
                   </span>
                 </div>
               </Link>
             ))}
+            {features.length === 0 && (
+              <div className="col-span-full text-center text-stone-500 py-6 border border-dashed border-stone-300 rounded-xl" data-testid="home-features-empty">
+                No featured tiles yet. Add them in Admin → Feature Tiles.
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -112,7 +149,7 @@ export default function Home() {
       </section>
 
       {/* Upcoming events */}
-      <section className="py-20 bg-white">
+      <section className="py-20 bg-white" data-testid="home-upcoming-events">
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex items-end justify-between flex-wrap gap-4 mb-10">
             <div>
@@ -122,30 +159,56 @@ export default function Home() {
               </div>
               <h2 className="font-display text-4xl md:text-5xl text-stone-900">Upcoming Events</h2>
             </div>
-            <Link to="/events/upcoming" className="inline-flex items-center gap-1 text-[#8B1A1A] hover:text-[#E07A1F] font-medium">View all <ArrowRight className="w-4 h-4" /></Link>
+            <Link to="/events/upcoming" className="inline-flex items-center gap-1 text-[#8B1A1A] hover:text-[#E07A1F] font-medium" data-testid="home-view-all-events">View all <ArrowRight className="w-4 h-4" /></Link>
           </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {UPCOMING_EVENTS.slice(0, 6).map((e) => (
-              <div key={e.id} className="card-hover bg-white border border-stone-200 rounded-xl overflow-hidden">
-                <div className="relative h-48 overflow-hidden">
-                  <img src={e.image} alt={e.title} className="w-full h-full object-cover hover:scale-105 transition duration-700" />
-                  <div className="absolute top-3 left-3 bg-white rounded-md px-2.5 py-1 text-[#8B1A1A] text-xs font-semibold">{e.category}</div>
-                  {e.registrationOpen && (
-                    <div className="absolute top-3 right-3 bg-[#E07A1F] text-white rounded-md px-2 py-1 text-[10px] font-cinzel tracking-wider">OPEN</div>
-                  )}
-                </div>
-                <div className="p-5">
-                  <h3 className="font-display text-xl text-stone-900 mb-2">{e.title}</h3>
-                  <div className="flex items-center gap-3 text-xs text-stone-500 mb-3">
-                    <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {e.date}</span>
-                    <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {e.venue.split(",")[0]}</span>
+          {events.length === 0 ? (
+            <div className="text-center py-10 text-stone-500 border border-dashed border-stone-300 rounded-xl" data-testid="home-events-empty">
+              No featured events yet. Mark an event as <strong>Featured</strong> in the admin panel to showcase it here.
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {events.slice(0, 6).map((e) => {
+                const hasTickets = Array.isArray(e.ticket_types) && e.ticket_types.length > 0;
+                const minPrice = hasTickets ? Math.min(...e.ticket_types.map((t) => Number(t.price || 0))) : null;
+                return (
+                  <div key={e.id} className="card-hover bg-white border border-stone-200 rounded-xl overflow-hidden flex flex-col" data-testid={`home-event-${e.slug || e.id}`}>
+                    <div className="relative h-48 overflow-hidden">
+                      <img src={e.image_url || "https://images.unsplash.com/photo-1605302977140-6572a4421aef?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600"} alt={e.title} className="w-full h-full object-cover hover:scale-105 transition duration-700" />
+                      {e.category && <div className="absolute top-3 left-3 bg-white rounded-md px-2.5 py-1 text-[#8B1A1A] text-xs font-semibold">{e.category}</div>}
+                      {hasTickets && (
+                        <div className="absolute bottom-3 left-3 bg-[#E07A1F] text-white rounded-md px-2.5 py-1 text-xs font-medium flex items-center gap-1">
+                          <Ticket className="w-3.5 h-3.5" /> From ${Number.isFinite(minPrice) ? minPrice.toFixed(0) : "0"}
+                        </div>
+                      )}
+                      {e.registration_open && !hasTickets && (
+                        <div className="absolute top-3 right-3 bg-[#E07A1F] text-white rounded-md px-2 py-1 text-[10px] font-cinzel tracking-wider">OPEN</div>
+                      )}
+                    </div>
+                    <div className="p-5 flex-1 flex flex-col">
+                      <h3 className="font-display text-xl text-stone-900 mb-2">{e.title}</h3>
+                      <div className="flex items-center gap-3 text-xs text-stone-500 mb-3 flex-wrap">
+                        {e.date && <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {e.date}</span>}
+                        {e.venue && <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {e.venue.split(",")[0]}</span>}
+                      </div>
+                      <p className="text-sm text-stone-600 line-clamp-2 mb-4 flex-1">{e.description}</p>
+                      <div className="flex items-center justify-between mt-auto">
+                        <Link to="/events/upcoming" className="text-sm font-medium text-[#8B1A1A] inline-flex items-center gap-1 hover:text-[#E07A1F]" data-testid={`home-event-details-${e.slug || e.id}`}>Details <ArrowRight className="w-3.5 h-3.5" /></Link>
+                        {hasTickets && e.registration_open && (
+                          <button
+                            onClick={() => setActiveTicketEvent(e)}
+                            className="px-3.5 py-2 bg-[#E07A1F] hover:bg-[#c66c1a] text-white text-xs rounded-md font-medium transition inline-flex items-center gap-1.5"
+                            data-testid={`home-buy-tickets-${e.slug || e.id}`}
+                          >
+                            <Ticket className="w-3.5 h-3.5" /> Buy Tickets
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-sm text-stone-600 line-clamp-2 mb-4">{e.description}</p>
-                  <Link to="/events/upcoming" className="text-sm font-medium text-[#8B1A1A] inline-flex items-center gap-1 hover:text-[#E07A1F]">Details <ArrowRight className="w-3.5 h-3.5" /></Link>
-                </div>
-              </div>
-            ))}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </section>
 
@@ -164,16 +227,21 @@ export default function Home() {
             </div>
             <Link to="/about/executive-committee" className="inline-flex items-center gap-1 text-amber-100 hover:text-[#E07A1F]">All members <ArrowRight className="w-4 h-4" /></Link>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-5">
-            {EXECUTIVE_TEAM.slice(0, 6).map((m) => (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-5" data-testid="home-exec-team">
+            {execTeam.slice(0, 6).map((m) => (
               <div key={m.id} className="text-center group">
                 <div className="relative w-full aspect-square rounded-2xl overflow-hidden border-2 border-amber-100/20 group-hover:border-[#E07A1F] transition">
-                  <img src={m.image} alt={m.name} className="w-full h-full object-cover group-hover:scale-110 transition duration-500" />
+                  <img src={m.image_url || "https://ui-avatars.com/api/?name=" + encodeURIComponent(m.name || "ICGD") + "&size=400&background=8B1A1A&color=FFF9F0&bold=true"} alt={m.name} className="w-full h-full object-cover group-hover:scale-110 transition duration-500" />
                 </div>
                 <div className="mt-3 font-display text-lg text-amber-100">{m.name}</div>
-                <div className="font-cinzel text-[10px] tracking-[0.18em] text-amber-200/70">{m.role.toUpperCase()}</div>
+                <div className="font-cinzel text-[10px] tracking-[0.18em] text-amber-200/70">{(m.role || "").toUpperCase()}</div>
               </div>
             ))}
+            {execTeam.length === 0 && (
+              <div className="col-span-full text-center text-amber-100/60 py-6" data-testid="home-exec-empty">
+                No executive team members published yet. Add them in the admin panel.
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -185,23 +253,28 @@ export default function Home() {
             <SectionHeader eyebrow="COMMUNITY" title="Latest Classifieds" />
             <Link to="/classified/all-ads" className="inline-flex items-center gap-1 text-[#8B1A1A] hover:text-[#E07A1F] font-medium">Browse all <ArrowRight className="w-4 h-4" /></Link>
           </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {CLASSIFIEDS.slice(0, 6).map((c) => (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5" data-testid="home-classifieds">
+            {classifieds.slice(0, 6).map((c) => (
               <div key={c.id} className="flex gap-4 p-3 bg-white rounded-xl border border-stone-200 card-hover">
-                <img src={c.image} alt={c.title} className="w-28 h-28 rounded-lg object-cover" />
+                <img src={c.image_url || "https://images.unsplash.com/photo-1605302977140-6572a4421aef?crop=entropy&cs=srgb&fm=jpg&q=85&w=600"} alt={c.title} className="w-28 h-28 rounded-lg object-cover" />
                 <div className="flex-1">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-[#8B1A1A] font-medium">{c.category}</span>
-                    <span className="text-stone-400">{c.date}</span>
+                    <span className="text-stone-400">{c.created_at ? new Date(c.created_at).toLocaleDateString() : ""}</span>
                   </div>
                   <h4 className="font-display text-lg text-stone-900 mt-1 line-clamp-2">{c.title}</h4>
                   <div className="flex items-center justify-between mt-2 text-sm">
                     <span className="text-stone-500 flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {c.location}</span>
-                    <span className="font-semibold text-[#E07A1F]">{c.price}</span>
+                    {c.price && <span className="font-semibold text-[#E07A1F]">{c.price}</span>}
                   </div>
                 </div>
               </div>
             ))}
+            {classifieds.length === 0 && (
+              <div className="col-span-full text-center text-stone-500 py-6 border border-dashed border-stone-300 rounded-xl" data-testid="home-classifieds-empty">
+                No classifieds yet. Members can post ads once approved by admin.
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -210,14 +283,24 @@ export default function Home() {
       <section className="py-16 bg-white border-y border-amber-100">
         <div className="max-w-7xl mx-auto px-6">
           <SectionHeader center eyebrow="PROUD PARTNERS" title="Our Sponsors & Well Wishers" />
-          <div className="relative overflow-hidden">
-            <div className="flex gap-12 animate-marquee" style={{ width: "max-content" }}>
-              {[...SPONSORS, ...SPONSORS].map((s, i) => (
-                <div key={i} className="h-20 w-36 flex items-center justify-center bg-stone-50 rounded-lg border border-stone-100 grayscale hover:grayscale-0 transition">
-                  <img src={s.logo} alt={s.name} className="max-h-14 max-w-[120px] object-contain" onError={(e) => (e.target.style.display = "none")} />
-                </div>
-              ))}
-            </div>
+          <div className="relative overflow-hidden" data-testid="home-sponsors">
+            {sponsors.length === 0 ? (
+              <div className="text-center text-stone-500 py-6" data-testid="home-sponsors-empty">
+                No sponsors yet. Add them in the admin panel to feature their logos here.
+              </div>
+            ) : (
+              <div className="flex gap-12 animate-marquee" style={{ width: "max-content" }}>
+                {[...sponsors, ...sponsors].map((sp, i) => (
+                  <div key={i} className="h-20 w-36 flex items-center justify-center bg-stone-50 rounded-lg border border-stone-100 grayscale hover:grayscale-0 transition">
+                    {sp.logo_url ? (
+                      <img src={sp.logo_url} alt={sp.name} className="max-h-14 max-w-[120px] object-contain" onError={(e) => (e.target.style.display = "none")} />
+                    ) : (
+                      <span className="text-xs font-medium text-stone-700 px-2 text-center">{sp.name}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <div className="text-center mt-10">
             <Link to="/sponsorship/become-sponsor" className="inline-block px-7 py-3 bg-[#E07A1F] hover:bg-[#c66c1a] text-white rounded-md font-medium transition">Become a Sponsor</Link>
@@ -229,18 +312,23 @@ export default function Home() {
       <section className="py-20 bg-deepcream">
         <div className="max-w-6xl mx-auto px-6">
           <SectionHeader center eyebrow="VOICES OF OUR COMMUNITY" title="What Our Patrons Say" />
-          <div className="grid md:grid-cols-3 gap-6">
-            {TESTIMONIALS.slice(0, 3).map((t, i) => (
-              <div key={i} className="bg-white p-7 rounded-xl border border-amber-100 relative card-hover">
+          <div className="grid md:grid-cols-3 gap-6" data-testid="home-testimonials">
+            {testimonials.slice(0, 3).map((t) => (
+              <div key={t.id} className="bg-white p-7 rounded-xl border border-amber-100 relative card-hover">
                 <Quote className="absolute top-5 right-5 w-7 h-7 text-[#E07A1F]/30" />
                 <div className="flex gap-0.5 text-[#E07A1F] mb-3">
-                  {Array.from({ length: 5 }).map((_, i) => <Star key={i} className="w-4 h-4 fill-current" />)}
+                  {Array.from({ length: Math.max(1, Math.min(5, t.rating || 5)) }).map((_, i) => <Star key={i} className="w-4 h-4 fill-current" />)}
                 </div>
-                <p className="text-stone-700 leading-relaxed mb-5 font-serif text-base italic">“{t.body}”</p>
+                <p className="text-stone-700 leading-relaxed mb-5 font-serif text-base italic">&ldquo;{t.body}&rdquo;</p>
                 <div className="font-display text-lg text-[#8B1A1A]">{t.name}</div>
-                <div className="text-xs text-stone-500">{t.date}</div>
+                {t.date && <div className="text-xs text-stone-500">{t.date}</div>}
               </div>
             ))}
+            {testimonials.length === 0 && (
+              <div className="col-span-full text-center text-stone-500 py-6 border border-dashed border-stone-300 rounded-xl" data-testid="home-testimonials-empty">
+                No testimonials yet. Add them in Admin → Testimonials.
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -258,6 +346,14 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {activeTicketEvent && (
+        <TicketPurchaseModal
+          event={activeTicketEvent}
+          onClose={() => setActiveTicketEvent(null)}
+          onSuccess={() => setActiveTicketEvent(null)}
+        />
+      )}
     </>
   );
 }
