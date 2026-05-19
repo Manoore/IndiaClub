@@ -523,3 +523,42 @@ class SiteStat(BaseModel):
     order: int = 100
     active: bool = True
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+
+# ---------- Event Categories / Programs landing pages ----------
+class EventCategory(BaseModel):
+    id: str = Field(default_factory=gen_id)
+    slug: str
+    name: str
+    tagline: Optional[str] = ""
+    description: Optional[str] = ""
+    image_url: Optional[str] = None
+    color: str = "#8B1A1A"
+    long_description: Optional[str] = ""
+    highlights: List[str] = []
+    venue: Optional[str] = ""
+    typical_timing: Optional[str] = ""
+    order: int = 100
+    active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class DIFIAward(BaseModel):
+    id: str = Field(default_factory=gen_id)
+    year: int
+    title: str
+    note: Optional[str] = ""
+    order: int = 100
+    active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class ConstitutionSection(BaseModel):
+    id: str = Field(default_factory=gen_id)
+    n: str  # Roman numeral, e.g. "I", "II"
+    title: str
+    items: List[str] = []
+    order: int = 100
+    active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)

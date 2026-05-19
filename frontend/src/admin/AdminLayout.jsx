@@ -27,6 +27,9 @@ const NAV_GROUPS = [
       { to: "/admin/feature-highlights", label: "Feature Tiles", icon: Sparkles },
       { to: "/admin/testimonials", label: "Testimonials", icon: Quote },
       { to: "/admin/site-stats", label: "Site Stats", icon: BarChart3 },
+      { to: "/admin/event-categories", label: "Event Categories", icon: Sparkles },
+      { to: "/admin/difi-awards", label: "DIFI Awards", icon: Trophy },
+      { to: "/admin/constitution", label: "Constitution", icon: FileText },
     ],
   },
   {

@@ -14,6 +14,7 @@ import {
   MembershipPlansAdmin, MembershipAppsAdmin, SubscribersAdmin, ContactInboxAdmin,
   DonationsAdmin, SponsorInquiriesAdmin, EventRegistrationsAdmin, PerksAdmin,
   HeroSlidesAdmin, FeatureHighlightsAdmin, TestimonialsAdmin, SiteStatsAdmin,
+  EventCategoriesAdmin, DIFIAwardsAdmin, ConstitutionAdmin,
 } from "./AdminPages";
 
 const Protected = ({ children }) => {
@@ -54,6 +55,9 @@ export default function AdminRoutes() {
       <Route path="feature-highlights" element={<Protected><FeatureHighlightsAdmin /></Protected>} />
       <Route path="testimonials" element={<Protected><TestimonialsAdmin /></Protected>} />
       <Route path="site-stats" element={<Protected><SiteStatsAdmin /></Protected>} />
+      <Route path="event-categories" element={<Protected><EventCategoriesAdmin /></Protected>} />
+      <Route path="difi-awards" element={<Protected><DIFIAwardsAdmin /></Protected>} />
+      <Route path="constitution" element={<Protected><ConstitutionAdmin /></Protected>} />
     </Routes>
   );
 }

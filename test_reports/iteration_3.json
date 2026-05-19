@@ -1,0 +1,48 @@
+{
+  "summary": "Phase 3 testing — moved-to-DB collections (EventCategory, DIFIAward, ConstitutionSection) + Membership nested tiers + About page DB wirings. Backend: 14/14 new pytest cases pass at /app/backend/tests/test_phase3_cms.py (public lists return correct counts 8/6/11, sort orders correct, slug 404s, _id never leaks, full admin CRUD for all 3 new collections, auth enforced, inactive items hidden, membership-plans nested tiers regular=4 / extended=2). Phase 1+2 suite still 19/19. Frontend: Home renders 8 event-category cards (data-testid='home-event-categories'); Events hub /events renders 8 cards (data-testid='events-hub'); All 6 About sub-pages render from DB (constitution=11 sections, difi-awards=6 cards, tax-returns-list, past-presidents-list, csa-list, exec-committee-list all visible); /membership/regular shows the 4 tier names, /membership/extended shows Silver+Gold, /membership root renders all plans; Admin login (admin/admin123) works and sidebar exposes the 3 new entries (Event Categories, DIFI Awards, Constitution). HOWEVER one CRITICAL regression: every /events/{slug} category page (e.g. /events/diwali) is a BLANK SCREEN due to a JS reference error 'UPCOMING_EVENTS is not defined' in EventsPage.jsx — the Phase 3 refactor dropped the mock import but kept references to it inside UpcomingList. This blocks 7 of the 8 category landing pages (every slug except 'upcoming' renders UpcomingList).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "EventsPage.jsx → UpcomingList",
+        "issue": "ReferenceError 'UPCOMING_EVENTS is not defined' crashes the entire route. Lines 107 and 114 still call `UPCOMING_EVENTS.find(...)` and use it as a fallback constant, but the import for it (from mock.js) was removed during the Phase 3 refactor. As a result, EVERY /events/{slug} page (diwali, difi, rising-stars, golden-jewels, womens-connect, sports, picnic) renders as a completely blank page — document.getElementById('root').innerHTML.length === 0. /events (hub) and /events/upcoming bypass the merge branch and still work.",
+        "selector": "page /events/diwali (and other 6 slugs)",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_phase3_cms.py",
+    "/app/test_reports/pytest/pytest_phase3.xml"
+  ],
+  "action_items": [
+    "Fix EventsPage.jsx: either remove the `liveEvents.length > 0 ? ... : UPCOMING_EVENTS` fallback entirely (Phase 3 intent was to move all mock to DB) — replace `merged = liveEvents.length > 0 ? liveEvents.map((live) => { const mockMatch = UPCOMING_EVENTS.find(...); return { ...mockMatch, ...live, image: live.image_url || mockMatch?.image }; }) : UPCOMING_EVENTS` with simply `merged = liveEvents.map((live) => ({ ...live, image: live.image_url }))`. OR re-import UPCOMING_EVENTS from mock.js if mock fallback is still desired. The current state crashes the page.",
+    "Consider wrapping route components in an ErrorBoundary so a JS error in one section doesn't blank out the whole page (the warning 'An error occurred in the <UpcomingList> component. Consider adding an error boundary' is already printed by React)."
+  ],
+  "critical_code_review_comments": [
+    "EventsPage.jsx UpcomingList has dead reference to UPCOMING_EVENTS (mock) — root cause of the blank-page regression. The refactor was incomplete.",
+    "Backend ConstitutionSection model uses a confusing single-character field name `n` (Roman numeral). Consider renaming to `numeral` or `roman_numeral` for clarity; admin form/templates already work but field name is non-obvious.",
+    "EventCategory model has both `title` (unused / null in seed) AND `name` — only `name` is required and used by the frontend. Consider removing `title` from frontend reads (admin form too) to avoid confusion, or drop it from the model entirely.",
+    "server.py register_admin_crud `create` still constructs the model with `**{k: v for k,v in body.items() if v is not None}` — a missing required field returns 500 instead of a 422 with details. Wrap in try/except ValidationError → HTTPException(422, e.errors()) for better admin UX (same comment carried over from iteration_2).",
+    "No data-testid on the category sub-page hero (CategoryHero) — would help future automation; currently the test had to assert presence of venue/timing/highlights strings from the body text."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_phase3_cms.py (new)",
+    "/app/test_reports/pytest/pytest_phase3.xml (generated)"
+  ],
+  "success_rate": {
+    "backend": "100% (14/14 phase3 + 19/19 phase1+2 regression)",
+    "frontend": "~88% — 14 of 16 spec items verified working; 1 critical regression (every /events/{slug} blank); 1 derivative impact (category-specific Buy Tickets / Register flow on those slugs cannot be reached)"
+  },
+  "test_credentials": "Admin admin/admin123 verified. Member demo@indiaclubdayton.org / demo1234 not exercised this iteration (out of scope of Phase 3).",
+  "seed_data_creation": "Verified seed produces 8 event-categories, 6 difi-awards, 11 constitution sections, membership-plans regular=4 tiers + extended=2 tiers. No persistent test data left behind (all TEST_* records created in CRUD tests are deleted in the same test).",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend phase 3 tests: pytest /app/backend/tests/test_phase3_cms.py. Combine with test_home_cms.py + test_members_and_admin.py for full regression. Model field gotchas for admin POST payloads: EventCategory requires `name` (NOT `title`); DIFIAward requires `year` + `title` (no `recipient`/`description`); ConstitutionSection requires `n` (Roman numeral) + `title` + `items: List[str]`. After the EventsPage.jsx UPCOMING_EVENTS fix lands, re-visit /events/diwali (and at minimum /events/difi, /events/rising-stars) and confirm CategoryHero renders the long_description + venue + typical_timing + highlights from the DB, and that the UpcomingList grid below shows the events filtered for that category (or a 'More events coming soon' empty state).",
+  "rca of the issue": "Phase 3 refactored EventsPage.jsx to source EventCategory data from /api/event-categories instead of EVENT_CATEGORIES/EVENT_DETAILS in mock.js. The import for the now-removed mock constants was deleted from the top of the file, BUT inside the inner UpcomingList component lines 105-114 still merge `liveEvents` against `UPCOMING_EVENTS` (a different mock array used by the events listing). Because `UPCOMING_EVENTS` was also removed (or never imported in the new file), the JS reference error throws on every render of UpcomingList. The throw propagates up to the top-level React tree (no ErrorBoundary), so the whole document.body becomes empty. Fix is a 2-line change inside UpcomingList: drop the fallback branch and the `mockMatch` lookup, leaving `const merged = liveEvents.map((live) => ({ ...live, image: live.image_url }))`. Re-test by visiting /events/diwali — should show PageHeader + CategoryHero + the filtered UpcomingList grid (or the 'More events coming soon' empty state)."
+}

@@ -1,7 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
-import { MEMBERSHIP_PLANS, REGULAR_TIERS, EXTENDED_TIERS } from "../data/mock";
 import { Check, Sparkles, X, Loader2, LogIn, UserPlus } from "lucide-react";
 import { useToast } from "../hooks/use-toast";
 import { useMemberAuth } from "../api/MemberAuthContext";
@@ -488,10 +487,20 @@ const TierGrid = ({ tiers, onJoin, focusedPlan, authState, navigate }) => (
 export default function MembershipPage() {
   const { sub } = useParams();
   const [active, setActive] = useState(null);
+  const [plans, setPlans] = useState([]);
   const { isAuthed, member } = useMemberAuth();
   const navigate = useNavigate();
   const authState = { isAuthed, member };
-  const focused = MEMBERSHIP_PLANS.find((p) => p.slug === sub);
+
+  useEffect(() => {
+    apiClient.get("/membership-plans")
+      .then((r) => setPlans(Array.isArray(r.data) ? r.data : []))
+      .catch(() => setPlans([]));
+  }, []);
+
+  const focused = plans.find((p) => p.slug === sub);
+  const regularTiers = (plans.find((p) => p.slug === "regular")?.tiers) || [];
+  const extendedTiers = (plans.find((p) => p.slug === "extended")?.tiers) || [];
   const header = focused
     ? {
         eyebrow: "MEMBERSHIP PLAN",
@@ -508,6 +517,16 @@ export default function MembershipPage() {
         image:
           "https://images.unsplash.com/photo-1463592177119-bab2a00f3ccb?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600",
       };
+
+  // Show a loading state until membership plans arrive from the API so that
+  // the sub-page renderers below can safely access `focused.benefits`, etc.
+  if (sub && plans.length === 0) {
+    return (
+      <section className="py-20 bg-cream min-h-[50vh] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-[#8B1A1A] animate-spin" />
+      </section>
+    );
+  }
 
   const memberStatus = isAuthed && member?.membership?.status;
   const memberBanner =
@@ -540,7 +559,7 @@ export default function MembershipPage() {
       <>
         <PageHeader {...header} />
         {memberBanner}
-        <TierGrid tiers={REGULAR_TIERS} onJoin={setActive} focusedPlan={focused} authState={authState} navigate={navigate} />
+        <TierGrid tiers={regularTiers} onJoin={setActive} focusedPlan={focused} authState={authState} navigate={navigate} />
         {active && <JoinModal plan={active} onClose={() => setActive(null)} />}
       </>
     );
@@ -550,7 +569,7 @@ export default function MembershipPage() {
       <>
         <PageHeader {...header} />
         {memberBanner}
-        <TierGrid tiers={EXTENDED_TIERS} onJoin={setActive} focusedPlan={focused} authState={authState} navigate={navigate} />
+        <TierGrid tiers={extendedTiers} onJoin={setActive} focusedPlan={focused} authState={authState} navigate={navigate} />
         {active && <JoinModal plan={active} onClose={() => setActive(null)} />}
       </>
     );
@@ -645,7 +664,7 @@ export default function MembershipPage() {
       {memberBanner}
       <section className="py-20 bg-cream">
         <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {MEMBERSHIP_PLANS.map((p) => (
+          {plans.map((p) => (
             <PlanCard key={p.slug} p={p} onJoin={setActive} authState={authState} navigate={navigate} />
           ))}
         </div>

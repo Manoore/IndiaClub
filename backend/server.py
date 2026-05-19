@@ -20,7 +20,8 @@ from models import (
     Member, MemberRegisterRequest, MemberLoginRequest, MemberProfileUpdate,
     MemberSubscribeRequest, MemberPasswordChange, MemberRejectRequest, MemberPerk,
     GoogleSignInRequest, SiteSettings, SiteSettingsUpdate, TicketPurchaseRequest, TicketOrder,
-    HeroSlide, FeatureHighlight, Testimonial, SiteStat
+    HeroSlide, FeatureHighlight, Testimonial, SiteStat,
+    EventCategory, DIFIAward, ConstitutionSection,
 )
 from seed import seed_if_empty
 
@@ -431,6 +432,29 @@ async def list_site_stats():
     return _strip(await db.site_stats.find({"active": True}).sort("order", 1).to_list(20))
 
 
+@api.get("/event-categories")
+async def list_event_categories():
+    return _strip(await db.event_categories.find({"active": True}).sort("order", 1).to_list(50))
+
+
+@api.get("/event-categories/{slug}")
+async def get_event_category(slug: str):
+    d = await db.event_categories.find_one({"slug": slug})
+    if not d:
+        raise HTTPException(404, "Not found")
+    return _strip(d)
+
+
+@api.get("/difi-awards")
+async def list_difi_awards():
+    return _strip(await db.difi_awards.find({"active": True}).sort("year", -1).to_list(100))
+
+
+@api.get("/constitution")
+async def list_constitution():
+    return _strip(await db.constitution_sections.find({"active": True}).sort("order", 1).to_list(50))
+
+
 @api.get("/site-settings")
 async def get_site_settings():
     s = await db.site_settings.find_one({"id": "main"})
@@ -555,6 +579,9 @@ COLLECTIONS = {
     "feature-highlights": FeatureHighlight,
     "testimonials": Testimonial,
     "site-stats": SiteStat,
+    "event-categories": EventCategory,
+    "difi-awards": DIFIAward,
+    "constitution": ConstitutionSection,
 }
 COLL_NAMES = {
     "events": "events", "news": "news", "exec-team": "exec_team", "gallery": "gallery",
@@ -563,6 +590,8 @@ COLL_NAMES = {
     "programs": "programs", "membership-plans": "membership_plans", "perks": "perks",
     "hero-slides": "hero_slides", "feature-highlights": "feature_highlights",
     "testimonials": "testimonials", "site-stats": "site_stats",
+    "event-categories": "event_categories", "difi-awards": "difi_awards",
+    "constitution": "constitution_sections",
 }
 
 # Generic admin CRUD endpoints
@@ -805,20 +834,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-logging.basicConfig(level=logging.INFO)
-
-
-@app.on_event("startup")
-async def on_startup():
-    await seed_if_empty()
-    logging.info("ICGD API started + seed verified")
-
-
-@app.on_event("shutdown")
-async def on_shutdown():
-    pass
-
 
 logging.basicConfig(level=logging.INFO)
 

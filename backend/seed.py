@@ -547,3 +547,226 @@ async def seed_if_empty():
             {"id": f"stat-{i}", **s, "order": (i + 1) * 10, "active": True, "created_at": datetime.utcnow()}
             for i, s in enumerate(stats)
         ])
+
+    # ---- Event Categories (merged with EVENT_DETAILS long-form content) ----
+    if await db.event_categories.count_documents({}) == 0:
+        cats = [
+            {
+                "slug": "difi", "name": "DIFI", "tagline": "Dayton India Festival of India",
+                "description": "The signature multi-day cultural festival celebrating Indian dance, music, food and tradition.",
+                "image_url": "https://images.unsplash.com/photo-1585607344893-43a4bd91169a?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600",
+                "color": "#E07A1F",
+                "long_description": "DIFI — the Dayton International Festival Inc. — is one of Ohio's premier multicultural celebrations. India Club proudly represents the Indian community every year with a vibrant booth featuring classical and folk dance performances, traditional cuisine, henna art, saree displays, and live music from across India's many regions.",
+                "highlights": [
+                    "Bharatanatyam, Kathak, Kuchipudi & folk dance performances",
+                    "Authentic regional Indian food (North, South, Bengali, Punjabi)",
+                    "Live tabla, sitar and Bollywood music",
+                    "Henna/Mehendi artists & Saree drape demonstrations",
+                    "Children's craft corner with diya painting & rangoli",
+                ],
+                "venue": "Dayton Convention Center, Downtown Dayton",
+                "typical_timing": "Annual — Memorial Day Weekend",
+            },
+            {
+                "slug": "diwali", "name": "Diwali", "tagline": "Festival of Lights",
+                "description": "Light up the night with diyas, fireworks, performances and the warmth of community.",
+                "image_url": "https://images.unsplash.com/photo-1467810563316-b5476525c0f9?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600",
+                "color": "#8B1A1A",
+                "long_description": "Diwali is India Club's most beloved annual celebration — a magical evening that brings 1500+ community members together to mark the Festival of Lights.",
+                "highlights": [
+                    "Cultural showcase: 15+ dance & music performances",
+                    "Traditional Indian dinner (vegetarian & non-vegetarian)",
+                    "Diya lighting ceremony & Lakshmi Puja",
+                    "Bazaar stalls — sarees, jewelry, sweets, handicrafts",
+                    "Children's activities and Diwali photo booth",
+                ],
+                "venue": "Dayton Convention Center",
+                "typical_timing": "Last weekend of October or first weekend of November",
+            },
+            {
+                "slug": "rising-stars", "name": "Rising Stars", "tagline": "Showcasing Young Talent",
+                "description": "A youth showcase celebrating dance, music, and dramatic arts from rising performers.",
+                "image_url": "https://images.unsplash.com/photo-1716714620140-9ed26b67e900?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600",
+                "color": "#C9A961",
+                "long_description": "Rising Stars is ICGD's signature youth showcase celebrating the talent, dedication and creativity of our young community members aged 5–22.",
+                "highlights": [
+                    "Solo and group performances",
+                    "Classical, semi-classical, fusion & Bollywood dance",
+                    "Vocal performances — Hindustani, Carnatic, light music",
+                    "Instrumental — sitar, tabla, violin, keyboard",
+                    "Every performer receives a certificate of participation",
+                ],
+                "venue": "Sinclair Community College Auditorium",
+                "typical_timing": "Spring (May)",
+            },
+            {
+                "slug": "golden-jewels", "name": "Golden Jewels", "tagline": "Honoring Our Seniors",
+                "description": "Programs and gatherings celebrating our elders — the golden jewels of our community.",
+                "image_url": "https://images.unsplash.com/photo-1716714607603-8aa6a2f16d84?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600",
+                "color": "#8B1A1A",
+                "long_description": "Golden Jewels is a heartfelt program dedicated to our senior community members — the elders whose wisdom, stories and warmth are the soul of ICGD.",
+                "highlights": [
+                    "Monthly tea & antakshari evenings",
+                    "Bhajan & devotional music sessions",
+                    "Annual health awareness camp with local physicians",
+                    "Day trips to museums, gardens and local attractions",
+                    "Year-end Golden Jewels Gala honoring seniors 70+",
+                ],
+                "venue": "Hindu Temple of Dayton & rotating venues",
+                "typical_timing": "Monthly + Annual Gala in April",
+            },
+            {
+                "slug": "womens-connect", "name": "Women's Connect", "tagline": "Empower & Inspire",
+                "description": "A platform for women to learn, lead and uplift one another through workshops and meetups.",
+                "image_url": "https://images.unsplash.com/photo-1605302977140-6572a4421aef?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600",
+                "color": "#E07A1F",
+                "long_description": "Women's Connect is ICGD's empowerment platform — a space where women learn, lead, share stories, find mentors and uplift one another.",
+                "highlights": [
+                    "International Women's Day annual signature event",
+                    "Quarterly leadership & career workshops",
+                    "Wellness, fitness and yoga circles",
+                    "New-mom support group & meet-ups",
+                    "Networking dinners with women business leaders",
+                ],
+                "venue": "Centerville & online (hybrid format)",
+                "typical_timing": "Monthly meet-ups + March 8 signature event",
+            },
+            {
+                "slug": "sports", "name": "Sports", "tagline": "Cricket, Tennis & More",
+                "description": "Tournaments, leagues and friendly matches that keep our community active and connected.",
+                "image_url": "https://images.unsplash.com/photo-1468234847176-28606331216a?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600",
+                "color": "#C9A961",
+                "long_description": "ICGD Sports brings the community together through the games we love. We organize year-round leagues, tournaments and family-friendly recreational events.",
+                "highlights": [
+                    "Cricket Premier League — annual six-team T10 tournament",
+                    "Table tennis leagues (singles & doubles)",
+                    "Badminton open & junior tournaments",
+                    "Volleyball summer league",
+                    "Yoga classes (weekly, all levels)",
+                ],
+                "venue": "Wegerzyn Gardens & local community centers",
+                "typical_timing": "Year-round — major tournaments July–September",
+            },
+            {
+                "slug": "picnic", "name": "Picnic", "tagline": "Summer Community Picnic",
+                "description": "Sun, games and home-style food — the annual ICGD picnic brings everyone together.",
+                "image_url": "https://images.unsplash.com/photo-1605292356183-a77d0a9c9d1d?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600",
+                "color": "#E07A1F",
+                "long_description": "The ICGD Annual Summer Picnic is the warmest day on our calendar — a relaxed afternoon of cricket, antakshari, kids games, food and laughter.",
+                "highlights": [
+                    "Free entry for all India Club members and guests",
+                    "Cricket and volleyball tournaments",
+                    "Antakshari & kids' carnival games",
+                    "Home-style Indian lunch served picnic-style",
+                    "Live tambola (housie) for grown-ups",
+                ],
+                "venue": "Eastwood MetroPark, Dayton",
+                "typical_timing": "Mid-July",
+            },
+            {
+                "slug": "upcoming", "name": "Upcoming Events", "tagline": "Don't Miss What's Next",
+                "description": "All confirmed events on the ICGD calendar — register and reserve your seat early.",
+                "image_url": "https://images.unsplash.com/photo-1577083753695-e010191bacb5?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600",
+                "color": "#8B1A1A",
+                "long_description": "Here are all the confirmed upcoming events on the ICGD calendar. Register early — many events sell out, and members enjoy priority booking and discounted pricing.",
+                "highlights": [
+                    "Members get up to 50% off ticket prices",
+                    "Children under 5 free at most events",
+                    "Early-bird discounts available 30 days out",
+                    "Volunteer to attend free + earn community service hours",
+                ],
+                "venue": "Various venues across Greater Dayton",
+                "typical_timing": "Year-round",
+            },
+        ]
+        await db.event_categories.insert_many([
+            {"id": f"cat-{i}", **c, "order": (i + 1) * 10, "active": True, "created_at": datetime.utcnow()}
+            for i, c in enumerate(cats)
+        ])
+
+    # ---- DIFI Awards ----
+    if await db.difi_awards.count_documents({}) == 0:
+        awards = [
+            (2024, "Outstanding Cultural Showcase", "Diwali Mela performance"),
+            (2023, "Best Multicultural Booth", "DIFI World Affairs Festival"),
+            (2022, "Community Excellence Award", "Volunteer-led programming"),
+            (2021, "Pandemic Response Recognition", "Virtual event innovation"),
+            (2019, "Heritage Showcase Excellence", "Cultural diversity celebration"),
+            (2017, "Best Performance Group", "Indian classical dance"),
+        ]
+        await db.difi_awards.insert_many([
+            {"id": f"difi-{i}", "year": y, "title": t, "note": n, "order": (i + 1) * 10, "active": True, "created_at": datetime.utcnow()}
+            for i, (y, t, n) in enumerate(awards)
+        ])
+
+    # ---- Constitution & Bylaws ----
+    if await db.constitution_sections.count_documents({}) == 0:
+        sections = [
+            ("I", "Name and Location", [
+                "1.1 The name of this non-profit 501(c)(3) organization shall be India Club of Greater Dayton (hereinafter referred to as India Club).",
+                "1.2 The registered office of India Club shall be located in the greater Dayton area in the state of Ohio.",
+            ]),
+            ("II", "Objectives", [
+                "2.1 To promote the welfare and assimilation of Asian Indians of greater Dayton and vicinity.",
+                "2.2 To sustain and perpetuate the heritage and culture of India.",
+                "2.3 To centralize resources, energies and talents for general betterment of Asian Indians.",
+                "2.4 To promote educational, literacy, cultural and charitable activities.",
+                "2.5 To disseminate information provided by other non-profit organizations.",
+                "2.6 To raise funds for specified welfare projects.",
+            ]),
+            ("III", "Club Activities", [
+                "3.1 The Club shall remain a non-partisan, secular, and non-sectarian organization.",
+                "3.2 The Club shall not encourage any treasonous or seditious activity.",
+                "3.4 The Club shall organize periodically cultural and social programs, charitable and scientific projects, concerts, seminars, and lectures.",
+                "3.6 Any purchase of capital goods over $5,000 must be approved by the General Body.",
+                "3.8 The Club shall meet its financial obligations through membership fees, special fund raising programs and donations.",
+            ]),
+            ("IV", "Membership", [
+                "4.1 Any individual who subscribes to the objectives of the India Club can become a member.",
+                "4.2 There shall be five classes of memberships: Family, Individual, Student, Institutional, Honorary.",
+                "4.3 Annual and life membership dues will be decided by the E.C. every year.",
+                "4.4 To be eligible to vote, a member must be in good standing — annual fees paid/renewed by March 15.",
+                "4.5 Family members shall have two votes — one for the principal member and one for any other family member.",
+            ]),
+            ("V", "Fiscal Year", [
+                "5.1 The fiscal year of the Club shall commence on the first day of January and end on the 31st day of December.",
+            ]),
+            ("VI", "Executive Committee", [
+                "6.1 The E.C. shall consist of eleven members: President, President-elect, Secretary, Treasurer and seven members at large.",
+                "6.2 Of the seven members at large, one shall hold the position of Delegate to International Festivals (DIFI) and at least two shall be youth aged 16–23.",
+                "6.3 The E.C. shall meet at least nine times a year. Six members shall constitute the quorum.",
+                "6.4 Members of the E.C. shall not receive any remuneration for their services.",
+            ]),
+            ("VII", "Responsibilities and Duties of Officers", [
+                "PRESIDENT — Chief executive officer; presides over meetings; responsible for coordinating activities and public relations.",
+                "PRESIDENT-ELECT — Acts in absence of the President; custodian of capital goods and equipment.",
+                "SECRETARY — Recording officer; maintains minutes, member mailing addresses and voter list.",
+                "TREASURER — Custody of all funds; maintains account books; publishes audited annual financial report.",
+                "EX-OFFICIO — The previous year's President serves as Ex-officio member of the current E.C.",
+            ]),
+            ("VIII", "Nominations and Elections", [
+                "8.1 A Nominating Committee is appointed by the President at least two months before the annual general body meeting.",
+                "8.2 The N.C. is composed of five members; the outgoing President acts as Chairman.",
+                "8.5 No individual shall serve on the E.C. for more than six consecutive years.",
+                "8.8 Candidates are elected by a simple majority vote of voting members present at the meeting.",
+            ]),
+            ("IX", "Conduct of Meetings and Quorum", [
+                "9.1 The annual general body meeting is held during the last quarter of fiscal year.",
+                "9.2 Special meetings may be held upon a call of the E.C. or upon written request of 50+ members.",
+                "9.5 Notice of meetings shall be sent to each voting member at least 15 days in advance.",
+                "9.7 25% of all voting members shall form the quorum for a business or election meeting.",
+            ]),
+            ("X", "Amendments", [
+                "10.1 Amendments may be proposed by the E.C. or by written request of at least 50 voting members.",
+                "10.2 General information on proposed amendments shall be sent to members at least 15 days prior to the meeting.",
+            ]),
+            ("XI", "Dissolution", [
+                "11.1 In the event of dissolution, any net assets shall be donated to secular, non-profit, charitable organizations meeting 501(c)(3) criteria.",
+                "11.2 The assets will be frozen for one year to address unforeseen liabilities before donations are made.",
+            ]),
+        ]
+        await db.constitution_sections.insert_many([
+            {"id": f"const-{i}", "n": n, "title": t, "items": items, "order": (i + 1) * 10, "active": True, "created_at": datetime.utcnow()}
+            for i, (n, t, items) in enumerate(sections)
+        ])
+

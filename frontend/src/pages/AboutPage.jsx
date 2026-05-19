@@ -1,7 +1,6 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
-import { EXECUTIVE_TEAM, PAST_PRESIDENTS, TAX_RETURNS, CONSTITUTION, COMMUNITY_SERVICE_AWARDEES, DIFI_AWARDS } from "../data/mock";
 import { Award, FileText, Heart, Scroll, Trophy, Users, Building, Phone, Mail, MapPin } from "lucide-react";
 import Mandala from "../components/Mandala";
 import { useSiteSettings } from "../api/SiteSettingsContext";
@@ -94,37 +93,50 @@ const TextPage = ({ children }) => (
   </section>
 );
 
-const Constitution = () => (
-  <section className="py-20 bg-cream">
-    <div className="max-w-4xl mx-auto px-6">
-      <div className="text-center mb-10">
-        <h2 className="font-display text-4xl text-[#8B1A1A]">India Club of Greater Dayton</h2>
-        <p className="font-cinzel text-sm tracking-[0.3em] text-[#E07A1F] mt-2">CONSTITUTION & BYLAWS</p>
-      </div>
-      <div className="space-y-4">
-        {CONSTITUTION.map((a) => (
-          <details key={a.n} className="group bg-white border border-amber-100 rounded-xl overflow-hidden">
-            <summary className="cursor-pointer px-6 py-4 flex items-center justify-between hover:bg-amber-50/40 transition">
-              <div className="flex items-center gap-4">
-                <span className="w-10 h-10 rounded-full bg-[#8B1A1A] text-amber-50 flex items-center justify-center font-cinzel text-sm">{a.n}</span>
-                <h3 className="font-display text-xl text-stone-900">Article {a.n} — {a.title}</h3>
+const Constitution = () => {
+  const [sections, setSections] = useState([]);
+  useEffect(() => {
+    apiClient.get("/constitution")
+      .then((r) => setSections(Array.isArray(r.data) ? r.data : []))
+      .catch(() => setSections([]));
+  }, []);
+  return (
+    <section className="py-20 bg-cream">
+      <div className="max-w-4xl mx-auto px-6">
+        <div className="text-center mb-10">
+          <h2 className="font-display text-4xl text-[#8B1A1A]">India Club of Greater Dayton</h2>
+          <p className="font-cinzel text-sm tracking-[0.3em] text-[#E07A1F] mt-2">CONSTITUTION & BYLAWS</p>
+        </div>
+        <div className="space-y-4" data-testid="constitution-list">
+          {sections.map((a) => (
+            <details key={a.id || a.n} className="group bg-white border border-amber-100 rounded-xl overflow-hidden">
+              <summary className="cursor-pointer px-6 py-4 flex items-center justify-between hover:bg-amber-50/40 transition">
+                <div className="flex items-center gap-4">
+                  <span className="w-10 h-10 rounded-full bg-[#8B1A1A] text-amber-50 flex items-center justify-center font-cinzel text-sm">{a.n}</span>
+                  <h3 className="font-display text-xl text-stone-900">Article {a.n} — {a.title}</h3>
+                </div>
+                <span className="text-[#E07A1F] group-open:rotate-180 transition">▼</span>
+              </summary>
+              <div className="px-6 pb-6 pt-2 border-t border-amber-100">
+                <ul className="space-y-2 mt-4">
+                  {(a.items || []).map((it, i) => (
+                    <li key={i} className="text-stone-700 text-sm leading-relaxed pl-3 border-l-2 border-amber-200">{it}</li>
+                  ))}
+                </ul>
               </div>
-              <span className="text-[#E07A1F] group-open:rotate-180 transition">▼</span>
-            </summary>
-            <div className="px-6 pb-6 pt-2 border-t border-amber-100">
-              <ul className="space-y-2 mt-4">
-                {a.items.map((it, i) => (
-                  <li key={i} className="text-stone-700 text-sm leading-relaxed pl-3 border-l-2 border-amber-200">{it}</li>
-                ))}
-              </ul>
+            </details>
+          ))}
+          {sections.length === 0 && (
+            <div className="text-center text-stone-500 py-10 border border-dashed border-stone-300 rounded-xl" data-testid="constitution-empty">
+              Constitution sections not loaded yet. Admin can add them in Admin → Constitution.
             </div>
-          </details>
-        ))}
+          )}
+        </div>
+        <p className="text-sm text-stone-500 mt-10 text-center">Full PDF available upon written request to <a href="mailto:contact@indiaclubdayton.org" className="text-[#8B1A1A] hover:text-[#E07A1F]">contact@indiaclubdayton.org</a>.</p>
       </div>
-      <p className="text-sm text-stone-500 mt-10 text-center">Full PDF available upon written request to <a href="mailto:contact@indiaclubdayton.org" className="text-[#8B1A1A] hover:text-[#E07A1F]">contact@indiaclubdayton.org</a>.</p>
-    </div>
-  </section>
-);
+    </section>
+  );
+};
 
 const Nonprofit = () => (
   <section className="py-20 bg-cream">
@@ -171,155 +183,200 @@ const Nonprofit = () => (
   </section>
 );
 
-const TaxReturns = () => (
-  <section className="py-20 bg-cream">
-    <div className="max-w-5xl mx-auto px-6">
-      <p className="text-stone-700 leading-relaxed mb-6">
-        The India Club of Greater Dayton is an Ohio State Registered, Tax Exempt 501(c)(3) non-profit organization. Below are our compliance documents available for public view.
-      </p>
-      <div className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-amber-200 rounded-md mb-8">
-        <span className="font-cinzel text-xs tracking-[0.22em] text-[#E07A1F]">TAX ID / EIN</span>
-        <span className="font-semibold text-stone-900">31-1184659</span>
-      </div>
-      <div className="bg-white border border-amber-100 rounded-2xl overflow-hidden">
-        <div className="h-1 bg-gradient-to-r from-[#8B1A1A] via-[#E07A1F] to-[#C9A961]" />
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-amber-50/60 text-stone-700">
-              <tr>
-                <th className="text-left px-5 py-3 font-cinzel tracking-wider text-xs">YEAR</th>
-                <th className="text-left px-5 py-3 font-cinzel tracking-wider text-xs">FILED BY</th>
-                <th className="text-left px-5 py-3 font-cinzel tracking-wider text-xs">PRESIDENT</th>
-                <th className="text-right px-5 py-3 font-cinzel tracking-wider text-xs">DOCUMENT</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-amber-100">
-              {TAX_RETURNS.map((t) => (
-                <tr key={t.year} className="hover:bg-amber-50/40 transition">
-                  <td className="px-5 py-3 font-display text-lg text-[#8B1A1A]">{t.year}</td>
-                  <td className="px-5 py-3 text-stone-700">{t.filedBy}</td>
-                  <td className="px-5 py-3 text-stone-700">{t.president}</td>
-                  <td className="px-5 py-3 text-right">
-                    {t.available ? (
-                      <a href="#" className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded text-xs font-medium transition">View {t.year}</a>
-                    ) : (
-                      <span className="text-stone-400 text-xs italic">Not Available</span>
-                    )}
-                  </td>
+const TaxReturns = () => {
+  const [returns, setReturns] = useState([]);
+  useEffect(() => {
+    apiClient.get("/tax-returns")
+      .then((r) => setReturns(Array.isArray(r.data) ? r.data : []))
+      .catch(() => setReturns([]));
+  }, []);
+  return (
+    <section className="py-20 bg-cream">
+      <div className="max-w-5xl mx-auto px-6">
+        <p className="text-stone-700 leading-relaxed mb-6">
+          The India Club of Greater Dayton is an Ohio State Registered, Tax Exempt 501(c)(3) non-profit organization. Below are our compliance documents available for public view.
+        </p>
+        <div className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-amber-200 rounded-md mb-8">
+          <span className="font-cinzel text-xs tracking-[0.22em] text-[#E07A1F]">TAX ID / EIN</span>
+          <span className="font-semibold text-stone-900">31-1184659</span>
+        </div>
+        <div className="bg-white border border-amber-100 rounded-2xl overflow-hidden">
+          <div className="h-1 bg-gradient-to-r from-[#8B1A1A] via-[#E07A1F] to-[#C9A961]" />
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-amber-50/60 text-stone-700">
+                <tr>
+                  <th className="text-left px-5 py-3 font-cinzel tracking-wider text-xs">YEAR</th>
+                  <th className="text-left px-5 py-3 font-cinzel tracking-wider text-xs">FILED BY</th>
+                  <th className="text-left px-5 py-3 font-cinzel tracking-wider text-xs">PRESIDENT</th>
+                  <th className="text-right px-5 py-3 font-cinzel tracking-wider text-xs">DOCUMENT</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-amber-100" data-testid="tax-returns-list">
+                {returns.map((t) => (
+                  <tr key={t.id || t.year} className="hover:bg-amber-50/40 transition">
+                    <td className="px-5 py-3 font-display text-lg text-[#8B1A1A]">{t.year}</td>
+                    <td className="px-5 py-3 text-stone-700">{t.filed_by || "—"}</td>
+                    <td className="px-5 py-3 text-stone-700">{t.president || "—"}</td>
+                    <td className="px-5 py-3 text-right">
+                      {t.available ? (
+                        <a href="#" className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded text-xs font-medium transition">View {t.year}</a>
+                      ) : (
+                        <span className="text-stone-400 text-xs italic">Not Available</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
-    </div>
-  </section>
-);
+    </section>
+  );
+};
 
-const PastPresidents = () => (
-  <section className="py-20 bg-cream">
-    <div className="max-w-5xl mx-auto px-6">
-      <p className="text-stone-600 mb-8 font-serif text-lg">
-        Honoring the visionary leaders who shaped India Club of Greater Dayton across the decades. Below is the chronological list of our Presidents based on our publicly available IRS filings.
-      </p>
-      <div className="relative">
-        <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gradient-to-b from-[#8B1A1A] via-[#E07A1F] to-[#C9A961]" />
-        <ul className="space-y-4">
-          {PAST_PRESIDENTS.map((p, i) => (
-            <li key={i} className="relative pl-14">
-              <div className="absolute left-0 top-3 w-8 h-8 rounded-full bg-white border-4 border-[#E07A1F] flex items-center justify-center">
-                <div className="w-2 h-2 rounded-full bg-[#8B1A1A]" />
-              </div>
-              <div className="bg-white border border-amber-100 rounded-xl p-5 flex items-center justify-between card-hover">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-[#8B1A1A] text-amber-50 flex items-center justify-center font-cinzel text-sm">
-                    {p.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
-                  </div>
-                  <div>
-                    <div className="font-display text-xl text-stone-900">{p.name}</div>
-                    <div className="text-xs text-stone-500 font-cinzel tracking-[0.18em]">PRESIDENT</div>
-                  </div>
+const PastPresidents = () => {
+  const [presidents, setPresidents] = useState([]);
+  useEffect(() => {
+    apiClient.get("/past-presidents")
+      .then((r) => setPresidents(Array.isArray(r.data) ? r.data : []))
+      .catch(() => setPresidents([]));
+  }, []);
+  return (
+    <section className="py-20 bg-cream">
+      <div className="max-w-5xl mx-auto px-6">
+        <p className="text-stone-600 mb-8 font-serif text-lg">
+          Honoring the visionary leaders who shaped India Club of Greater Dayton across the decades. Below is the chronological list of our Presidents based on our publicly available IRS filings.
+        </p>
+        <div className="relative">
+          <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gradient-to-b from-[#8B1A1A] via-[#E07A1F] to-[#C9A961]" />
+          <ul className="space-y-4" data-testid="past-presidents-list">
+            {presidents.map((p) => (
+              <li key={p.id || p.year} className="relative pl-14">
+                <div className="absolute left-0 top-3 w-8 h-8 rounded-full bg-white border-4 border-[#E07A1F] flex items-center justify-center">
+                  <div className="w-2 h-2 rounded-full bg-[#8B1A1A]" />
                 </div>
-                <div className="font-display text-2xl text-[#E07A1F]">{p.year}</div>
+                <div className="bg-white border border-amber-100 rounded-xl p-5 flex items-center justify-between card-hover">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-[#8B1A1A] text-amber-50 flex items-center justify-center font-cinzel text-sm">
+                      {(p.name || "").split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                    </div>
+                    <div>
+                      <div className="font-display text-xl text-stone-900">{p.name}</div>
+                      <div className="text-xs text-stone-500 font-cinzel tracking-[0.18em]">PRESIDENT</div>
+                    </div>
+                  </div>
+                  <div className="font-display text-2xl text-[#E07A1F]">{p.year}</div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+const CommunityServiceAwardees = () => {
+  const [awardees, setAwardees] = useState([]);
+  useEffect(() => {
+    apiClient.get("/awardees")
+      .then((r) => setAwardees(Array.isArray(r.data) ? r.data : []))
+      .catch(() => setAwardees([]));
+  }, []);
+  return (
+    <section className="py-20 bg-cream">
+      <div className="max-w-5xl mx-auto px-6">
+        <p className="text-stone-700 leading-relaxed font-serif text-lg mb-8">
+          Each year India Club of Greater Dayton honors a community member whose volunteer service has uplifted our families and the broader Dayton community. The award is presented at the annual Diwali Mela.
+        </p>
+        <div className="grid md:grid-cols-2 gap-5" data-testid="csa-list">
+          {awardees.map((a) => (
+            <div key={a.id || a.year} className="card-hover p-6 bg-white border border-amber-100 rounded-xl">
+              <div className="flex items-start justify-between mb-3">
+                <div className="font-cinzel text-xs tracking-[0.22em] text-[#E07A1F]">RECIPIENT</div>
+                <div className="font-display text-3xl text-[#8B1A1A]">{a.year}</div>
               </div>
-            </li>
+              <div className="flex items-center gap-3 mb-2">
+                <Award className="w-5 h-5 text-[#E07A1F]" />
+                <div className="font-display text-2xl text-stone-900">{a.name}</div>
+              </div>
+              <p className="text-sm text-stone-600 leading-relaxed">{a.contribution}</p>
+            </div>
           ))}
-        </ul>
+        </div>
       </div>
-    </div>
-  </section>
-);
+    </section>
+  );
+};
 
-const CommunityServiceAwardees = () => (
-  <section className="py-20 bg-cream">
-    <div className="max-w-5xl mx-auto px-6">
-      <p className="text-stone-700 leading-relaxed font-serif text-lg mb-8">
-        Each year India Club of Greater Dayton honors a community member whose volunteer service has uplifted our families and the broader Dayton community. The award is presented at the annual Diwali Mela.
-      </p>
-      <div className="grid md:grid-cols-2 gap-5">
-        {COMMUNITY_SERVICE_AWARDEES.map((a) => (
-          <div key={a.year} className="card-hover p-6 bg-white border border-amber-100 rounded-xl">
-            <div className="flex items-start justify-between mb-3">
-              <div className="font-cinzel text-xs tracking-[0.22em] text-[#E07A1F]">RECIPIENT</div>
-              <div className="font-display text-3xl text-[#8B1A1A]">{a.year}</div>
-            </div>
-            <div className="flex items-center gap-3 mb-2">
-              <Award className="w-5 h-5 text-[#E07A1F]" />
-              <div className="font-display text-2xl text-stone-900">{a.name}</div>
-            </div>
-            <p className="text-sm text-stone-600 leading-relaxed">{a.contribution}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  </section>
-);
-
-const DIFIAwards = () => (
-  <section className="py-20 bg-cream">
-    <div className="max-w-5xl mx-auto px-6">
-      <p className="text-stone-700 leading-relaxed font-serif text-lg mb-8">
-        The Dayton International Festival Inc. (DIFI) has recognized India Club of Greater Dayton multiple times for our cultural showcases, multicultural booths and community contributions over the years.
-      </p>
-      <div className="space-y-3">
-        {DIFI_AWARDS.map((a, i) => (
-          <div key={i} className="card-hover flex items-center gap-5 p-5 bg-white border border-amber-100 rounded-xl">
-            <div className="flex-shrink-0 w-16 h-16 rounded-xl bg-gradient-to-br from-[#E07A1F] to-[#8B1A1A] flex items-center justify-center text-amber-50">
-              <Trophy className="w-7 h-7" />
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-1 flex-wrap">
-                <span className="font-display text-2xl text-[#8B1A1A]">{a.year}</span>
-                <span className="font-cinzel text-[10px] tracking-[0.22em] text-stone-500 px-2 py-0.5 bg-amber-50 rounded">DIFI AWARD</span>
+const DIFIAwards = () => {
+  const [awards, setAwards] = useState([]);
+  useEffect(() => {
+    apiClient.get("/difi-awards")
+      .then((r) => setAwards(Array.isArray(r.data) ? r.data : []))
+      .catch(() => setAwards([]));
+  }, []);
+  return (
+    <section className="py-20 bg-cream">
+      <div className="max-w-5xl mx-auto px-6">
+        <p className="text-stone-700 leading-relaxed font-serif text-lg mb-8">
+          The Dayton International Festival Inc. (DIFI) has recognized India Club of Greater Dayton multiple times for our cultural showcases, multicultural booths and community contributions over the years.
+        </p>
+        <div className="space-y-3" data-testid="difi-awards-list">
+          {awards.map((a) => (
+            <div key={a.id} className="card-hover flex items-center gap-5 p-5 bg-white border border-amber-100 rounded-xl">
+              <div className="flex-shrink-0 w-16 h-16 rounded-xl bg-gradient-to-br from-[#E07A1F] to-[#8B1A1A] flex items-center justify-center text-amber-50">
+                <Trophy className="w-7 h-7" />
               </div>
-              <div className="font-display text-xl text-stone-900">{a.title}</div>
-              <div className="text-sm text-stone-600 mt-0.5">{a.note}</div>
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-1 flex-wrap">
+                  <span className="font-display text-2xl text-[#8B1A1A]">{a.year}</span>
+                  <span className="font-cinzel text-[10px] tracking-[0.22em] text-stone-500 px-2 py-0.5 bg-amber-50 rounded">DIFI AWARD</span>
+                </div>
+                <div className="font-display text-xl text-stone-900">{a.title}</div>
+                {a.note && <div className="text-sm text-stone-600 mt-0.5">{a.note}</div>}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+          {awards.length === 0 && (
+            <div className="text-center text-stone-500 py-10 border border-dashed border-stone-300 rounded-xl" data-testid="difi-awards-empty">
+              No DIFI awards yet. Add them in Admin → DIFI Awards.
+            </div>
+          )}
+        </div>
       </div>
-    </div>
-  </section>
-);
+    </section>
+  );
+};
 
-const ExecutiveCommittee = () => (
-  <section className="py-20 bg-cream relative">
-    <Mandala className="absolute -right-40 top-10 w-[400px] h-[400px]" color="#8B1A1A" opacity={0.06} />
-    <div className="max-w-7xl mx-auto px-6 relative">
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {EXECUTIVE_TEAM.map((m) => (
-          <div key={m.id} className="bg-white p-4 rounded-2xl border border-amber-100 card-hover text-center">
-            <div className="relative w-full aspect-square rounded-xl overflow-hidden">
-              <img src={m.image} alt={m.name} className="w-full h-full object-cover hover:scale-110 transition duration-500" />
+const ExecutiveCommittee = () => {
+  const [team, setTeam] = useState([]);
+  useEffect(() => {
+    apiClient.get("/exec-team")
+      .then((r) => setTeam(Array.isArray(r.data) ? r.data : []))
+      .catch(() => setTeam([]));
+  }, []);
+  return (
+    <section className="py-20 bg-cream relative">
+      <Mandala className="absolute -right-40 top-10 w-[400px] h-[400px]" color="#8B1A1A" opacity={0.06} />
+      <div className="max-w-7xl mx-auto px-6 relative">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6" data-testid="exec-committee-list">
+          {team.map((m) => (
+            <div key={m.id} className="bg-white p-4 rounded-2xl border border-amber-100 card-hover text-center">
+              <div className="relative w-full aspect-square rounded-xl overflow-hidden">
+                <img src={m.image_url || "https://ui-avatars.com/api/?name=" + encodeURIComponent(m.name || "ICGD") + "&size=400&background=8B1A1A&color=FFF9F0&bold=true"} alt={m.name} className="w-full h-full object-cover hover:scale-110 transition duration-500" />
+              </div>
+              <div className="mt-3 font-display text-lg text-stone-900">{m.name}</div>
+              <div className="font-cinzel text-[10px] tracking-[0.18em] text-[#E07A1F]">{(m.role || "").toUpperCase()}</div>
             </div>
-            <div className="mt-3 font-display text-lg text-stone-900">{m.name}</div>
-            <div className="font-cinzel text-[10px] tracking-[0.18em] text-[#E07A1F]">{m.role.toUpperCase()}</div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
-    </div>
-  </section>
-);
+    </section>
+  );
+};
 
 const Contact = () => {
   const s = useSiteSettings();

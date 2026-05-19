@@ -415,3 +415,65 @@ export const SiteStatsAdmin = () => (
       { key: "active", label: "Active", type: "checkbox", default: true },
     ]} />
 );
+
+
+export const EventCategoriesAdmin = () => (
+  <CrudPage title="Event Categories" description="The signature program cards on the homepage and the category landing pages." endpoint="event-categories"
+    columns={[
+      { key: "image_url", label: "Image", render: (r) => r.image_url ? <img src={r.image_url} alt="" className="w-14 h-14 rounded object-cover" /> : <div className="w-14 h-14 bg-stone-100 rounded" /> },
+      { key: "name", label: "Name" },
+      { key: "slug", label: "Slug" },
+      { key: "tagline", label: "Tagline" },
+      { key: "order", label: "Order" },
+      { key: "active", label: "Active", render: (r) => r.active ? "✓" : "✕" },
+    ]}
+    fields={[
+      { key: "name", label: "Name", type: "text", required: true, placeholder: "Diwali" },
+      { key: "slug", label: "Slug", type: "text", required: true, placeholder: "diwali", hint: "URL path: /events/{slug}" },
+      { key: "tagline", label: "Tagline", type: "text", placeholder: "Festival of Lights" },
+      { key: "description", label: "Short Description", type: "textarea", rows: 2 },
+      { key: "image_url", label: "Image", type: "image" },
+      { key: "color", label: "Accent Color (hex)", type: "text", default: "#8B1A1A" },
+      { key: "long_description", label: "Long Description (category page)", type: "textarea", rows: 5 },
+      { key: "highlights", label: "Highlights (one per line)", type: "tags" },
+      { key: "venue", label: "Typical Venue", type: "text" },
+      { key: "typical_timing", label: "Typical Timing", type: "text", placeholder: "Annual — November" },
+      { key: "order", label: "Order", type: "number", default: 100 },
+      { key: "active", label: "Active", type: "checkbox", default: true },
+    ]} />
+);
+
+export const DIFIAwardsAdmin = () => (
+  <CrudPage title="DIFI Awards" description="Awards received by ICGD at the Dayton International Festival." endpoint="difi-awards"
+    columns={[
+      { key: "year", label: "Year" },
+      { key: "title", label: "Award" },
+      { key: "note", label: "Note" },
+      { key: "active", label: "Active", render: (r) => r.active ? "✓" : "✕" },
+    ]}
+    fields={[
+      { key: "year", label: "Year", type: "number", required: true },
+      { key: "title", label: "Award Title", type: "text", required: true },
+      { key: "note", label: "Note", type: "text" },
+      { key: "order", label: "Order", type: "number", default: 100 },
+      { key: "active", label: "Active", type: "checkbox", default: true },
+    ]} />
+);
+
+export const ConstitutionAdmin = () => (
+  <CrudPage title="Constitution & Bylaws" description="Sections of the ICGD constitution, shown on the About page." endpoint="constitution"
+    columns={[
+      { key: "n", label: "Section #" },
+      { key: "title", label: "Title" },
+      { key: "items", label: "Clauses", render: (r) => <span className="text-xs text-stone-500">{(r.items || []).length} clauses</span> },
+      { key: "order", label: "Order" },
+      { key: "active", label: "Active", render: (r) => r.active ? "✓" : "✕" },
+    ]}
+    fields={[
+      { key: "n", label: "Section Number", type: "text", required: true, placeholder: "I, II, III..." },
+      { key: "title", label: "Section Title", type: "text", required: true, placeholder: "Name and Location" },
+      { key: "items", label: "Clauses (one per line)", type: "tags", hint: "Each line becomes a numbered clause" },
+      { key: "order", label: "Order", type: "number", default: 100 },
+      { key: "active", label: "Active", type: "checkbox", default: true },
+    ]} />
+);

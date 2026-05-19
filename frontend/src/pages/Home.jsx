@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import HeroCarousel from "../components/HeroCarousel";
-import { EVENT_CATEGORIES } from "../data/mock";
 import { Calendar, MapPin, ArrowRight, Quote, Sparkles, Star, Ticket } from "lucide-react";
 import Mandala from "../components/Mandala";
 import { useSiteSettings } from "../api/SiteSettingsContext";
@@ -28,6 +27,7 @@ export default function Home() {
   const [classifieds, setClassifieds] = useState([]);
   const [features, setFeatures] = useState([]);
   const [testimonials, setTestimonials] = useState([]);
+  const [eventCategories, setEventCategories] = useState([]);
   const [activeTicketEvent, setActiveTicketEvent] = useState(null);
 
   useEffect(() => {
@@ -50,6 +50,9 @@ export default function Home() {
     apiClient.get("/testimonials")
       .then((r) => setTestimonials(Array.isArray(r.data) ? r.data : []))
       .catch(() => setTestimonials([]));
+    apiClient.get("/event-categories")
+      .then((r) => setEventCategories(Array.isArray(r.data) ? r.data : []))
+      .catch(() => setEventCategories([]));
   }, []);
 
   // Compute "years of service" from Stat 1 if it looks like a year, else default to 58
@@ -129,21 +132,26 @@ export default function Home() {
         <Mandala className="absolute -right-40 top-10 w-[500px] h-[500px]" color="#8B1A1A" opacity={0.07} />
         <div className="max-w-7xl mx-auto px-6 relative">
           <SectionHeader eyebrow="OUR PROGRAMS" title="Signature Cultural Events" subtitle="From Diwali to DIFI, sports leagues to Golden Jewels gatherings — there is something for every family member, year-round." />
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
-            {EVENT_CATEGORIES.slice(0, 8).map((e) => (
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5" data-testid="home-event-categories">
+            {eventCategories.slice(0, 8).map((e) => (
               <Link to={`/events/${e.slug}`} key={e.slug} className="group relative h-72 rounded-xl overflow-hidden card-hover">
-                <img src={e.image} alt={e.name} className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                {e.image_url && <img src={e.image_url} alt={e.name} className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
-                <div className="absolute top-4 left-4 w-12 h-12 rounded-full flex items-center justify-center" style={{ background: e.color }}>
+                <div className="absolute top-4 left-4 w-12 h-12 rounded-full flex items-center justify-center" style={{ background: e.color || "#8B1A1A" }}>
                   <Sparkles className="w-5 h-5 text-white" />
                 </div>
                 <div className="absolute bottom-0 left-0 right-0 p-5 text-white">
-                  <div className="font-cinzel text-[10px] tracking-[0.22em] text-amber-200 mb-1">{e.tagline.toUpperCase()}</div>
+                  <div className="font-cinzel text-[10px] tracking-[0.22em] text-amber-200 mb-1">{(e.tagline || "").toUpperCase()}</div>
                   <h3 className="font-display text-2xl mb-1">{e.name}</h3>
                   <p className="text-xs text-amber-50/80 line-clamp-2">{e.description}</p>
                 </div>
               </Link>
             ))}
+            {eventCategories.length === 0 && (
+              <div className="col-span-full text-center text-stone-500 py-6 border border-dashed border-stone-300 rounded-xl" data-testid="home-event-categories-empty">
+                No event categories yet. Add them in Admin → Event Categories.
+              </div>
+            )}
           </div>
         </div>
       </section>
