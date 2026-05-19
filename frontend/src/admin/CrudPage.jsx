@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, X, Upload, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Upload, Search, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
 import { apiClient } from "../api/client";
 import { useToast } from "../hooks/use-toast";
 
@@ -41,11 +41,13 @@ export default function CrudPage({ title, description, endpoint, columns, fields
 
   const handleSave = async (data) => {
     try {
+      // Strip display-only fields (those starting with "_") from the payload
+      const payload = Object.fromEntries(Object.entries(data).filter(([k]) => !k.startsWith("_")));
       if (editing.id) {
-        await apiClient.put(`${url}/${editing.id}`, data);
+        await apiClient.put(`${url}/${editing.id}`, payload);
         toast({ title: "Updated" });
       } else {
-        await apiClient.post(url, data);
+        await apiClient.post(url, payload);
         toast({ title: "Created" });
       }
       setEditing(null);
@@ -215,6 +217,8 @@ function EditModal({ isNew, initial, fields, title, onClose, onSave }) {
                 <PromoCodesEditor value={data[f.key] || []} onChange={(v) => updateField(f.key, v)} />
               ) : f.type === "datetime" ? (
                 <input type="datetime-local" value={data[f.key] ? String(data[f.key]).slice(0, 16) : ""} onChange={(e) => updateField(f.key, e.target.value || null)} className="w-full px-3 py-2 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]" />
+              ) : f.type === "diagnostic" ? (
+                <EventSalesDiagnostic data={data} />
               ) : (
                 <input type="text" value={data[f.key] || ""} required={f.required} onChange={(e) => updateField(f.key, e.target.value)} placeholder={f.placeholder} className="w-full px-3 py-2 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]" />
               )}
@@ -367,6 +371,105 @@ function PromoCodesEditor({ value, onChange }) {
         </div>
       ))}
       <button type="button" onClick={add} className="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-[#8B1A1A] rounded text-xs font-medium"><Plus className="w-3.5 h-3.5" /> Add Promo Code</button>
+    </div>
+  );
+}
+
+
+/**
+ * Inline "Why isn't this event selling?" diagnostic shown in the event admin form.
+ * Runs the same 5 rules the public site uses and shows pass/fail with a fix hint.
+ */
+function EventSalesDiagnostic({ data }) {
+  const now = new Date();
+  const types = Array.isArray(data?.ticket_types) ? data.ticket_types : [];
+  const checks = [];
+
+  // 1. ticket types defined
+  checks.push({
+    label: "At least one ticket type defined",
+    ok: types.length > 0,
+    fix: types.length > 0 ? null : 'Scroll up to "Ticket Types" and click "+ Add Ticket Type".',
+  });
+
+  // 2. registration open
+  checks.push({
+    label: "Registration is open",
+    ok: !!data?.registration_open,
+    fix: data?.registration_open ? null : 'Tick the "Registration Open" checkbox below.',
+  });
+
+  // 3. sale window per ticket
+  const saleWindow = types.length === 0 ? { ok: true, fix: null } : (() => {
+    const issues = [];
+    types.forEach((t, i) => {
+      const ss = t.sale_start ? new Date(t.sale_start) : null;
+      const se = t.sale_end ? new Date(t.sale_end) : null;
+      if (ss && now < ss) issues.push(`"${t.name || `#${i + 1}`}" goes on sale ${ss.toLocaleString()}`);
+      if (se && now > se) issues.push(`"${t.name || `#${i + 1}`}" sale ended ${se.toLocaleString()}`);
+    });
+    return { ok: issues.length === 0, fix: issues.join(" · ") };
+  })();
+  checks.push({
+    label: "Within sale window (per ticket)",
+    ok: saleWindow.ok,
+    fix: saleWindow.fix || "Clear the Sale start / Sale end fields if you don't want a window.",
+  });
+
+  // 4. tickets remain
+  const stock = (() => {
+    if (types.length === 0) return { ok: true, fix: null };
+    const sold = types.filter((t) => Number(t.quantity_total || 0) > 0 && Number(t.quantity_sold || 0) >= Number(t.quantity_total || 0));
+    if (sold.length === 0) return { ok: true, fix: null };
+    return { ok: false, fix: `Sold out: ${sold.map((t) => `"${t.name}"`).join(", ")}. Increase quantity_total or set it to 0 (unlimited).` };
+  })();
+  checks.push({ label: "Tickets remain (not sold out)", ok: stock.ok, fix: stock.fix });
+
+  // 5. format vs venue/online_url
+  let formatCheck = { ok: true, fix: null };
+  const fmt = data?.event_format || "in_person";
+  if (fmt === "in_person" && !data?.venue) {
+    formatCheck = { ok: false, fix: 'Format is "in-person" but Venue is empty.' };
+  } else if (fmt === "online" && !data?.online_url) {
+    formatCheck = { ok: false, fix: 'Format is "online" but Online Link (Zoom/Meet) is empty.' };
+  } else if (fmt === "hybrid" && (!data?.venue || !data?.online_url)) {
+    formatCheck = { ok: false, fix: 'Hybrid format needs both Venue AND Online Link.' };
+  }
+  checks.push({ label: `Format "${fmt}" has required location/link`, ok: formatCheck.ok, fix: formatCheck.fix });
+
+  // 6. members-only ticket warning (informational, not a blocker)
+  const memberOnlyCount = types.filter((t) => t.members_only).length;
+  const allMemberOnly = types.length > 0 && memberOnlyCount === types.length;
+
+  const allPass = checks.every((c) => c.ok);
+
+  return (
+    <div className={`rounded-lg border p-4 ${allPass ? "bg-emerald-50 border-emerald-200" : "bg-amber-50 border-amber-200"}`} data-testid="event-sales-diagnostic">
+      <div className="flex items-center gap-2 mb-3">
+        {allPass ? <CheckCircle2 className="w-5 h-5 text-emerald-700" /> : <AlertTriangle className="w-5 h-5 text-amber-700" />}
+        <div className="font-display text-lg text-stone-900">
+          {allPass ? "This event is ready to sell!" : "This event won't sell tickets yet"}
+        </div>
+      </div>
+      <ul className="space-y-1.5 text-sm">
+        {checks.map((c, i) => (
+          <li key={i} className="flex items-start gap-2" data-testid={`diag-check-${i}`}>
+            {c.ok
+              ? <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
+              : <XCircle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />}
+            <div>
+              <span className={c.ok ? "text-stone-700" : "text-rose-900 font-medium"}>{c.label}</span>
+              {!c.ok && c.fix && <div className="text-xs text-stone-600 mt-0.5">→ {c.fix}</div>}
+            </div>
+          </li>
+        ))}
+      </ul>
+      {allMemberOnly && (
+        <div className="mt-3 pt-3 border-t border-amber-200 text-xs text-stone-700 flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 text-amber-700 flex-shrink-0 mt-0.5" />
+          <span>Every ticket type is marked <strong>Members only</strong>. The general public will see "no tickets available" — only logged-in active members can buy.</span>
+        </div>
+      )}
     </div>
   );
 }

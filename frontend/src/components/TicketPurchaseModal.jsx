@@ -230,37 +230,51 @@ export default function TicketPurchaseModal({ event, onClose, onSuccess }) {
         </div>
 
         <form onSubmit={submit} className="p-5 space-y-5">
-          {/* Member-only hint */}
-          {!isActiveMember && types.some((t) => t.members_only) && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm flex items-start gap-2">
-              <Lock className="w-4 h-4 text-amber-700 mt-0.5 flex-shrink-0" />
-              <div>
-                <span className="font-medium text-amber-900">Members get special pricing.</span>{" "}
-                <button
-                  type="button"
-                  onClick={() => {
-                    onClose();
-                    nav("/login?next=/events");
-                  }}
-                  className="text-amber-900 underline hover:text-amber-700"
-                >
-                  Sign in
-                </button>{" "}
-                or{" "}
-                <button
-                  type="button"
-                  onClick={() => {
-                    onClose();
-                    nav("/membership");
-                  }}
-                  className="text-amber-900 underline hover:text-amber-700"
-                >
-                  become a member
-                </button>{" "}
-                to unlock member-only ticket types.
+          {/* Member-only / activation hint — context aware */}
+          {!isActiveMember && types.some((t) => t.members_only) && (() => {
+            const status = isAuthed ? (member?.membership?.status || "none") : null;
+            // Logged-in but no membership / pending / expired → different CTA
+            let title, body, primaryLabel, primaryAction;
+            if (!isAuthed) {
+              title = "Members get special pricing.";
+              body = "Sign in or become a member to unlock member-only ticket types.";
+              primaryLabel = "Sign in";
+              primaryAction = () => { onClose(); nav("/login?next=/events"); };
+            } else if (status === "pending") {
+              title = "Your membership is pending review.";
+              body = "An admin will activate it shortly. Member-only tickets unlock once your membership is active.";
+              primaryLabel = "View status";
+              primaryAction = () => { onClose(); nav("/member/dashboard"); };
+            } else if (status === "expired") {
+              title = "Your membership has expired.";
+              body = "Renew now to unlock member pricing and exclusive tickets.";
+              primaryLabel = "Renew (+1 year)";
+              primaryAction = () => { onClose(); nav("/member/dashboard"); };
+            } else {
+              // status === 'none' or unknown — signed in but never subscribed
+              title = "Become a member to unlock member-only tickets.";
+              body = "Active members get exclusive ticket types and discounted pricing.";
+              primaryLabel = "Become a member";
+              primaryAction = () => { onClose(); nav("/membership"); };
+            }
+            return (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm flex items-start gap-2" data-testid="ticket-membership-prompt">
+                <Lock className="w-4 h-4 text-amber-700 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <div className="font-medium text-amber-900">{title}</div>
+                  <div className="text-amber-900/90 mt-0.5">{body}</div>
+                  <button
+                    type="button"
+                    onClick={primaryAction}
+                    className="mt-2 text-amber-900 underline hover:text-amber-700 font-medium"
+                    data-testid="ticket-membership-cta"
+                  >
+                    {primaryLabel} →
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Ticket types */}
           <div>

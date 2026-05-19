@@ -14,6 +14,7 @@ export const EventsAdmin = () => (
       { key: "registration_open", label: "Reg", render: (r) => r.registration_open ? <span className="text-green-700 text-xs">OPEN</span> : <span className="text-stone-400 text-xs">CLOSED</span> },
     ]}
     fields={[
+      { key: "_diagnostic", label: "Sales Readiness", type: "diagnostic" },
       { key: "title", label: "Title", type: "text", required: true },
       { key: "slug", label: "Slug (URL-friendly)", type: "text", required: true, hint: "e.g. diwali-2026" },
       { key: "category", label: "Category", type: "select", required: true, options: ["DIFI", "Diwali", "Rising Stars", "Golden Jewels", "Women's Connect", "Sports", "Picnic", "Other"] },
