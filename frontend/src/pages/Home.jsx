@@ -64,8 +64,72 @@ export default function Home() {
     <>
       <HeroCarousel />
 
+      {/* Upcoming events — placed at top so visitors immediately see what's happening */}
+      <section className="py-16 bg-white" data-testid="home-upcoming-events">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex items-end justify-between flex-wrap gap-4 mb-10">
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="h-px w-8 bg-[#E07A1F]" />
+                <span className="font-cinzel text-xs tracking-[0.28em] text-[#8B1A1A]">SAVE THE DATE</span>
+              </div>
+              <h2 className="font-display text-4xl md:text-5xl text-stone-900">Upcoming Events</h2>
+            </div>
+            <Link to="/events/upcoming" className="inline-flex items-center gap-1 text-[#8B1A1A] hover:text-[#E07A1F] font-medium" data-testid="home-view-all-events">View all <ArrowRight className="w-4 h-4" /></Link>
+          </div>
+          {events.length === 0 ? (
+            <div className="text-center py-10 text-stone-500 border border-dashed border-stone-300 rounded-xl" data-testid="home-events-empty">
+              No featured events yet. Mark an event as <strong>Featured</strong> in the admin panel to showcase it here.
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {events.slice(0, 6).map((e) => {
+                const hasTickets = Array.isArray(e.ticket_types) && e.ticket_types.length > 0;
+                const minPrice = hasTickets ? Math.min(...e.ticket_types.map((t) => Number(t.price || 0))) : null;
+                return (
+                  <div key={e.id} className="card-hover bg-white border border-stone-200 rounded-xl overflow-hidden flex flex-col" data-testid={`home-event-${e.slug || e.id}`}>
+                    <div className="relative h-48 overflow-hidden">
+                      <img src={e.image_url || "https://images.unsplash.com/photo-1605302977140-6572a4421aef?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600"} alt={e.title} className="w-full h-full object-cover hover:scale-105 transition duration-700" />
+                      {e.category && <div className="absolute top-3 left-3 bg-white rounded-md px-2.5 py-1 text-[#8B1A1A] text-xs font-semibold">{e.category}</div>}
+                      {hasTickets && (
+                        <div className="absolute bottom-3 left-3 bg-[#E07A1F] text-white rounded-md px-2.5 py-1 text-xs font-medium flex items-center gap-1">
+                          <Ticket className="w-3.5 h-3.5" /> From ${Number.isFinite(minPrice) ? minPrice.toFixed(0) : "0"}
+                        </div>
+                      )}
+                      {e.registration_open && !hasTickets && (
+                        <div className="absolute top-3 right-3 bg-[#E07A1F] text-white rounded-md px-2 py-1 text-[10px] font-cinzel tracking-wider">OPEN</div>
+                      )}
+                    </div>
+                    <div className="p-5 flex-1 flex flex-col">
+                      <h3 className="font-display text-xl text-stone-900 mb-2">{e.title}</h3>
+                      <div className="flex items-center gap-3 text-xs text-stone-500 mb-3 flex-wrap">
+                        {e.date && <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {e.date}</span>}
+                        {e.venue && <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {e.venue.split(",")[0]}</span>}
+                      </div>
+                      <p className="text-sm text-stone-600 line-clamp-2 mb-4 flex-1">{e.description}</p>
+                      <div className="flex items-center justify-between mt-auto">
+                        <Link to="/events/upcoming" className="text-sm font-medium text-[#8B1A1A] inline-flex items-center gap-1 hover:text-[#E07A1F]" data-testid={`home-event-details-${e.slug || e.id}`}>Details <ArrowRight className="w-3.5 h-3.5" /></Link>
+                        {hasTickets && e.registration_open && (
+                          <button
+                            onClick={() => setActiveTicketEvent(e)}
+                            className="px-3.5 py-2 bg-[#E07A1F] hover:bg-[#c66c1a] text-white text-xs rounded-md font-medium transition inline-flex items-center gap-1.5"
+                            data-testid={`home-buy-tickets-${e.slug || e.id}`}
+                          >
+                            <Ticket className="w-3.5 h-3.5" /> Buy Tickets
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </section>
+
       {/* Welcome */}
-      <section className="relative pt-32 pb-20 bg-cream">
+      <section className="relative pt-24 pb-20 bg-cream">
         <Mandala className="absolute -left-32 top-10 w-[400px] h-[400px]" color="#8B1A1A" opacity={0.06} />
         <div className="max-w-6xl mx-auto px-6 grid lg:grid-cols-2 gap-12 items-center relative">
           <div>
@@ -153,70 +217,6 @@ export default function Home() {
               </div>
             )}
           </div>
-        </div>
-      </section>
-
-      {/* Upcoming events */}
-      <section className="py-20 bg-white" data-testid="home-upcoming-events">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="flex items-end justify-between flex-wrap gap-4 mb-10">
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <span className="h-px w-8 bg-[#E07A1F]" />
-                <span className="font-cinzel text-xs tracking-[0.28em] text-[#8B1A1A]">SAVE THE DATE</span>
-              </div>
-              <h2 className="font-display text-4xl md:text-5xl text-stone-900">Upcoming Events</h2>
-            </div>
-            <Link to="/events/upcoming" className="inline-flex items-center gap-1 text-[#8B1A1A] hover:text-[#E07A1F] font-medium" data-testid="home-view-all-events">View all <ArrowRight className="w-4 h-4" /></Link>
-          </div>
-          {events.length === 0 ? (
-            <div className="text-center py-10 text-stone-500 border border-dashed border-stone-300 rounded-xl" data-testid="home-events-empty">
-              No featured events yet. Mark an event as <strong>Featured</strong> in the admin panel to showcase it here.
-            </div>
-          ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {events.slice(0, 6).map((e) => {
-                const hasTickets = Array.isArray(e.ticket_types) && e.ticket_types.length > 0;
-                const minPrice = hasTickets ? Math.min(...e.ticket_types.map((t) => Number(t.price || 0))) : null;
-                return (
-                  <div key={e.id} className="card-hover bg-white border border-stone-200 rounded-xl overflow-hidden flex flex-col" data-testid={`home-event-${e.slug || e.id}`}>
-                    <div className="relative h-48 overflow-hidden">
-                      <img src={e.image_url || "https://images.unsplash.com/photo-1605302977140-6572a4421aef?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600"} alt={e.title} className="w-full h-full object-cover hover:scale-105 transition duration-700" />
-                      {e.category && <div className="absolute top-3 left-3 bg-white rounded-md px-2.5 py-1 text-[#8B1A1A] text-xs font-semibold">{e.category}</div>}
-                      {hasTickets && (
-                        <div className="absolute bottom-3 left-3 bg-[#E07A1F] text-white rounded-md px-2.5 py-1 text-xs font-medium flex items-center gap-1">
-                          <Ticket className="w-3.5 h-3.5" /> From ${Number.isFinite(minPrice) ? minPrice.toFixed(0) : "0"}
-                        </div>
-                      )}
-                      {e.registration_open && !hasTickets && (
-                        <div className="absolute top-3 right-3 bg-[#E07A1F] text-white rounded-md px-2 py-1 text-[10px] font-cinzel tracking-wider">OPEN</div>
-                      )}
-                    </div>
-                    <div className="p-5 flex-1 flex flex-col">
-                      <h3 className="font-display text-xl text-stone-900 mb-2">{e.title}</h3>
-                      <div className="flex items-center gap-3 text-xs text-stone-500 mb-3 flex-wrap">
-                        {e.date && <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {e.date}</span>}
-                        {e.venue && <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {e.venue.split(",")[0]}</span>}
-                      </div>
-                      <p className="text-sm text-stone-600 line-clamp-2 mb-4 flex-1">{e.description}</p>
-                      <div className="flex items-center justify-between mt-auto">
-                        <Link to="/events/upcoming" className="text-sm font-medium text-[#8B1A1A] inline-flex items-center gap-1 hover:text-[#E07A1F]" data-testid={`home-event-details-${e.slug || e.id}`}>Details <ArrowRight className="w-3.5 h-3.5" /></Link>
-                        {hasTickets && e.registration_open && (
-                          <button
-                            onClick={() => setActiveTicketEvent(e)}
-                            className="px-3.5 py-2 bg-[#E07A1F] hover:bg-[#c66c1a] text-white text-xs rounded-md font-medium transition inline-flex items-center gap-1.5"
-                            data-testid={`home-buy-tickets-${e.slug || e.id}`}
-                          >
-                            <Ticket className="w-3.5 h-3.5" /> Buy Tickets
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
         </div>
       </section>
 
