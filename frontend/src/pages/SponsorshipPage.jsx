@@ -1,9 +1,16 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
-import { SPONSORS } from "../data/mock";
-import { Heart, DollarSign, Building2, Users, ArrowRight, Check } from "lucide-react";
+import { Heart, DollarSign, Building2, Users, ArrowRight, Check, Loader2, CheckCircle2 } from "lucide-react";
 import { useToast } from "../hooks/use-toast";
+import { apiClient } from "../api/client";
+
+const SPONSOR_TIERS = [
+  { name: "Diamond", price: 5000, color: "#8B1A1A", perks: ["Headline logo at all events", "Full-page newsletter ad", "VIP table at Diwali Mela", "Featured banner on website"] },
+  { name: "Gold", price: 2500, color: "#C9A961", perks: ["Logo at major events", "Half-page newsletter ad", "Reserved seating at Diwali", "Logo on website"] },
+  { name: "Silver", price: 1000, color: "#9CA3AF", perks: ["Logo at select events", "Quarter-page newsletter", "Logo on website"] },
+  { name: "Bronze", price: 500, color: "#A16207", perks: ["Mention at events", "Logo on website"] },
+];
 
 const Hub = () => (
   <section className="py-20 bg-cream">
@@ -30,32 +37,53 @@ const Hub = () => (
   </section>
 );
 
-const SPONSOR_TIERS = [
-  { name: "Diamond", price: 5000, color: "#8B1A1A", perks: ["Headline logo at all events", "Full-page newsletter ad", "VIP table at Diwali Mela", "Featured banner on website"] },
-  { name: "Gold", price: 2500, color: "#C9A961", perks: ["Logo at major events", "Half-page newsletter ad", "Reserved seating at Diwali", "Logo on website"] },
-  { name: "Silver", price: 1000, color: "#9CA3AF", perks: ["Logo at select events", "Quarter-page newsletter", "Logo on website"] },
-  { name: "Bronze", price: 500, color: "#A16207", perks: ["Mention at events", "Logo on website"] },
-];
-
 const BecomeSponsor = () => {
   const [tier, setTier] = useState(null);
-  const [form, setForm] = useState({ company: "", contact: "", email: "", phone: "" });
+  const [form, setForm] = useState({ company: "", contact: "", email: "", phone: "", message: "" });
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const { toast } = useToast();
-  const submit = (e) => {
+
+  const submit = async (e) => {
     e.preventDefault();
-    const apps = JSON.parse(localStorage.getItem("icgd_sponsors") || "[]");
-    apps.push({ ...form, tier: tier?.name, date: new Date().toISOString() });
-    localStorage.setItem("icgd_sponsors", JSON.stringify(apps));
-    toast({ title: "Thank you!", description: "Our sponsorship team will contact you within 24 hours." });
-    setForm({ company: "", contact: "", email: "", phone: "" });
-    setTier(null);
+    setSubmitting(true);
+    try {
+      await apiClient.post("/sponsorship-inquiries", {
+        company: form.company,
+        contact: form.contact,
+        email: form.email,
+        phone: form.phone,
+        tier: tier?.name || null,
+        message: form.message || null,
+      });
+      setSubmitted(true);
+      toast({ title: "Thank you!", description: "Our sponsorship team will contact you within 24 hours." });
+    } catch (err) {
+      toast({ title: "Couldn't send inquiry", description: err?.response?.data?.detail || "Please try again or email sponsorship@indiaclubdayton.org.", variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  if (submitted) {
+    return (
+      <section className="py-24 bg-cream">
+        <div className="max-w-xl mx-auto px-6 text-center" data-testid="sponsor-success">
+          <CheckCircle2 className="w-16 h-16 text-emerald-500 mx-auto mb-4" />
+          <h2 className="font-display text-3xl text-[#8B1A1A] mb-2">Inquiry Received!</h2>
+          <p className="text-stone-600 mb-6">Our sponsorship team will reach out within 24 hours to {form.email}.</p>
+          <Link to="/" className="inline-flex px-5 py-2.5 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded-md text-sm font-medium transition">Back to Home</Link>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="py-20 bg-cream">
       <div className="max-w-7xl mx-auto px-6">
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5 mb-12">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5 mb-12" data-testid="sponsor-tiers">
           {SPONSOR_TIERS.map((t) => (
-            <div key={t.name} className={`p-7 rounded-2xl border-2 transition cursor-pointer ${tier?.name === t.name ? "border-[#E07A1F] bg-amber-50" : "border-amber-100 bg-white"} card-hover`} onClick={() => setTier(t)}>
+            <div key={t.name} onClick={() => setTier(t)} className={`p-7 rounded-2xl border-2 transition cursor-pointer ${tier?.name === t.name ? "border-[#E07A1F] bg-amber-50" : "border-amber-100 bg-white"} card-hover`} data-testid={`sponsor-tier-${t.name.toLowerCase()}`}>
               <div className="w-12 h-12 rounded-full mb-4" style={{ background: t.color }} />
               <div className="font-cinzel text-xs tracking-[0.22em] text-stone-500">{t.name.toUpperCase()} TIER</div>
               <div className="font-display text-4xl text-[#8B1A1A] mt-1 mb-4">${t.price.toLocaleString()}</div>
@@ -65,55 +93,140 @@ const BecomeSponsor = () => {
             </div>
           ))}
         </div>
-        {tier && (
-          <form onSubmit={submit} className="max-w-xl mx-auto bg-white p-7 rounded-2xl border border-amber-100">
-            <h3 className="font-display text-2xl text-[#8B1A1A] mb-1">Sponsor as {tier.name}</h3>
-            <p className="text-stone-600 mb-5">Tell us about your company and we'll be in touch.</p>
-            <div className="space-y-3">
-              <input required placeholder="Company name" value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} className="w-full px-4 py-3 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]" />
-              <input required placeholder="Contact person" value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })} className="w-full px-4 py-3 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]" />
-              <input required type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full px-4 py-3 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]" />
-              <input required placeholder="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="w-full px-4 py-3 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]" />
-              <button type="submit" className="w-full py-3.5 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded-md font-medium">Submit Sponsorship Inquiry</button>
-            </div>
-          </form>
-        )}
+        <form onSubmit={submit} className="max-w-xl mx-auto bg-white p-7 rounded-2xl border border-amber-100" data-testid="sponsor-form">
+          <h3 className="font-display text-2xl text-[#8B1A1A] mb-1">{tier ? `Sponsor as ${tier.name}` : "Sponsor India Club"}</h3>
+          <p className="text-stone-600 mb-5">{tier ? "Tell us about your company and we'll be in touch." : "Pick a tier above (optional) and tell us about your company."}</p>
+          <div className="space-y-3">
+            <input data-testid="sponsor-input-company" required placeholder="Company name" value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} className="w-full px-4 py-3 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]" />
+            <input data-testid="sponsor-input-contact" required placeholder="Contact person" value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })} className="w-full px-4 py-3 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]" />
+            <input data-testid="sponsor-input-email" required type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full px-4 py-3 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]" />
+            <input data-testid="sponsor-input-phone" required placeholder="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="w-full px-4 py-3 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]" />
+            <textarea rows={3} placeholder="Tell us more (optional)" value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} className="w-full px-4 py-3 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]" data-testid="sponsor-input-message" />
+            <button disabled={submitting} type="submit" className="w-full py-3.5 bg-[#8B1A1A] hover:bg-[#6f1414] disabled:opacity-70 text-amber-50 rounded-md font-medium flex items-center justify-center gap-2" data-testid="sponsor-submit">
+              {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+              {submitting ? "Sending..." : "Submit Sponsorship Inquiry"}
+            </button>
+          </div>
+        </form>
       </div>
     </section>
   );
 };
 
-const SponsorDirectory = () => (
-  <section className="py-20 bg-cream">
-    <div className="max-w-7xl mx-auto px-6">
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
-        {SPONSORS.map((s) => (
-          <div key={s.name} className="bg-white border border-amber-100 rounded-xl p-5 h-36 flex flex-col items-center justify-center card-hover">
-            <img src={s.logo} alt={s.name} className="max-h-16 max-w-full object-contain mb-2" onError={(e) => (e.target.style.display = "none")} />
-            <div className="text-xs text-stone-700 text-center">{s.name}</div>
+const SponsorDirectory = () => {
+  const [sponsors, setSponsors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    apiClient.get("/sponsors")
+      .then((r) => setSponsors(Array.isArray(r.data) ? r.data : []))
+      .catch(() => setSponsors([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Group sponsors by tier for visual prominence
+  const byTier = useMemo(() => {
+    const order = ["Diamond", "Gold", "Silver", "Bronze"];
+    const groups = {};
+    sponsors.forEach((s) => {
+      const t = s.tier || "Bronze";
+      (groups[t] ||= []).push(s);
+    });
+    return order.filter((t) => groups[t]?.length > 0).map((t) => ({ tier: t, items: groups[t] }));
+  }, [sponsors]);
+
+  if (loading) {
+    return <section className="py-20 bg-cream flex justify-center"><Loader2 className="w-7 h-7 text-[#8B1A1A] animate-spin" /></section>;
+  }
+  if (sponsors.length === 0) {
+    return (
+      <section className="py-20 bg-cream">
+        <div className="max-w-4xl mx-auto px-6 text-center text-stone-500 border border-dashed border-stone-300 rounded-xl py-12" data-testid="sponsor-directory-empty">
+          We're proud to grow our sponsor family. Admin can add sponsors in Admin → Sponsors.
+        </div>
+      </section>
+    );
+  }
+  return (
+    <section className="py-20 bg-cream" data-testid="sponsor-directory">
+      <div className="max-w-7xl mx-auto px-6 space-y-12">
+        {byTier.map((g) => (
+          <div key={g.tier}>
+            <div className="flex items-center gap-3 mb-5">
+              <span className="font-cinzel text-xs tracking-[0.28em] text-[#E07A1F]">{g.tier.toUpperCase()} SPONSORS</span>
+              <span className="h-px flex-1 bg-amber-100" />
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
+              {g.items.map((s) => (
+                <a key={s.id} href={s.website || "#"} target={s.website ? "_blank" : undefined} rel="noreferrer" className="bg-white border border-amber-100 rounded-xl p-5 h-36 flex flex-col items-center justify-center card-hover" data-testid={`sponsor-${s.id}`}>
+                  {s.logo_url
+                    ? <img src={s.logo_url} alt={s.name} className="max-h-16 max-w-full object-contain mb-2" onError={(e) => (e.target.style.display = "none")} />
+                    : <Building2 className="w-8 h-8 text-stone-300 mb-2" />}
+                  <div className="text-xs text-stone-700 text-center">{s.name}</div>
+                </a>
+              ))}
+            </div>
           </div>
         ))}
       </div>
-    </div>
-  </section>
-);
+    </section>
+  );
+};
 
 const Donate = () => {
   const [amount, setAmount] = useState(100);
   const [custom, setCustom] = useState("");
   const [form, setForm] = useState({ name: "", email: "", message: "" });
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const { toast } = useToast();
   const presets = [25, 50, 100, 250, 500, 1000];
-  const submit = (e) => {
+
+  const submit = async (e) => {
     e.preventDefault();
     const finalAmt = custom ? Number(custom) : amount;
-    const donations = JSON.parse(localStorage.getItem("icgd_donations") || "[]");
-    donations.push({ ...form, amount: finalAmt, date: new Date().toISOString() });
-    localStorage.setItem("icgd_donations", JSON.stringify(donations));
-    toast({ title: "Thank you for your generosity!", description: `Your contribution of $${finalAmt} helps us serve the community.` });
-    setForm({ name: "", email: "", message: "" });
-    setCustom("");
+    if (!finalAmt || finalAmt < 1) {
+      toast({ title: "Invalid amount", description: "Please enter a donation amount.", variant: "destructive" });
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await apiClient.post("/donations", {
+        name: form.name,
+        email: form.email,
+        amount: finalAmt,
+        message: form.message || null,
+      });
+      setSubmitted(true);
+      toast({ title: "Thank you for your generosity!", description: `Your $${finalAmt} pledge is recorded. We'll email payment instructions to ${form.email}.` });
+    } catch (err) {
+      toast({ title: "Couldn't record donation", description: err?.response?.data?.detail || "Please try again.", variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  if (submitted) {
+    const finalAmt = custom ? Number(custom) : amount;
+    return (
+      <section className="py-24 bg-cream">
+        <div className="max-w-2xl mx-auto px-6" data-testid="donate-success">
+          <div className="bg-white rounded-2xl border border-amber-100 p-8 text-center">
+            <CheckCircle2 className="w-16 h-16 text-emerald-500 mx-auto mb-4" />
+            <h2 className="font-display text-3xl text-[#8B1A1A] mb-2">Thank You, {form.name.split(" ")[0]}!</h2>
+            <p className="text-stone-600 mb-1">Your generous pledge of <strong>${finalAmt}</strong> is recorded.</p>
+            <p className="text-stone-500 text-sm mb-6">A confirmation and payment instructions (Zelle / Check / Venmo) will be emailed to <strong>{form.email}</strong> within 24 hours.</p>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 text-left text-sm text-stone-700 mb-6">
+              <div className="font-cinzel text-xs tracking-[0.22em] text-[#E07A1F] mb-2">QUICK PAYMENT</div>
+              <p>You can also pay immediately via Zelle to <strong>treasurer@indiaclubdayton.org</strong> with your name in the memo.</p>
+              <p className="mt-1 text-xs text-stone-500">India Club of Greater Dayton is a 501(c)(3) — EIN 31-1184659. Your donation is tax-deductible.</p>
+            </div>
+            <Link to="/sponsorship/donors-directory" className="inline-flex px-5 py-2.5 bg-[#E07A1F] hover:bg-[#c66c1a] text-white rounded-md text-sm font-medium transition">See our Donor Honor Roll</Link>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="py-20 bg-cream">
       <div className="max-w-5xl mx-auto px-6 grid lg:grid-cols-5 gap-10">
@@ -127,20 +240,24 @@ const Donate = () => {
             <li className="flex gap-2"><Check className="w-4 h-4 text-[#8B1A1A] mt-1" /> Donors listed on our annual report and Honor Wall.</li>
           </ul>
         </div>
-        <form onSubmit={submit} className="lg:col-span-3 bg-white p-7 rounded-2xl border border-amber-100">
+        <form onSubmit={submit} className="lg:col-span-3 bg-white p-7 rounded-2xl border border-amber-100" data-testid="donate-form">
           <div className="font-cinzel text-xs tracking-[0.22em] text-[#E07A1F] mb-2">SELECT AMOUNT</div>
-          <div className="grid grid-cols-3 gap-2 mb-3">
+          <div className="grid grid-cols-3 gap-2 mb-3" data-testid="donate-presets">
             {presets.map((p) => (
-              <button type="button" key={p} onClick={() => { setAmount(p); setCustom(""); }} className={`py-3 rounded-md border-2 font-display text-lg transition ${amount === p && !custom ? "bg-[#8B1A1A] text-amber-50 border-[#8B1A1A]" : "bg-white border-stone-200 text-stone-700 hover:border-[#8B1A1A]"}`}>${p}</button>
+              <button type="button" key={p} onClick={() => { setAmount(p); setCustom(""); }} className={`py-3 rounded-md border-2 font-display text-lg transition ${amount === p && !custom ? "bg-[#8B1A1A] text-amber-50 border-[#8B1A1A]" : "bg-white border-stone-200 text-stone-700 hover:border-[#8B1A1A]"}`} data-testid={`donate-preset-${p}`}>${p}</button>
             ))}
           </div>
-          <input type="number" placeholder="Or enter custom amount" value={custom} onChange={(e) => setCustom(e.target.value)} className="w-full px-4 py-3 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A] mb-4" />
+          <input type="number" placeholder="Or enter custom amount" value={custom} onChange={(e) => setCustom(e.target.value)} className="w-full px-4 py-3 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A] mb-4" data-testid="donate-custom" />
           <div className="space-y-3">
-            <input required placeholder="Your name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full px-4 py-3 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]" />
-            <input required type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full px-4 py-3 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]" />
-            <textarea rows={3} placeholder="Optional message" value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} className="w-full px-4 py-3 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]" />
+            <input required placeholder="Your name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full px-4 py-3 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]" data-testid="donate-input-name" />
+            <input required type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full px-4 py-3 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]" data-testid="donate-input-email" />
+            <textarea rows={3} placeholder="Optional message (dedication, in honor of, etc.)" value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} className="w-full px-4 py-3 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]" data-testid="donate-input-message" />
           </div>
-          <button type="submit" className="w-full mt-4 py-3.5 bg-[#E07A1F] hover:bg-[#c66c1a] text-white rounded-md font-medium">Donate ${custom || amount}</button>
+          <button disabled={submitting} type="submit" className="w-full mt-4 py-3.5 bg-[#E07A1F] hover:bg-[#c66c1a] disabled:opacity-70 text-white rounded-md font-medium flex items-center justify-center gap-2" data-testid="donate-submit">
+            {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+            {submitting ? "Recording..." : `Donate $${custom || amount}`}
+          </button>
+          <p className="text-[11px] text-stone-400 text-center mt-2">No card charged. We'll email payment instructions after submission.</p>
         </form>
       </div>
     </section>
@@ -148,33 +265,74 @@ const Donate = () => {
 };
 
 const DonorsDirectory = () => {
-  const donors = [
-    { name: "Anonymous Patron", amount: 25000, year: 2025, tier: "Founder" },
-    { name: "Dr. Suresh & Rita Gupta", amount: 10000, year: 2025, tier: "Platinum" },
-    { name: "Mehta Family Trust", amount: 7500, year: 2024, tier: "Diamond" },
-    { name: "Rao Charitable Foundation", amount: 5000, year: 2024, tier: "Diamond" },
-    { name: "Verma Family", amount: 2500, year: 2024, tier: "Gold" },
-    { name: "Iyer Family", amount: 2500, year: 2023, tier: "Gold" },
-    { name: "Patel Family", amount: 1500, year: 2023, tier: "Silver" },
-    { name: "Sharma Family", amount: 1000, year: 2023, tier: "Silver" },
-  ];
+  const [donors, setDonors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [year, setYear] = useState("All");
+
+  useEffect(() => {
+    apiClient.get("/donors")
+      .then((r) => setDonors(Array.isArray(r.data) ? r.data : []))
+      .catch(() => setDonors([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const years = useMemo(() => {
+    const set = new Set(donors.map((d) => d.year).filter(Boolean));
+    return ["All", ...Array.from(set).sort((a, b) => b - a)];
+  }, [donors]);
+
+  const filtered = useMemo(() => {
+    const list = year === "All" ? donors : donors.filter((d) => d.year === year);
+    return [...list].sort((a, b) => (b.amount || 0) - (a.amount || 0));
+  }, [donors, year]);
+
+  const total = useMemo(() => filtered.reduce((s, d) => s + (d.amount || 0), 0), [filtered]);
+
+  if (loading) {
+    return <section className="py-20 bg-cream flex justify-center"><Loader2 className="w-7 h-7 text-[#8B1A1A] animate-spin" /></section>;
+  }
+
   return (
-    <section className="py-20 bg-cream">
+    <section className="py-20 bg-cream" data-testid="donors-directory">
       <div className="max-w-4xl mx-auto px-6">
-        <div className="bg-white rounded-2xl border border-amber-100 overflow-hidden">
-          <div className="h-2 bg-gradient-to-r from-[#8B1A1A] via-[#E07A1F] to-[#C9A961]" />
-          <ul className="divide-y divide-amber-100">
-            {donors.map((d, i) => (
-              <li key={i} className="p-5 flex items-center justify-between hover:bg-amber-50/40 transition">
-                <div>
-                  <div className="font-display text-lg text-stone-900">{d.name}</div>
-                  <div className="text-xs text-stone-500">{d.tier} • {d.year}</div>
-                </div>
-                <div className="font-display text-xl text-[#E07A1F]">${d.amount.toLocaleString()}</div>
-              </li>
-            ))}
-          </ul>
+        {/* Honor roll header with total pledged */}
+        <div className="bg-gradient-to-r from-[#8B1A1A] to-[#6f1414] rounded-2xl p-6 text-amber-50 flex items-center justify-between flex-wrap gap-4 mb-6">
+          <div>
+            <div className="font-cinzel text-xs tracking-[0.22em] text-[#E07A1F]">HONOR ROLL</div>
+            <div className="font-display text-2xl mt-1">With deep gratitude</div>
+          </div>
+          <div className="text-right">
+            <div className="font-display text-3xl">${total.toLocaleString()}</div>
+            <div className="text-xs text-amber-100/70 font-cinzel tracking-[0.18em]">PLEDGED {year !== "All" ? `IN ${year}` : "TO DATE"}</div>
+          </div>
         </div>
+        {years.length > 2 && (
+          <div className="flex gap-2 flex-wrap mb-5" data-testid="donors-year-filter">
+            {years.map((y) => (
+              <button key={y} onClick={() => setYear(y)} className={`px-4 py-1.5 rounded-full text-xs font-medium transition border ${year === y ? "bg-[#8B1A1A] text-amber-50 border-[#8B1A1A]" : "bg-white text-stone-600 border-stone-200 hover:border-[#8B1A1A]"}`}>{y}</button>
+            ))}
+          </div>
+        )}
+        {filtered.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-dashed border-stone-300 p-10 text-center text-stone-500" data-testid="donors-empty">
+            No donors listed yet. <Link to="/sponsorship/donate" className="text-[#8B1A1A] underline">Be the first to contribute</Link>.
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl border border-amber-100 overflow-hidden">
+            <div className="h-2 bg-gradient-to-r from-[#8B1A1A] via-[#E07A1F] to-[#C9A961]" />
+            <ul className="divide-y divide-amber-100" data-testid="donors-list">
+              {filtered.map((d) => (
+                <li key={d.id} className="p-5 flex items-center justify-between hover:bg-amber-50/40 transition">
+                  <div>
+                    <div className="font-display text-lg text-stone-900">{d.anonymous ? "Anonymous Patron" : d.name}</div>
+                    <div className="text-xs text-stone-500">{d.tier} • {d.year}</div>
+                  </div>
+                  <div className="font-display text-xl text-[#E07A1F]">${Number(d.amount || 0).toLocaleString()}</div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </section>
   );

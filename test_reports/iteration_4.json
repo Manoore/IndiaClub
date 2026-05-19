@@ -1,0 +1,44 @@
+{
+  "summary": "Phase 4 (Gallery/Classifieds/Sponsors/Programs/Donate/Donors wiring) — testing complete. Backend: 19/19 new Phase 4 pytest cases pass (test_phase4_wiring.py). All 4 program detail slugs (charity/education/community-service incl. scholarship via parametrize) return intro+initiatives+impact from DB. Classifieds list filters server-side to status=approved; POST sets status=pending even if client tries status=approved; admin /api/admin/classifieds/{id}/approve makes the ad appear publicly; admin auth enforced (401 without token). POST /api/donations and /api/sponsorship-inquiries work and validate email (422 on bad email). _id never leaks across gallery/sponsors/donors/classifieds/programs. Full suite regression: 84/86 (2 pre-existing failures in test_members_and_admin.py are NOT Phase-4 regressions — they expect status='pending' on subscribe but server.py:210 now auto-approves to status='active'). Frontend: All 12 spec items verified — /gallery renders 15 photos with working lightbox prev/next (album chips correctly hidden when only 1 album); /programs renders 4 cards (data-testid='program-card-cultural-connect-pro' present); 4 program detail pages render rich content from DB; /classified/all-ads shows 9 ads with working Reveal-Contact anti-spam (contact only shown after click); /classified/post-ad form submits → success screen with 'pending review' messaging; /classified/categories + /locations render real counts; /sponsorship/sponsor-directory groups sponsors under GOLD/SILVER/BRONZE tier headings (Diamond tier intentionally empty in seed); /sponsorship/become-sponsor tier card highlights on click, form posts → 'Inquiry Received!' success; /sponsorship/donate preset+custom amount works, form posts → 'Thank You' success showing $amount pledge + Zelle payment instructions; /sponsorship/donors-directory shows honor roll, year filter and 'Anonymous Patron' sorting; regression /events hub + /events/diwali both still render (Phase-3 blank-screen bug remains fixed). Mock import verified clean: only Navbar.jsx + Footer.jsx import from data/mock; mock.js is 83 lines (NAV + VISITOR_COUNT only).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/members/me/subscribe", "issue": "Pre-existing (not Phase 4): test_members_and_admin.py::test_member_subscribe_pending + test_admin_list_members_filter_pending expect status='pending' but business logic was changed to auto-approve to status='active' (server.py:210). Update those two test assertions; not a real bug."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/sponsorship/sponsor-directory", "issues": ["Diamond tier section not rendered because seed has 0 Diamond sponsors. If business wants the section header visible as aspiration, the empty-state should be rendered; otherwise this is correct behaviour."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_phase4_wiring.py",
+    "/app/test_reports/pytest/pytest_phase4.xml"
+  ],
+  "action_items": [
+    "(P3, not Phase 4 blocker) Update test_members_and_admin.py::test_member_subscribe_pending + test_admin_list_members_filter_pending to expect status='active' (subscribe is auto-approved now).",
+    "(Optional polish) Add a data-testid='lightbox-next' / 'lightbox-prev' on GalleryPage lightbox controls (currently the test had to fall back to aria-label / ›-text heuristics; navigation works fine, just less testable)."
+  ],
+  "critical_code_review_comments": [
+    "Anti-spam Reveal-Contact button is implemented and works, but the contact text is rendered into the DOM before reveal (just hidden in UI) — a determined scraper could still read it via document.querySelector. If real anti-spam protection is desired, the contact should only be fetched from the backend on click (e.g., GET /api/classifieds/{id}/contact) rather than included in the public list payload. As-is, it's better than nothing but more theatrical than secure.",
+    "Donations success screen says 'A confirmation... will be emailed...' but there is no email integration yet — already disclosed in the request as a P2 backlog item, flagging here only so it isn't forgotten when email goes live (the success copy will need to remain truthful).",
+    "GET /api/classifieds takes optional category/location query params (and properly skips when value=='All') — good. However GET /api/classifieds/categories and /api/classifieds/locations aggregations are computed on the frontend by re-fetching the full classifieds list and group-by-ing in JS. For larger datasets a dedicated GET /api/classifieds/facets endpoint would be cleaner.",
+    "ProgramInitiative model only validates {name, desc} as required strings — there is no max length, so admin could create a 50KB initiative name. Add max_length validators."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_phase4_wiring.py (new — 19 tests, all pass)",
+    "/app/test_reports/pytest/pytest_phase4.xml (generated)"
+  ],
+  "success_rate": {
+    "backend": "100% on Phase 4 (19/19) — Phase 1+2+3 regression: 65/65 still pass; 2 pre-existing failures in members/admin suite are a stale-assertion issue unrelated to Phase 4",
+    "frontend": "100% — all 12 review-request items verified end-to-end (gallery + lightbox, 4 program detail pages, classifieds list + reveal-contact + post-form success, classifieds categories/locations, sponsor directory tiered, become-sponsor form success, donate preset/custom/success/payment-instructions, donors directory with honor-roll, anonymous-patron, year filter)"
+  },
+  "test_credentials": "admin/admin123 verified working via POST /api/admin/login. Demo member credentials not exercised this iteration (out of Phase 4 scope).",
+  "seed_data_creation": "Created test data was cleaned up: TEST_phase4_* classified deleted via DELETE /api/admin/classifieds/{id}. Donations/sponsor inquiries created via POST are left in DB (acceptable — they are append-only test records with TEST_phase4_ prefix and amount=100/company=TEST_phase4_co for easy SQL/Mongo cleanup later).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend test commands: `REACT_APP_BACKEND_URL=<url> python -m pytest backend/tests/ -v`. Phase 4 file: test_phase4_wiring.py. Two pre-existing failing tests in test_members_and_admin.py (subscribe-pending) are stale assertions, not regressions — fix by changing expected status from 'pending' to 'active'. Frontend testids for Phase 4 pages are stable: gallery-grid/lightbox, programs-hub, program-card-<slug>, program-detail-<slug>, classifieds-list, classified-reveal-contact, classifieds-post-form, classifieds-submit, classifieds-success, classifieds-categories, classifieds-locations, sponsor-directory, sponsor-<id>, sponsor-tiers, sponsor-tier-<name>, sponsor-form, sponsor-submit, sponsor-success, donate-form, donate-presets, donate-preset-<amount>, donate-custom, donate-input-name, donate-input-email, donate-input-message, donate-submit, donate-success, donors-directory, donors-list, donors-year-filter. Diamond tier sponsors have 0 seed entries — that's expected, not a bug.",
+  "rca_of_the_issue": "No new bugs found in Phase 4. The 3 initial frontend 'failures' in my first sweep were all false negatives in my test (1) sponsor-directory tier match was case-sensitive but UI uppercases via CSS — actual text in DOM is 'Gold' but displayed as 'GOLD SPONSORS'; (2) donate form has dedicated testids donate-input-name/email/message that my heuristic input-finder skipped; (3) sponsor form's phone field was required and my initial fill missed it. Re-tests with precise testids all passed including the success screens."
+}
