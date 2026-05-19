@@ -101,17 +101,8 @@ const UpcomingList = ({ filterSlug }) => {
       .finally(() => setLoading(false));
   }, []);
 
-  // Merge: live events take precedence over mocked; mocked are used for visual fallback
-  const merged = liveEvents.length > 0
-    ? liveEvents.map((live) => {
-        const mockMatch = UPCOMING_EVENTS.find((m) => m.slug === live.slug || m.title === live.title);
-        return {
-          ...mockMatch,
-          ...live,
-          image: live.image_url || mockMatch?.image,
-        };
-      })
-    : UPCOMING_EVENTS;
+  // All events come from the backend now (Phase 3 — no mock fallback)
+  const merged = liveEvents.map((live) => ({ ...live, image: live.image_url }));
 
   const list = filterSlug && filterSlug !== "upcoming"
     ? merged.filter((e) => (e.category || "").toLowerCase().replace(/[^a-z]/g, "").includes(filterSlug.replace(/[^a-z]/g, "")))
