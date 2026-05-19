@@ -6,15 +6,20 @@ import { useToast } from "../hooks/use-toast";
 import { useMemberAuth } from "../api/MemberAuthContext";
 
 // Returns true if a ticket type is currently purchasable
+const fmtWhen = (d) => {
+  const dt = new Date(d);
+  if (isNaN(dt)) return "";
+  return dt.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+};
 const isTypeAvailable = (t) => {
   const now = new Date();
   if (t.sale_start) {
     const start = new Date(t.sale_start);
-    if (!isNaN(start) && now < start) return { available: false, reason: "Not on sale yet" };
+    if (!isNaN(start) && now < start) return { available: false, reason: `On sale ${fmtWhen(start)}` };
   }
   if (t.sale_end) {
     const end = new Date(t.sale_end);
-    if (!isNaN(end) && now > end) return { available: false, reason: "Sales ended" };
+    if (!isNaN(end) && now > end) return { available: false, reason: `Sales ended ${fmtWhen(end)}` };
   }
   const total = Number(t.quantity_total || 0);
   const sold = Number(t.quantity_sold || 0);
@@ -230,14 +235,15 @@ export default function TicketPurchaseModal({ event, onClose, onSuccess }) {
         </div>
 
         <form onSubmit={submit} className="p-5 space-y-5">
-          {/* Member-only / activation hint — context aware */}
-          {!isActiveMember && types.some((t) => t.members_only) && (() => {
+          {/* Member-only / activation hint — only show if EVERY ticket is members-only.
+             If at least one ticket is open to non-members, don't gate them with this banner. */}
+          {!isActiveMember && types.length > 0 && types.every((t) => t.members_only) && (() => {
             const status = isAuthed ? (member?.membership?.status || "none") : null;
             // Logged-in but no membership / pending / expired → different CTA
             let title, body, primaryLabel, primaryAction;
             if (!isAuthed) {
-              title = "Members get special pricing.";
-              body = "Sign in or become a member to unlock member-only ticket types.";
+              title = "These tickets are members-only.";
+              body = "Sign in if you're already a member, or become one to unlock these tickets.";
               primaryLabel = "Sign in";
               primaryAction = () => { onClose(); nav("/login?next=/events"); };
             } else if (status === "pending") {
@@ -247,13 +253,12 @@ export default function TicketPurchaseModal({ event, onClose, onSuccess }) {
               primaryAction = () => { onClose(); nav("/member/dashboard"); };
             } else if (status === "expired") {
               title = "Your membership has expired.";
-              body = "Renew now to unlock member pricing and exclusive tickets.";
+              body = "Renew now to unlock these member-only tickets.";
               primaryLabel = "Renew (+1 year)";
               primaryAction = () => { onClose(); nav("/member/dashboard"); };
             } else {
-              // status === 'none' or unknown — signed in but never subscribed
-              title = "Become a member to unlock member-only tickets.";
-              body = "Active members get exclusive ticket types and discounted pricing.";
+              title = "These tickets are members-only.";
+              body = "Become a member to unlock them — and enjoy discounted pricing on most events.";
               primaryLabel = "Become a member";
               primaryAction = () => { onClose(); nav("/membership"); };
             }
@@ -275,6 +280,18 @@ export default function TicketPurchaseModal({ event, onClose, onSuccess }) {
               </div>
             );
           })()}
+
+          {/* Soft hint when SOME tickets are members-only (mixed case). Tiny, non-blocking. */}
+          {!isActiveMember && types.some((t) => t.members_only) && !types.every((t) => t.members_only) && (
+            <div className="text-xs text-stone-500 flex items-center gap-1.5" data-testid="ticket-member-hint">
+              <Lock className="w-3 h-3" />
+              <span>
+                {isAuthed
+                  ? <>Some ticket types are members-only. <button type="button" onClick={() => { onClose(); nav("/member/dashboard"); }} className="underline text-[#8B1A1A] hover:text-[#E07A1F]">Activate your membership</button> to unlock them.</>
+                  : <>Members get extra ticket types & discounts. <button type="button" onClick={() => { onClose(); nav("/login?next=/events"); }} className="underline text-[#8B1A1A] hover:text-[#E07A1F]">Sign in</button> or <button type="button" onClick={() => { onClose(); nav("/membership"); }} className="underline text-[#8B1A1A] hover:text-[#E07A1F]">become a member</button>.</>}
+              </span>
+            </div>
+          )}
 
           {/* Ticket types */}
           <div>
