@@ -44,6 +44,15 @@ Clone https://www.indiaclubdayton.org/ — create a modern UI with advanced feat
 - **Promo codes** per event (percent or amount, max_uses tracking) — `/validate-promo` + apply at checkout
 - Frontend: TicketPurchaseModal shows EARLY BIRD / MEMBER PRICE badges + promo input + discount line; MemberDashboard has renewal banner (≤30 days) + Renew button on expired
 
+### Phase 6 — Family Groups + Per-Attendee QR Tickets (Jun 2026)
+- `family_members` collection {member_id, name, relation, date_of_birth, status pending|approved|rejected, admin_note}; changing name/DOB resets to pending
+- Member dashboard: "My Family" CRUD + "My Tickets" (codes, check-in status, PDF download)
+- Admin `/admin/family-approvals` (verify/reject with note) and `/admin/check-in` (html5-qrcode camera + manual code, attendance counter, duplicate/refund/wrong-event protection)
+- Checkout "Name each attendee" mode: self + approved family + named guests; `TicketType.child_price` (3–11); verified under-3 free; guests pay adult price
+- Every order stores `tickets[]` (unique `ICGD-XXXXXXXX` code per attendee); PDF via reportlab + qrcode: `/api/tickets/{order_id}/pdf?email=` and `/api/admin/ticket-orders/{id}/pdf`
+- Member JWT now sent on all non-admin requests (backend member pricing now matches what the frontend shows)
+- Code lives in `backend/family_tickets.py`; tests in `backend/tests/test_phase6_family_tickets.py` (26/26 pass)
+
 ## Data Models (27 collections)
 - `members`, `membership_plans` (nested `tiers`), `perks`, `site_settings`
 - `events` (Phase 5 — with `event_format`, structured dates, `online_url`, `schedule`, `promo_codes`, ticket_types with full pricing matrix)

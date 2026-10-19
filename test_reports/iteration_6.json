@@ -1,0 +1,45 @@
+{
+  "summary": "Iteration 6: tested Family Groups + per-attendee QR tickets + PDF + check-in, end to end (backend and UI). Backend: new pytest suite test_phase6_family_tickets.py has 26/26 passing, and the Phase 5 regression suite has 17/17 passing. UI flows checked with Playwright: member My Family add/edit/delete with status badges; admin Family Approvals tabs plus verify/reject with a note (the note shows on the member dashboard); Diwali Mela purchase in named mode (self $20, Anya child $10, Baby under-3 $0, guest $20, total $50; pending family member shows as a disabled chip); anonymous quantity mode (tickets named '<buyer> – Guest N'); success modal ticket list and a valid PDF download; My Tickets list and PDF; admin check-in showing Welcome in! / Already checked in / Invalid ticket / different-event error, with the counter going 1/11 to 2/11; the camera button starts the scanner without crashing; admin Ticket Orders shows 'x/y checked in' and a PDF download; the Child 3-11 price field saves. No critical bugs found.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/admin/events (and other generic CRUD create)", "issue": "Missing required field (e.g. slug) raises a pydantic ValidationError inside the handler and returns 500 Internal Server Error instead of 422/400 (pre-existing)."},
+      {"endpoint": "POST /api/events/{id}/purchase-tickets", "issue": "Age band is computed at event.start_date, falling back to NOW when start_date is null (evt-2 has start_date=None, only the free-text date 'November 1, 2026'). The frontend AttendeePicker uses event.start_date too, so the two agree. But a kid who turns 3 or 12 between purchase and the event gets the wrong band. Consider parsing the legacy 'date' string or requiring start_date for ticketed events."},
+      {"endpoint": "GET /api/admin/events/{id}/attendance", "issue": "total only counts orders that have a tickets[] array. Legacy orders created before this feature have no tickets, so they are left out of the check-in denominator and cannot be checked in. Consider a backfill migration that generates tickets for old orders."},
+      {"endpoint": "DELETE /api/admin/events/{id}", "issue": "Deleting an event leaves orphan ticket_orders. They still show in the member 'My Tickets' list and in admin Ticket Orders (seen with TEST_phase5_event leftovers from the Phase 5 test suite)."},
+      {"endpoint": "POST /api/admin/check-in", "issue": "Tickets on orders with payment_status=pending can be checked in. The UI shows a 'Payment pending — collect at door' warning, so this may be intended; confirm the business rule."},
+      {"endpoint": "purchase quantity_sold update", "issue": "Read-modify-write of the whole ticket_types array: concurrent purchases can lose increments or overwrite admin edits. Use $inc with arrayFilters (pre-existing)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Ticket success modal", "issues": ["Says 'Confirmation sent to <email>' but emails are mocked or not sent, which is misleading."]},
+      {"screen": "Admin Check-in", "issues": ["A wrong-event ticket shows the title 'Invalid ticket'. A distinct title such as 'Wrong event' would be clearer for door staff (the detail text is correct)."]},
+      {"screen": "My Family", "issues": ["Editing only the relation still shows the toast 'An admin will verify them shortly', but the status correctly stays Verified."]},
+      {"screen": "Admin CrudPage (Events)", "issues": ["Row Edit/Delete buttons and the modal Save button have no data-testid (the tests used title='Edit')."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_phase6_family_tickets.py", "/app/test_reports/pytest/pytest_phase6.xml"],
+  "action_items": [
+    "Optional: return 422 instead of 500 on generic admin CRUD validation errors",
+    "Optional: use the event date for the age band when start_date is null; backfill tickets[] for legacy orders",
+    "Optional: delete or flag orphan ticket orders when an event is deleted",
+    "Optional: add data-testid to CrudPage edit/delete/save buttons",
+    "Optional: reword the 'Confirmation sent' copy while emails are mocked"
+  ],
+  "critical_code_review_comments": [
+    "family_tickets.py: clean and well scoped. _id is stripped, ownership is enforced on family CRUD, and the PDF endpoint requires an owner token or a matching buyer email (order_id + email is a weak secret but acceptable).",
+    "server.py purchase_tickets is long (~180 lines); consider extracting attendee resolution and pricing into helpers.",
+    "TicketPurchaseModal.jsx is 574 lines; consider splitting the success view and the quantity picker into components.",
+    "quantity_sold should use atomic $inc to avoid race conditions."
+  ],
+  "updated_files": ["/app/backend/tests/test_phase6_family_tickets.py"],
+  "success_rate": {"backend": "100% (26/26 new + 17/17 regression)", "frontend": "100% of requested flows"},
+  "test_credentials": "admin/admin123; demo@indiaclubdayton.org/demo1234 (active); demo.pending@indiaclubdayton.org/demo1234",
+  "seed_data_creation": "Test data was created and then cleaned up: temporary events, TEST_ family members, TEST orders. Also deleted the leftover TEST_phase5_event orphan orders. evt-2 quantity_sold is back to 5. Demo family Anya Demo and Baby Demo were left untouched (approved).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: REACT_APP_BACKEND_URL=<url> python -m pytest backend/tests/test_phase6_family_tickets.py -v (self-cleaning). The ticketed event list page is /events/upcoming (buy-tickets-diwali-mela-2026), not /events. The purchase payload requires event_id in the body. The admin event create payload requires slug. The system date in this environment is about Oct 2026. Check-in camera works with Chromium's fake device in headless mode."
+}
