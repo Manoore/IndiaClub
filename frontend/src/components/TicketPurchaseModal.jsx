@@ -1,6 +1,8 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, Loader2, Ticket, Lock, Plus, Minus, CheckCircle2, Calendar, Video, MapPin, Tag } from "lucide-react";
+import { X, Loader2, Ticket, Lock, Plus, Minus, CheckCircle2, Calendar, Video, MapPin, Tag, Users, Hash } from "lucide-react";
+import AttendeePicker from "./AttendeePicker";
+import { DownloadTicketsButton } from "./MyTicketsSection";
 import { apiClient } from "../api/client";
 import { useToast } from "../hooks/use-toast";
 import { useMemberAuth } from "../api/MemberAuthContext";
@@ -49,6 +51,12 @@ export default function TicketPurchaseModal({ event, onClose, onSuccess }) {
 
   const types = event.ticket_types || [];
   const isActiveMember = isAuthed && member?.membership?.status === "active";
+  const [mode, setMode] = useState(isAuthed ? "named" : "quantity");
+  const [attendees, setAttendees] = useState([]);
+  const [family, setFamily] = useState([]);
+  useEffect(() => {
+    if (isAuthed) apiClient.get("/members/me/family").then((r) => setFamily(r.data || [])).catch(() => setFamily([]));
+  }, [isAuthed]);
 
   // Filter types — hide member-only for non-members; hide expired/sold out (or show with notice)
   const visibleTypes = useMemo(() => {
@@ -89,8 +97,21 @@ export default function TicketPurchaseModal({ event, onClose, onSuccess }) {
     }))
     .filter((i) => i.qty > 0);
 
-  const subtotal = items.reduce((s, i) => s + i.qty * priceOf(i.type), 0);
-  const totalTickets = items.reduce((s, i) => s + i.qty, 0);
+  const availableTypes = visibleTypes.filter((t) => isTypeAvailable(t).available);
+  const typesById = Object.fromEntries(types.map((t) => [t.id, t]));
+  const priceForAttendee = (a) => {
+    const t = typesById[a.ticket_type_id];
+    if (!t) return 0;
+    const base = priceOf(t);
+    if (a.band === "infant") return 0;
+    if (a.band === "child" && t.child_price != null) return Math.min(base, Number(t.child_price));
+    return base;
+  };
+  const named = mode === "named";
+  const subtotal = named
+    ? attendees.reduce((s, a) => s + priceForAttendee(a), 0)
+    : items.reduce((s, i) => s + i.qty * priceOf(i.type), 0);
+  const totalTickets = named ? attendees.length : items.reduce((s, i) => s + i.qty, 0);
 
   const computedDiscount = promo
     ? (promo.kind === "percent" ? subtotal * (Number(promo.value) / 100) : Math.min(Number(promo.value), subtotal))
@@ -124,7 +145,8 @@ export default function TicketPurchaseModal({ event, onClose, onSuccess }) {
     try {
       const payload = {
         event_id: event.id,
-        items: items.map((i) => ({ ticket_type_id: i.type.id, quantity: i.qty })),
+        items: named ? [] : items.map((i) => ({ ticket_type_id: i.type.id, quantity: i.qty })),
+        attendees: named ? attendees.map((a) => ({ ticket_type_id: a.ticket_type_id, name: a.name, family_member_id: a.family_member_id })) : undefined,
         buyer_name: buyer.buyer_name.trim(),
         buyer_email: buyer.buyer_email.trim(),
         buyer_phone: buyer.buyer_phone?.trim() || undefined,
@@ -179,6 +201,20 @@ export default function TicketPurchaseModal({ event, onClose, onSuccess }) {
                 <span>${Number(success.total).toFixed(2)}</span>
               </div>
             </div>
+            {(success.tickets || []).length > 0 && (
+              <div className="text-left mb-5" data-testid="ticket-success-tickets">
+                <div className="text-xs font-cinzel tracking-wider text-stone-500 mb-2">YOUR {success.tickets.length} TICKET{success.tickets.length > 1 ? "S" : ""}</div>
+                <div className="space-y-1 max-h-36 overflow-y-auto mb-3">
+                  {success.tickets.map((t) => (
+                    <div key={t.code} className="flex justify-between text-sm bg-stone-50 rounded px-2.5 py-1.5">
+                      <span className="truncate">{t.attendee_name}</span>
+                      <span className="font-mono text-xs text-stone-500 flex items-center gap-0.5"><Hash className="w-3 h-3" />{t.code}</span>
+                    </div>
+                  ))}
+                </div>
+                <DownloadTicketsButton order={success} className="w-full py-2.5 border-2 border-[#8B1A1A] text-[#8B1A1A] hover:bg-[#8B1A1A] hover:text-amber-50 rounded-md font-medium transition-colors" label="Download QR tickets (PDF)" testid="ticket-success-download" />
+              </div>
+            )}
             <div className="bg-stone-50 border border-stone-200 rounded-lg p-3 text-xs text-stone-600 mb-5">
               <strong>Payment:</strong>{" "}
               {buyer.payment_method === "paypal" && "Send payment via PayPal to contact@indiaclubdayton.org. Include your email in the memo."}
@@ -293,9 +329,36 @@ export default function TicketPurchaseModal({ event, onClose, onSuccess }) {
             </div>
           )}
 
+          {availableTypes.length > 0 && (
+            <div className="flex gap-1 bg-stone-100 p-1 rounded-lg" data-testid="ticket-mode-toggle">
+              {[{ v: "named", l: "Name each attendee", I: Users }, { v: "quantity", l: "Just pick quantities", I: Ticket }].map((o) => (
+                <button key={o.v} type="button" onClick={() => setMode(o.v)} className={`flex-1 py-1.5 rounded-md text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-colors ${mode === o.v ? "bg-white shadow-sm text-[#8B1A1A] font-medium" : "text-stone-600 hover:text-stone-900"}`} data-testid={`ticket-mode-${o.v}`}>
+                  <o.I className="w-3.5 h-3.5" /> {o.l}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {named && availableTypes.length > 0 && (
+            <div>
+              <div className="text-xs font-cinzel tracking-wider text-stone-500 mb-2">WHO'S ATTENDING?</div>
+              <AttendeePicker
+                types={availableTypes}
+                family={family}
+                attendees={attendees}
+                setAttendees={setAttendees}
+                priceFor={priceForAttendee}
+                selfName={member ? `${member.first_name || ""} ${member.last_name || ""}`.trim() : ""}
+                isAuthed={isAuthed}
+                eventDate={event.start_date}
+              />
+              <div className="text-[11px] text-stone-400 mt-2">Every attendee gets their own QR ticket. Verified family kids aged 3–11 pay the child price; under 3 enter free.</div>
+            </div>
+          )}
+
           {/* Ticket types */}
           <div>
-            <div className="text-xs font-cinzel tracking-wider text-stone-500 mb-2">SELECT TICKETS</div>
+            <div className="text-xs font-cinzel tracking-wider text-stone-500 mb-2">{named ? "TICKET PRICES" : "SELECT TICKETS"}</div>
             {visibleTypes.length === 0 ? (
               <div className="bg-stone-50 border border-stone-200 rounded-lg p-5 text-center text-stone-500 text-sm">
                 No tickets available for this event yet.
@@ -356,7 +419,10 @@ export default function TicketPurchaseModal({ event, onClose, onSuccess }) {
                           })()}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      {t.child_price != null && (
+                        <span className="text-[11px] text-violet-700 whitespace-nowrap">Child ${Number(t.child_price).toFixed(2)}</span>
+                      )}
+                      <div className={`flex items-center gap-2 ${named ? "hidden" : ""}`}>
                         <button
                           type="button"
                           disabled={!avail.available || qty === 0}

@@ -38,7 +38,7 @@ apiClient.interceptors.request.use((config) => {
   if (url.startsWith("/admin/") || url === "/admin") {
     const t = localStorage.getItem("icgd_admin_token");
     if (t) config.headers.Authorization = `Bearer ${t}`;
-  } else if (url.startsWith("/members/me") || url === "/members/me") {
+  } else {
     const t = localStorage.getItem("icgd_member_token");
     if (t) config.headers.Authorization = `Bearer ${t}`;
   }
@@ -70,3 +70,15 @@ apiClient.interceptors.response.use(
 );
 
 export const fileUrl = (id) => (id ? `${API}/files/${id}` : null);
+
+export const downloadFile = async (url, filename) => {
+  const r = await apiClient.get(url, { responseType: "blob" });
+  const href = URL.createObjectURL(r.data);
+  const a = document.createElement("a");
+  a.href = href;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(href), 1000);
+};

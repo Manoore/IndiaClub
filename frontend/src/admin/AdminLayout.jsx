@@ -4,7 +4,7 @@ import { useAdminAuth } from "../api/AdminAuthContext";
 import {
   LogOut, LayoutDashboard, Calendar, Newspaper, Users, Image, Building2, Heart, FileText,
   Award, Trophy, Inbox, ClipboardList, DollarSign, Tag, GraduationCap, Settings, Menu, X, Gift, Edit3, Ticket,
-  Sparkles, Quote, BarChart3,
+  Sparkles, Quote, BarChart3, UsersRound, ScanLine,
 } from "lucide-react";
 
 const NAV_GROUPS = [
@@ -16,6 +16,7 @@ const NAV_GROUPS = [
     label: "Members",
     items: [
       { to: "/admin/members", label: "Members", icon: Users },
+      { to: "/admin/family-approvals", label: "Family Approvals", icon: UsersRound },
       { to: "/admin/perks", label: "Member Perks", icon: Gift },
     ],
   },
@@ -37,6 +38,7 @@ const NAV_GROUPS = [
     items: [
       { to: "/admin/events", label: "Events", icon: Calendar },
       { to: "/admin/ticket-orders", label: "Ticket Orders", icon: Ticket },
+      { to: "/admin/check-in", label: "Event Check-in", icon: ScanLine },
       { to: "/admin/news", label: "News", icon: Newspaper },
       { to: "/admin/exec-team", label: "Executive Team", icon: Users },
       { to: "/admin/gallery", label: "Gallery", icon: Image },

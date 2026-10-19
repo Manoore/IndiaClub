@@ -8,6 +8,8 @@ import AdminSettings from "./AdminSettings";
 import MembersAdmin from "./MembersAdmin";
 import SiteContentAdmin from "./SiteContentAdmin";
 import TicketOrdersAdmin from "./TicketOrdersAdmin";
+import FamilyApprovalsAdmin from "./FamilyApprovalsAdmin";
+import CheckInAdmin from "./CheckInAdmin";
 import {
   EventsAdmin, NewsAdmin, ExecTeamAdmin, GalleryAdmin, SponsorsAdmin, DonorsAdmin,
   ClassifiedsAdmin, PastPresidentsAdmin, AwardeesAdmin, TaxReturnsAdmin, ProgramsAdmin,
@@ -29,6 +31,8 @@ export default function AdminRoutes() {
       <Route path="login" element={<AdminLogin />} />
       <Route path="" element={<Protected><Dashboard /></Protected>} />
       <Route path="members" element={<Protected><MembersAdmin /></Protected>} />
+      <Route path="family-approvals" element={<Protected><FamilyApprovalsAdmin /></Protected>} />
+      <Route path="check-in" element={<Protected><CheckInAdmin /></Protected>} />
       <Route path="perks" element={<Protected><PerksAdmin /></Protected>} />
       <Route path="site-content" element={<Protected><SiteContentAdmin /></Protected>} />
       <Route path="ticket-orders" element={<Protected><TicketOrdersAdmin /></Protected>} />

@@ -24,6 +24,11 @@ from models import (
     EventCategory, DIFIAward, ConstitutionSection,
 )
 from seed import seed_if_empty
+from collections import Counter
+from family_tickets import (
+    member_router as family_member_router, public_router as tickets_public_router,
+    admin_router as family_admin_router, age_on, age_band, new_ticket_code,
+)
 
 
 app = FastAPI(title="India Club of Greater Dayton API")
@@ -566,45 +571,97 @@ async def purchase_tickets(event_id: str, body: TicketPurchaseRequest, authoriza
 
     types_by_id = {t["id"]: t for t in types}
     now = datetime.utcnow()
-    order_items = []
-    subtotal = 0.0
+    event_dt = _parse_dt(event.get("start_date")) or now
+    lines = []  # one entry per attendee/ticket
+    if body.attendees:
+        fam_ids = [a.get("family_member_id") for a in body.attendees if a.get("family_member_id")]
+        fams = {}
+        if fam_ids:
+            if not member:
+                raise HTTPException(401, "Sign in to book tickets for family members")
+            fams = {f["id"]: f for f in await db.family_members.find({"id": {"$in": fam_ids}, "member_id": member["id"]}).to_list(100)}
+        seen = set()
+        for a in body.attendees:
+            fid = a.get("family_member_id")
+            age = None
+            if fid:
+                if fid in seen:
+                    raise HTTPException(400, "A family member can only be added once per order")
+                seen.add(fid)
+                f = fams.get(fid)
+                if not f:
+                    raise HTTPException(400, "Family member not found in your family group")
+                if f.get("status") != "approved":
+                    raise HTTPException(400, f"{f['name']} is not verified yet — an admin must approve them first")
+                name = f["name"]
+                age = age_on(f.get("date_of_birth"), event_dt)
+            else:
+                name = (a.get("name") or "").strip()
+                if not name:
+                    raise HTTPException(400, "Each attendee needs a name")
+            lines.append({"ticket_type_id": a.get("ticket_type_id"), "attendee_name": name[:120], "family_member_id": fid, "age": age})
+    else:
+        for item in body.items:
+            qty = int(item.get("quantity") or 0)
+            for _ in range(max(0, qty)):
+                n = len(lines)
+                lines.append({
+                    "ticket_type_id": item.get("ticket_type_id"),
+                    "attendee_name": body.buyer_name if n == 0 else f"{body.buyer_name} – Guest {n}",
+                    "family_member_id": None, "age": None,
+                })
 
-    for item in body.items:
-        tid = item.get("ticket_type_id")
-        qty = int(item.get("quantity") or 0)
-        if qty <= 0:
-            continue
+    if not lines:
+        raise HTTPException(400, "Please select at least one ticket")
+    if len(lines) > 30:
+        raise HTTPException(400, "Maximum 30 tickets per order")
+
+    counts = Counter(l["ticket_type_id"] for l in lines)
+    for tid, qty in counts.items():
         t = types_by_id.get(tid)
         if not t:
             raise HTTPException(400, f"Unknown ticket type {tid}")
-        # Member-only check
         if t.get("members_only") and not is_active_member:
             raise HTTPException(403, f"Ticket '{t['name']}' is for active members only")
-        # Sale window
         ss = _parse_dt(t.get("sale_start"))
         se = _parse_dt(t.get("sale_end"))
         if ss and now < ss:
             raise HTTPException(400, f"Ticket '{t['name']}' is not on sale yet")
         if se and now > se:
             raise HTTPException(400, f"Ticket '{t['name']}' sales have ended")
-        # Quantity
         total_q = int(t.get("quantity_total") or 0)
         sold_q = int(t.get("quantity_sold") or 0)
         if total_q and sold_q + qty > total_q:
-            available = total_q - sold_q
-            raise HTTPException(400, f"Only {available} '{t['name']}' tickets remain")
+            raise HTTPException(400, f"Only {total_q - sold_q} '{t['name']}' tickets remain")
 
+    agg = {}
+    tickets = []
+    subtotal = 0.0
+    for l in lines:
+        t = types_by_id[l["ticket_type_id"]]
+        band = age_band(l["age"])
         price = _effective_ticket_price(t, is_active_member, now)
-        order_items.append({
-            "ticket_type_id": tid,
+        label = t["name"]
+        if band == "infant":
+            price, label = 0.0, f"{t['name']} (Under 3)"
+        elif band == "child" and t.get("child_price") is not None:
+            price, label = min(price, float(t["child_price"])), f"{t['name']} (Child)"
+        key = (t["id"], price, label)
+        if key not in agg:
+            agg[key] = {"ticket_type_id": t["id"], "ticket_type_name": label, "unit_price": price, "quantity": 0}
+        agg[key]["quantity"] += 1
+        subtotal += price
+        tickets.append({
+            "code": new_ticket_code(),
+            "ticket_type_id": t["id"],
             "ticket_type_name": t["name"],
-            "unit_price": price,
-            "quantity": qty,
+            "attendee_name": l["attendee_name"],
+            "family_member_id": l["family_member_id"],
+            "age_band": band,
+            "price": price,
+            "checked_in_at": None,
         })
-        subtotal += price * qty
-
-    if not order_items:
-        raise HTTPException(400, "Please select at least one ticket")
+    order_items = list(agg.values())
 
     # Promo code application
     discount = 0.0
@@ -647,6 +704,7 @@ async def purchase_tickets(event_id: str, body: TicketPurchaseRequest, authoriza
         notes=body.notes or "",
     ).model_dump()
     order["items"] = order_items
+    order["tickets"] = tickets
     if promo_applied:
         order["promo_code"] = promo_applied
         order["discount"] = round(discount, 2)
@@ -934,10 +992,14 @@ async def stats():
         "classifieds_pending": await db.classifieds.count_documents({"status": "pending"}),
         "registrations": await db.event_registrations.count_documents({}),
         "sponsorship_inquiries": await db.sponsorship_inquiries.count_documents({}),
+        "family_pending": await db.family_members.count_documents({"status": "pending"}),
     }
 
 
 # ===================== App wiring =====================
+app.include_router(family_member_router)
+app.include_router(tickets_public_router)
+app.include_router(family_admin_router)
 app.include_router(api)
 app.include_router(admin)
 

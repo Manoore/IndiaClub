@@ -277,6 +277,7 @@ class TicketType(BaseModel):
     member_price: Optional[float] = None  # if set, active members pay this
     early_bird_price: Optional[float] = None  # if set, anyone pays this until early_bird_end_date
     early_bird_end_date: Optional[datetime] = None
+    child_price: Optional[float] = None  # ages 3–11 (verified family members); under 3 free
     members_only: bool = False
     sale_start: Optional[datetime] = None  # if None, available immediately
     sale_end: Optional[datetime] = None  # if None, available until event date
@@ -306,12 +307,14 @@ class TicketOrder(BaseModel):
     payment_method: str = "paypal"  # paypal | check | cash | stripe
     payment_status: str = "pending"  # pending | paid | refunded
     notes: Optional[str] = ""
+    tickets: List[dict] = []  # per-attendee [{code, attendee_name, ticket_type_id, age_band, price, checked_in_at}]
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class TicketPurchaseRequest(BaseModel):
     event_id: str
-    items: List[dict]  # [{ticket_type_id, quantity}]
+    items: List[dict] = []  # [{ticket_type_id, quantity}]
+    attendees: Optional[List[dict]] = None  # [{ticket_type_id, name?, family_member_id?}] overrides items
     buyer_name: str
     buyer_email: EmailStr
     buyer_phone: Optional[str] = None

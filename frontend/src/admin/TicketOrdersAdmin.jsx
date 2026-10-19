@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { apiClient } from "../api/client";
+import { apiClient, downloadFile } from "../api/client";
 import { useToast } from "../hooks/use-toast";
-import { CheckCircle2, Trash2, Loader2, RefreshCw, Search } from "lucide-react";
+import { CheckCircle2, Trash2, Loader2, RefreshCw, Search, Download } from "lucide-react";
 
 const STATUS_COLOR = {
   pending: "bg-amber-100 text-amber-800",
@@ -135,6 +135,11 @@ export default function TicketOrdersAdmin() {
                       {(o.items || []).map((i, idx) => (
                         <div key={idx} className="text-xs">{i.quantity}× {i.ticket_type_name}</div>
                       ))}
+                      {(o.tickets || []).length > 0 && (
+                        <div className="text-[11px] text-stone-500 mt-1" title={o.tickets.map((t) => `${t.attendee_name} (${t.code})`).join("\n")} data-testid={`order-checkin-${o.id}`}>
+                          {o.tickets.filter((t) => t.checked_in_at).length}/{o.tickets.length} checked in
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3 font-medium">{fmtMoney(o.total)}</td>
                     <td className="px-4 py-3">
@@ -150,6 +155,9 @@ export default function TicketOrdersAdmin() {
                         )}
                         {o.payment_status === "paid" && (
                           <button onClick={() => markStatus(o.id, "refunded")} disabled={busy === o.id} className="px-2.5 py-1 bg-stone-100 text-stone-700 rounded text-xs hover:bg-stone-200 disabled:opacity-50">Refund</button>
+                        )}
+                        {(o.tickets || []).length > 0 && (
+                          <button onClick={() => downloadFile(`/admin/ticket-orders/${o.id}/pdf`, `tickets-${o.id.slice(0, 8)}.pdf`)} className="p-1.5 hover:bg-stone-100 rounded text-stone-600" title="Download PDF tickets" data-testid={`order-pdf-${o.id}`}><Download className="w-4 h-4" /></button>
                         )}
                         <button onClick={() => remove(o.id)} disabled={busy === o.id} className="p-1.5 hover:bg-rose-50 rounded text-rose-600 disabled:opacity-50"><Trash2 className="w-4 h-4" /></button>
                       </div>

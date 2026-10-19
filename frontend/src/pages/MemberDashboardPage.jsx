@@ -21,6 +21,8 @@ import {
   KeyRound,
 } from "lucide-react";
 import PerksSection from "../components/PerksSection";
+import FamilySection from "../components/FamilySection";
+import MyTicketsSection from "../components/MyTicketsSection";
 
 const STATUS_META = {
   none: {
@@ -299,6 +301,12 @@ export default function MemberDashboardPage() {
     if (!bootstrapping && !isAuthed) nav("/login");
   }, [bootstrapping, isAuthed, nav]);
 
+  useEffect(() => {
+    if (member && window.location.hash === "#family") {
+      setTimeout(() => document.getElementById("family")?.scrollIntoView({ behavior: "smooth" }), 300);
+    }
+  }, [member]);
+
   if (bootstrapping || !member) {
     return (
       <section className="py-32 text-center">
@@ -453,6 +461,9 @@ export default function MemberDashboardPage() {
               </div>
             )}
           </div>
+
+          <FamilySection />
+          <MyTicketsSection />
 
           {/* Profile + Password */}
           <div className="grid lg:grid-cols-2 gap-6">
