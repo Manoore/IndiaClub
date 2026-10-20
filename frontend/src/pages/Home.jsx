@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import HeroCarousel from "../components/HeroCarousel";
-import { Calendar, MapPin, ArrowRight, Quote, Sparkles, Star, Ticket } from "lucide-react";
+import HomeHero from "../components/HomeHero";
+import { Calendar, MapPin, ArrowRight, Quote, Sparkles, Star, Ticket, UserPlus, Handshake, Store, Camera } from "lucide-react";
 import Mandala from "../components/Mandala";
 import { useSiteSettings } from "../api/SiteSettingsContext";
 import { apiClient } from "../api/client";
@@ -22,7 +22,7 @@ const SectionHeader = ({ eyebrow, title, subtitle, center = false }) => (
 export default function Home() {
   const s = useSiteSettings();
   const [events, setEvents] = useState([]);
-  const [execTeam, setExecTeam] = useState([]);
+  const [gallery, setGallery] = useState([]);
   const [sponsors, setSponsors] = useState([]);
   const [classifieds, setClassifieds] = useState([]);
   const [features, setFeatures] = useState([]);
@@ -35,9 +35,9 @@ export default function Home() {
     apiClient.get("/events?featured=true&limit=6")
       .then((r) => setEvents(Array.isArray(r.data) ? r.data : []))
       .catch(() => setEvents([]));
-    apiClient.get("/exec-team")
-      .then((r) => setExecTeam(Array.isArray(r.data) ? r.data : []))
-      .catch(() => setExecTeam([]));
+    apiClient.get("/gallery")
+      .then((r) => setGallery(Array.isArray(r.data) ? r.data : []))
+      .catch(() => setGallery([]));
     apiClient.get("/sponsors")
       .then((r) => setSponsors(Array.isArray(r.data) ? r.data : []))
       .catch(() => setSponsors([]));
@@ -62,7 +62,7 @@ export default function Home() {
     : 58;
   return (
     <>
-      <HeroCarousel />
+      <HomeHero />
 
       {/* Upcoming events — placed at top so visitors immediately see what's happening */}
       <section className="py-16 bg-white" data-testid="home-upcoming-events">
@@ -75,7 +75,7 @@ export default function Home() {
               </div>
               <h2 className="font-display text-4xl md:text-5xl text-stone-900">Upcoming Events</h2>
             </div>
-            <Link to="/events/upcoming" className="inline-flex items-center gap-1 text-[#8B1A1A] hover:text-[#E07A1F] font-medium" data-testid="home-view-all-events">View all <ArrowRight className="w-4 h-4" /></Link>
+            <Link to="/events/upcoming" className="inline-flex items-center gap-1 text-[#8B1A1A] hover:text-[#E07A1F] font-medium" data-testid="home-view-all-events">View calendar <ArrowRight className="w-4 h-4" /></Link>
           </div>
           {events.length === 0 ? (
             <div className="text-center py-10 text-stone-500 border border-dashed border-stone-300 rounded-xl" data-testid="home-events-empty">
@@ -125,6 +125,31 @@ export default function Home() {
               })}
             </div>
           )}
+        </div>
+      </section>
+
+      {/* Join · Support · Community */}
+      <section className="pb-16 bg-white" data-testid="home-pathways">
+        <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-3 gap-5">
+          {[
+            { to: "/membership/regular", icon: UserPlus, eyebrow: "MEMBERSHIP", title: "Join India Club", text: "Member pricing on every event, voting rights and a 1000+ family community.", cta: "Become a member" },
+            { to: "/sponsorship/become-sponsor", icon: Handshake, eyebrow: "SPONSOR", title: "Support the community", text: "Annual Platinum, Gold, Silver and Bronze sponsorships for local businesses.", cta: "Become a sponsor" },
+            { to: "/classified/business-directory", icon: Store, eyebrow: "COMMUNITY", title: "Classifieds & directory", text: "Find community businesses, services, housing and more.", cta: "Explore community", extra: { to: "/classified/all-ads", label: "Classifieds" } },
+          ].map((t) => {
+            const Icon = t.icon;
+            return (
+              <div key={t.to} className="p-7 rounded-2xl border border-amber-100 bg-cream flex flex-col" data-testid={`pathway-${t.eyebrow.toLowerCase()}`}>
+                <div className="w-12 h-12 rounded-xl bg-[#8B1A1A] flex items-center justify-center mb-4"><Icon className="w-6 h-6 text-amber-100" /></div>
+                <div className="font-cinzel text-[10px] tracking-[0.25em] text-[#E07A1F]">{t.eyebrow}</div>
+                <h3 className="font-display text-2xl text-stone-900 mt-1 mb-2">{t.title}</h3>
+                <p className="text-sm text-stone-600 flex-1">{t.text}</p>
+                <div className="mt-5 flex items-center gap-4 text-sm font-medium">
+                  <Link to={t.to} className="inline-flex items-center gap-1 text-[#8B1A1A] hover:text-[#E07A1F]">{t.cta} <ArrowRight className="w-4 h-4" /></Link>
+                  {t.extra && <Link to={t.extra.to} className="text-stone-600 hover:text-[#8B1A1A]">{t.extra.label}</Link>}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </section>
 
@@ -220,36 +245,35 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Executive Team teaser */}
-      <section className="py-20 bg-[#1a0e0a] text-amber-50 relative overflow-hidden">
+      {/* Community stories */}
+      <section className="py-20 bg-[#1a0e0a] text-amber-50 relative overflow-hidden" data-testid="home-stories">
         <Mandala className="absolute -left-40 -bottom-20 w-[500px] h-[500px]" color="#E07A1F" opacity={0.12} />
         <div className="max-w-7xl mx-auto px-6 relative">
-          <div className="flex items-end justify-between flex-wrap gap-4 mb-12">
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <span className="h-px w-8 bg-[#E07A1F]" />
-                <span className="font-cinzel text-xs tracking-[0.28em] text-[#E07A1F]">LEADERSHIP</span>
-              </div>
-              <h2 className="font-display text-4xl md:text-5xl">Our Executive Team</h2>
-              <p className="text-amber-50/70 mt-2 font-serif text-lg max-w-2xl">The volunteers who give their time and passion to build community.</p>
-            </div>
-            <Link to="/about/executive-committee" className="inline-flex items-center gap-1 text-amber-100 hover:text-[#E07A1F]">All members <ArrowRight className="w-4 h-4" /></Link>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="h-px w-8 bg-[#E07A1F]" />
+            <span className="font-cinzel text-xs tracking-[0.28em] text-[#E07A1F]">COMMUNITY STORIES</span>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-5" data-testid="home-exec-team">
-            {execTeam.slice(0, 6).map((m) => (
-              <div key={m.id} className="text-center group">
-                <div className="relative w-full aspect-square rounded-2xl overflow-hidden border-2 border-amber-100/20 group-hover:border-[#E07A1F] transition">
-                  <img src={m.image_url || "https://ui-avatars.com/api/?name=" + encodeURIComponent(m.name || "ICGD") + "&size=400&background=8B1A1A&color=FFF9F0&bold=true"} alt={m.name} className="w-full h-full object-cover group-hover:scale-110 transition duration-500" />
-                </div>
-                <div className="mt-3 font-display text-lg text-amber-100">{m.name}</div>
-                <div className="font-cinzel text-[10px] tracking-[0.18em] text-amber-200/70">{(m.role || "").toUpperCase()}</div>
-              </div>
-            ))}
-            {execTeam.length === 0 && (
-              <div className="col-span-full text-center text-amber-100/60 py-6" data-testid="home-exec-empty">
-                No executive team members published yet. Add them in the admin panel.
-              </div>
-            )}
+          <h2 className="font-display text-4xl md:text-5xl mb-10">Celebrating our people</h2>
+          <div className="grid md:grid-cols-3 gap-5">
+            {[
+              { slug: "golden-jewels", to: "/events/golden-jewels", title: "Golden Jewels", text: "Honouring our seniors and the generation that built this community." },
+              { slug: "rising-stars", to: "/events/rising-stars", title: "Rising Stars", text: "Showcasing the talent and achievements of our youth." },
+              { slug: "photos", to: "/gallery", title: "Photos", text: "Moments from Diwali, DIFI, picnics and more." },
+            ].map((st) => {
+              const catImg = eventCategories.find((c) => c.slug === st.slug)?.image_url;
+              const img = st.slug === "photos" ? gallery[0]?.image_url : catImg;
+              return (
+                <Link key={st.slug} to={st.to} className="group relative h-64 rounded-2xl overflow-hidden border border-amber-100/10" data-testid={`story-${st.slug}`}>
+                  {img ? <img src={img} alt="" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition duration-700" /> : <div className="absolute inset-0 bg-[#8B1A1A]" />}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
+                  <div className="absolute bottom-0 p-6">
+                    {st.slug === "photos" && <Camera className="w-5 h-5 text-[#E07A1F] mb-2" />}
+                    <h3 className="font-display text-2xl text-amber-100">{st.title}</h3>
+                    <p className="text-sm text-amber-50/80 mt-1">{st.text}</p>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         </div>
       </section>

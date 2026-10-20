@@ -30,6 +30,9 @@ if (typeof window !== "undefined") {
 
 export const API = `${BASE}/api`;
 
+// Uploaded files come back as "/api/files/<id>" — make them absolute so they load from any host
+export const absoluteUrl = (p) => (p && p.startsWith("/") ? `${BASE}${p}` : p);
+
 export const apiClient = axios.create({ baseURL: API });
 
 // Attach the right token based on the URL

@@ -13,6 +13,8 @@ class AdminUser(BaseModel):
     id: str = Field(default_factory=gen_id)
     username: str
     password_hash: str
+    role: str = "webmaster"
+    name: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -97,10 +99,12 @@ class Sponsor(BaseModel):
     id: str = Field(default_factory=gen_id)
     name: str
     logo_url: Optional[str] = None
-    tier: str = "Bronze"  # Diamond | Gold | Silver | Bronze
+    tier: str = "Bronze"  # Platinum | Gold | Silver | Bronze
     website: Optional[str] = None
     active: bool = True
     order: int = 100
+    sponsorship_id: Optional[str] = None  # set when created from a paid sponsorship
+    expires_at: Optional[datetime] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -124,6 +128,7 @@ class Classified(BaseModel):
     image_url: Optional[str] = None
     contact: str
     status: str = "pending"  # pending | approved | rejected
+    member_id: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -150,6 +155,7 @@ class Donation(BaseModel):
     email: EmailStr
     amount: float
     message: Optional[str] = None
+    payment_status: str = "pending"  # pending | awaiting_check | paid | failed | refunded
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -251,6 +257,7 @@ class MembershipPlan(BaseModel):
     benefits: List[str] = []
     featured: bool = False
     tiers: List[MembershipTier] = []
+    hidden: bool = False  # legacy plans (e.g. lifetime) that can't be bought online
     order: int = 100
 
 
@@ -278,6 +285,7 @@ class TicketType(BaseModel):
     early_bird_price: Optional[float] = None  # if set, anyone pays this until early_bird_end_date
     early_bird_end_date: Optional[datetime] = None
     child_price: Optional[float] = None  # ages 3–11 (verified family members); under 3 free
+    sponsor_price: Optional[float] = None  # with a valid sponsor code; 0 = included in sponsorship
     members_only: bool = False
     sale_start: Optional[datetime] = None  # if None, available immediately
     sale_end: Optional[datetime] = None  # if None, available until event date
@@ -305,7 +313,7 @@ class TicketOrder(BaseModel):
     subtotal: float = 0
     total: float = 0
     payment_method: str = "paypal"  # paypal | check | cash | stripe
-    payment_status: str = "pending"  # pending | paid | refunded
+    payment_status: str = "pending"  # pending | awaiting_check | paid | failed | refunded
     notes: Optional[str] = ""
     tickets: List[dict] = []  # per-attendee [{code, attendee_name, ticket_type_id, age_band, price, checked_in_at}]
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -320,6 +328,7 @@ class TicketPurchaseRequest(BaseModel):
     buyer_phone: Optional[str] = None
     payment_method: str = "paypal"
     promo_code: Optional[str] = None  # Phase 5: apply discount if valid
+    sponsor_code: Optional[str] = None  # unlocks sponsor_price for active sponsors
     notes: Optional[str] = ""
 
 
@@ -364,6 +373,15 @@ class SiteSettings(BaseModel):
     footer_copyright: str = "© 2026 India Club of Greater Dayton. All rights reserved."
     # Honorary
     honorary_contact_email: str = "president@indiaclubdayton.org"
+    # Membership promotion window (e.g. Diwali): purchases inside it run through Dec 31 next year
+    membership_promo_enabled: bool = False
+    membership_promo_label: str = "Diwali Promotion"
+    membership_promo_start: Optional[str] = ""  # YYYY-MM-DD
+    membership_promo_end: Optional[str] = ""  # YYYY-MM-DD
+    # Community
+    classifieds_members_only: bool = False
+    # Analytics
+    google_analytics_id: Optional[str] = ""
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -396,6 +414,12 @@ class SiteSettingsUpdate(BaseModel):
     footer_tagline: Optional[str] = None
     footer_copyright: Optional[str] = None
     honorary_contact_email: Optional[str] = None
+    membership_promo_enabled: Optional[bool] = None
+    membership_promo_label: Optional[str] = None
+    membership_promo_start: Optional[str] = None
+    membership_promo_end: Optional[str] = None
+    classifieds_members_only: Optional[bool] = None
+    google_analytics_id: Optional[str] = None
 
 
 # ---------- Member (logged-in user) ----------
@@ -414,6 +438,9 @@ class MemberMembership(BaseModel):
     approved_at: Optional[datetime] = None
     approved_by: Optional[str] = None
     rejection_reason: Optional[str] = None
+    lifetime: bool = False
+    payment_status: Optional[str] = None  # pending | awaiting_check | paid | failed | refunded
+    promo_label: Optional[str] = None
 
 
 class Member(BaseModel):
@@ -575,4 +602,33 @@ class ConstitutionSection(BaseModel):
     items: List[str] = []
     order: int = 100
     active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+# ---------- Sponsorships ----------
+class SponsorshipPlan(BaseModel):
+    id: str = Field(default_factory=gen_id)
+    slug: str
+    name: str  # Platinum | Gold | Silver | Bronze
+    price: float
+    benefits: List[str] = []
+    active: bool = True
+    order: int = 100
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+# ---------- Community business directory ----------
+class Business(BaseModel):
+    id: str = Field(default_factory=gen_id)
+    name: str
+    category: str = "Other"
+    description: Optional[str] = ""
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    website: Optional[str] = None
+    address: Optional[str] = None
+    logo_url: Optional[str] = None
+    member_id: Optional[str] = None
+    status: str = "pending"  # pending | approved | rejected
+    order: int = 100
     created_at: datetime = Field(default_factory=datetime.utcnow)

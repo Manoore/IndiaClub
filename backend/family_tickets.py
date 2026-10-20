@@ -12,6 +12,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
+from admin_access import admin_guard
 from auth import require_admin, require_member, decode_token
 from database import db
 from models import gen_id
@@ -21,7 +22,7 @@ CHILD_MAX_AGE = 11  # 3–11 → child price
 
 member_router = APIRouter(prefix="/api/members/me")
 public_router = APIRouter(prefix="/api")
-admin_router = APIRouter(prefix="/api/admin", dependencies=[Depends(require_admin)])
+admin_router = APIRouter(prefix="/api/admin", dependencies=[Depends(admin_guard)])
 
 
 class FamilyMemberIn(BaseModel):
@@ -193,8 +194,8 @@ async def admin_check_in(body: CheckInRequest, username: str = Depends(require_a
     }
     if body.event_id and body.event_id != order["event_id"]:
         raise HTTPException(400, f"This ticket is for a different event: {order.get('event_title')}")
-    if order.get("payment_status") == "refunded":
-        raise HTTPException(400, "This ticket was refunded and is no longer valid")
+    if order.get("payment_status") in ("refunded", "failed"):
+        raise HTTPException(400, f"This ticket's payment is {order.get('payment_status')} — it is not valid")
     if ticket.get("checked_in_at"):
         return {**info, "result": "already_checked_in", "checked_in_at": ticket["checked_in_at"]}
     now = datetime.utcnow()
@@ -216,6 +217,26 @@ async def admin_event_attendance(event_id: str):
         "checked_in": len(checked),
         "recent": [{"code": t["code"], "attendee_name": t.get("attendee_name"), "checked_in_at": t["checked_in_at"]} for t in recent],
     }
+
+
+@admin_router.get("/events/{event_id}/attendees")
+async def admin_search_attendees(event_id: str, q: str = Query("", max_length=80)):
+    """Find tickets by attendee or buyer name (or code) so volunteers can check in without a QR scan."""
+    term = q.strip().lower()
+    if len(term) < 2:
+        return []
+    orders = await db.ticket_orders.find({"event_id": event_id, "payment_status": {"$nin": ["refunded", "failed"]}}).to_list(5000)
+    out = []
+    for o in orders:
+        buyer = (o.get("buyer_name") or "").lower()
+        for t in o.get("tickets") or []:
+            if term in (t.get("attendee_name") or "").lower() or term in buyer or term in t["code"].lower():
+                out.append({
+                    "code": t["code"], "attendee_name": t.get("attendee_name"), "ticket_type_name": t.get("ticket_type_name"),
+                    "age_band": t.get("age_band"), "buyer_name": o.get("buyer_name"), "payment_status": o.get("payment_status"),
+                    "checked_in_at": t.get("checked_in_at"),
+                })
+    return out[:25]
 
 
 # ===================== PDF tickets =====================

@@ -48,6 +48,10 @@ export default function TicketPurchaseModal({ event, onClose, onSuccess }) {
   const [promo, setPromo] = useState(null);
   const [promoBusy, setPromoBusy] = useState(false);
   const [promoErr, setPromoErr] = useState("");
+  // Sponsor code unlocks sponsor ticket pricing
+  const [sponsorInput, setSponsorInput] = useState("");
+  const [sponsor, setSponsor] = useState(null);
+  const [sponsorErr, setSponsorErr] = useState("");
 
   const types = event.ticket_types || [];
   const isActiveMember = isAuthed && member?.membership?.status === "active";
@@ -76,6 +80,7 @@ export default function TicketPurchaseModal({ event, onClose, onSuccess }) {
   // Mirror of backend _effective_ticket_price()
   const now = new Date();
   const priceOf = (t) => {
+    if (sponsor && t.sponsor_price != null) return Number(t.sponsor_price);
     const eb = t.early_bird_end_date ? new Date(t.early_bird_end_date) : null;
     if (t.early_bird_price != null && eb && now <= eb) return Number(t.early_bird_price);
     if (isActiveMember && t.member_price != null) return Number(t.member_price);
@@ -118,6 +123,20 @@ export default function TicketPurchaseModal({ event, onClose, onSuccess }) {
     : 0;
   const total = Math.max(0, subtotal - computedDiscount);
 
+  const hasSponsorPricing = types.some((t) => t.sponsor_price != null);
+  const applySponsor = async () => {
+    const code = sponsorInput.trim();
+    if (!code) return;
+    setSponsorErr("");
+    try {
+      const r = await apiClient.get("/sponsorships/validate-code", { params: { code } });
+      setSponsor(r.data);
+    } catch (err) {
+      setSponsor(null);
+      setSponsorErr(err?.response?.data?.detail || "Sponsor code not recognised");
+    }
+  };
+
   const applyPromo = async () => {
     const code = (promoInput || "").trim();
     if (!code) return;
@@ -152,6 +171,7 @@ export default function TicketPurchaseModal({ event, onClose, onSuccess }) {
         buyer_phone: buyer.buyer_phone?.trim() || undefined,
         payment_method: buyer.payment_method,
         promo_code: promo?.code || undefined,
+        sponsor_code: sponsor?.code || undefined,
         notes: buyer.notes || "",
       };
       const r = await apiClient.post(`/events/${event.id}/purchase-tickets`, payload);
@@ -534,6 +554,30 @@ export default function TicketPurchaseModal({ event, onClose, onSuccess }) {
                 </div>
               )}
               {promoErr && <div className="text-xs text-rose-600 mt-1.5" data-testid="promo-error">{promoErr}</div>}
+            </div>
+          )}
+
+          {/* Sponsor code */}
+          {totalTickets > 0 && hasSponsorPricing && (
+            <div className="pt-3 border-t border-stone-100" data-testid="sponsor-code-section">
+              <div className="text-xs font-cinzel tracking-wider text-stone-500 mb-2">SPONSOR CODE</div>
+              {sponsor ? (
+                <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2 text-sm" data-testid="sponsor-code-applied">
+                  <span>Sponsor pricing for <strong>{sponsor.company}</strong></span>
+                  <button type="button" onClick={() => { setSponsor(null); setSponsorInput(""); }} className="text-emerald-700 text-xs underline">Remove</button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input value={sponsorInput} onChange={(e) => { setSponsorInput(e.target.value.toUpperCase()); setSponsorErr(""); }}
+                    placeholder="SPN-XXXXXX" className="flex-1 px-3 py-2 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A] text-sm uppercase font-mono"
+                    data-testid="sponsor-code-input" />
+                  <button type="button" onClick={applySponsor} disabled={!sponsorInput.trim()} className="px-4 py-2 bg-stone-800 hover:bg-stone-900 disabled:opacity-50 text-white rounded-md text-sm font-medium" data-testid="sponsor-code-apply">
+                    Apply
+                  </button>
+                </div>
+              )}
+              {sponsorErr && <div className="text-xs text-rose-600 mt-1.5" data-testid="sponsor-code-error">{sponsorErr}</div>}
+              {!sponsor && <div className="text-[11px] text-stone-500 mt-1">Annual sponsors: use the code from your sponsorship invoice.</div>}
             </div>
           )}
 

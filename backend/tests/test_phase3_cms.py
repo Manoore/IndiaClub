@@ -110,7 +110,7 @@ def test_membership_plans_nested_tiers(s):
     assert len(extended_tiers) == 2, f"extended tiers should be 2, got {len(extended_tiers)}"
 
     reg_names = [t.get("name", "").lower() for t in regular_tiers]
-    for kw in ["student", "individual", "family", "business"]:
+    for kw in ["youth", "individual", "family", "business"]:
         assert any(kw in n for n in reg_names), f"regular tier '{kw}' missing"
 
     ext_names = [t.get("name", "").lower() for t in extended_tiers]

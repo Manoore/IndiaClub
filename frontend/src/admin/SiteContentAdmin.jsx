@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { apiClient } from "../api/client";
 import { useToast } from "../hooks/use-toast";
-import { Loader2, Save, Home as HomeIcon, Info, Phone as PhoneIcon, Share2, Footprints } from "lucide-react";
+import { Loader2, Save, Home as HomeIcon, Info, Phone as PhoneIcon, Share2, Footprints, BadgePercent, BarChart3 } from "lucide-react";
 
 const TABS = [
   { id: "general", label: "General", icon: Info },
@@ -11,6 +11,8 @@ const TABS = [
   { id: "contact", label: "Contact", icon: PhoneIcon },
   { id: "social", label: "Social", icon: Share2 },
   { id: "footer", label: "Footer", icon: Footprints },
+  { id: "membership", label: "Membership Promotion", icon: BadgePercent },
+  { id: "community", label: "Community & Analytics", icon: BarChart3 },
 ];
 
 const FIELDS = {
@@ -55,6 +57,16 @@ const FIELDS = {
     { k: "footer_tagline", label: "Footer Tagline", textarea: true, rows: 2 },
     { k: "footer_copyright", label: "Copyright Notice" },
   ],
+  membership: [
+    { k: "membership_promo_enabled", label: "Promotion active", type: "checkbox", hint: "Memberships bought or renewed inside the window run through Dec 31 of the following year." },
+    { k: "membership_promo_label", label: "Promotion name (shown at signup)", placeholder: "Diwali Promotion" },
+    { k: "membership_promo_start", label: "Window starts", type: "date" },
+    { k: "membership_promo_end", label: "Window ends", type: "date", hint: "Leave dates empty to run the promotion until you switch it off." },
+  ],
+  community: [
+    { k: "classifieds_members_only", label: "Classifieds are members-only", type: "checkbox", hint: "Members must sign in to post a classified or see seller contact details." },
+    { k: "google_analytics_id", label: "Google Analytics measurement ID", placeholder: "G-XXXXXXXXXX", hint: "Leave empty to turn analytics off." },
+  ],
 };
 
 export default function SiteContentAdmin() {
@@ -76,7 +88,7 @@ export default function SiteContentAdmin() {
     try {
       // Send only fields in current tab to keep payloads small (and avoid stomping unrelated edits)
       const payload = {};
-      FIELDS[tab].forEach((f) => { payload[f.k] = settings[f.k] ?? ""; });
+      FIELDS[tab].forEach((f) => { payload[f.k] = f.type === "checkbox" ? !!settings[f.k] : (settings[f.k] ?? ""); });
       const r = await apiClient.put("/admin/site-settings", payload);
       setSettings(r.data);
       toast({ title: "Saved", description: "Site content updated. Refresh public pages to see changes." });
@@ -119,7 +131,18 @@ export default function SiteContentAdmin() {
             <label className="block text-xs uppercase tracking-wider text-stone-500 font-medium mb-1.5">
               {f.label}
             </label>
-            {f.textarea ? (
+            {f.type === "checkbox" ? (
+              <label className="inline-flex items-center gap-2 text-sm text-stone-700">
+                <input
+                  type="checkbox"
+                  checked={!!settings[f.k]}
+                  onChange={(e) => setSettings({ ...settings, [f.k]: e.target.checked })}
+                  className="w-4 h-4 accent-[#8B1A1A]"
+                  data-testid={`field-${f.k}`}
+                />
+                Enabled
+              </label>
+            ) : f.textarea ? (
               <textarea
                 value={settings[f.k] ?? ""}
                 onChange={(e) => setSettings({ ...settings, [f.k]: e.target.value })}
@@ -130,6 +153,7 @@ export default function SiteContentAdmin() {
               />
             ) : (
               <input
+                type={f.type === "date" ? "date" : "text"}
                 value={settings[f.k] ?? ""}
                 onChange={(e) => setSettings({ ...settings, [f.k]: e.target.value })}
                 placeholder={f.placeholder}
@@ -137,6 +161,7 @@ export default function SiteContentAdmin() {
                 data-testid={`field-${f.k}`}
               />
             )}
+            {f.hint && <p className="text-xs text-stone-500 mt-1">{f.hint}</p>}
           </div>
         ))}
         <div className="pt-3 border-t border-stone-100">

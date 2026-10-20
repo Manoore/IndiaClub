@@ -10,9 +10,8 @@ Clone https://www.indiaclubdayton.org/ — create a modern UI with advanced feat
 - Preview/dev: Emergent preview URL (`REACT_APP_BACKEND_URL` in `.env`)
 
 ## Demo Accounts
-- Admin: `admin` / `admin123`
-- Active Member: `demo@indiaclubdayton.org` / `demo1234` (end_date now ~2029 after renew tests)
-- Pending Member: `demo.pending@indiaclubdayton.org` / `demo1234`
+- Credentials are not stored in this repo. The first admin is created from `ADMIN_INITIAL_PASSWORD` (env) or a random password logged once on first start.
+- Demo members are created by `backend/setup_demo.py` for local/preview testing only.
 
 ## URL Resolution
 - Local/Emergent preview: `REACT_APP_BACKEND_URL` from `.env`
@@ -52,6 +51,23 @@ Clone https://www.indiaclubdayton.org/ — create a modern UI with advanced feat
 - Every order stores `tickets[]` (unique `ICGD-XXXXXXXX` code per attendee); PDF via reportlab + qrcode: `/api/tickets/{order_id}/pdf?email=` and `/api/admin/ticket-orders/{id}/pdf`
 - Member JWT now sent on all non-admin requests (backend member pricing now matches what the frontend shows)
 - Code lives in `backend/family_tickets.py`; tests in `backend/tests/test_phase6_family_tickets.py` (26/26 pass)
+
+### Phase 7 — Requirements gaps without external services (Oct 2026)
+- **Calendar-year memberships** (`backend/membership_rules.py`): every term ends Dec 31; renewals of active members continue from the current end year; Extended Silver/Gold = 5/10 calendar years
+- **Promotion window** (Site Content → Membership Promotion): purchases/renewals inside it run through Dec 31 next year; `GET /api/membership/quote` shows valid-through + promo at signup
+- **Legacy lifetime**: hidden `lifetime` plan, admin-only grant (`POST /api/admin/members/{id}/lifetime`), never expires; "Student" tier renamed **Youth**
+- **Payment statuses** everywhere: pending · awaiting_check · paid · failed · refunded (tickets, memberships, sponsorships, donations); check payments start as awaiting_check
+- **Role-based admin** (`backend/admin_access.py`): Webmaster, Treasurer, Membership Chair, Event Coordinator, Sponsorship Coordinator, Communications Lead, Volunteer (check-in only); Admin Users page; path → area guard on all `/api/admin/*`
+- **Sponsorship lifecycle** (`backend/sponsorships.py`): Platinum/Gold/Silver/Bronze plans (admin-editable), public signup with logo upload, pay by check/other, Treasurer marks paid → listing live through Dec 31 + sponsor code, renewals extend a year, PDF invoices, auto-expiry
+- **Sponsor ticket pricing**: `TicketType.sponsor_price` unlocked by a valid sponsor code at checkout (0 = included)
+- **Reports** (`backend/reports.py`): CSV exports (members, sponsors, registrations, revenue, donations), revenue summary by year, renewal reminder queue (expiring/lapsed within 30 days)
+- **Events**: calendar view, search, category filters, month grouping, past-events toggle; check-in name search + remaining counter
+- **Homepage (WF-1)**: single static hero with Member / Events / Donate CTAs, Join · Support · Community tiles, Community Stories strip; executive team removed from homepage
+- **Community**: business directory (member submits → admin approves), optional members-only classifieds (posting + contact details)
+- **Spam protection** (`backend/spam.py`): honeypot field + per-IP rate limit on public forms (`SPAM_MAX_PER_WINDOW`)
+- **SEO/analytics**: per-page titles and descriptions; Google Analytics via Site Content measurement ID
+- Daily-ish background job (every 6h) expires memberships and sponsorships; disable with `DISABLE_BACKGROUND_JOBS=1`
+- Tests: `backend/tests/test_phase7_requirements.py`
 
 ## Data Models (27 collections)
 - `members`, `membership_plans` (nested `tiers`), `perks`, `site_settings`

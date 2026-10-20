@@ -4,80 +4,93 @@ import { useAdminAuth } from "../api/AdminAuthContext";
 import {
   LogOut, LayoutDashboard, Calendar, Newspaper, Users, Image, Building2, Heart, FileText,
   Award, Trophy, Inbox, ClipboardList, DollarSign, Tag, GraduationCap, Settings, Menu, X, Gift, Edit3, Ticket,
-  Sparkles, Quote, BarChart3, UsersRound, ScanLine,
+  Sparkles, Quote, BarChart3, UsersRound, ScanLine, Handshake, Store, FileSpreadsheet, ShieldCheck,
 } from "lucide-react";
 
 const NAV_GROUPS = [
   {
     label: "Overview",
-    items: [{ to: "/admin", label: "Dashboard", icon: LayoutDashboard }],
+    items: [{ to: "/admin", area: "dashboard", label: "Dashboard", icon: LayoutDashboard }],
   },
   {
     label: "Members",
     items: [
-      { to: "/admin/members", label: "Members", icon: Users },
-      { to: "/admin/family-approvals", label: "Family Approvals", icon: UsersRound },
-      { to: "/admin/perks", label: "Member Perks", icon: Gift },
+      { to: "/admin/members", area: "members", label: "Members", icon: Users },
+      { to: "/admin/family-approvals", area: "members", label: "Family Approvals", icon: UsersRound },
+      { to: "/admin/perks", area: "members", label: "Member Perks", icon: Gift },
     ],
   },
   {
     label: "Site",
     items: [
-      { to: "/admin/site-content", label: "Site Content", icon: Edit3 },
-      { to: "/admin/hero-slides", label: "Hero Slides", icon: Image },
-      { to: "/admin/feature-highlights", label: "Feature Tiles", icon: Sparkles },
-      { to: "/admin/testimonials", label: "Testimonials", icon: Quote },
-      { to: "/admin/site-stats", label: "Site Stats", icon: BarChart3 },
-      { to: "/admin/event-categories", label: "Event Categories", icon: Sparkles },
-      { to: "/admin/difi-awards", label: "DIFI Awards", icon: Trophy },
-      { to: "/admin/constitution", label: "Constitution", icon: FileText },
+      { to: "/admin/site-content", area: "content", label: "Site Content", icon: Edit3 },
+      { to: "/admin/hero-slides", area: "content", label: "Hero Slides", icon: Image },
+      { to: "/admin/feature-highlights", area: "content", label: "Feature Tiles", icon: Sparkles },
+      { to: "/admin/testimonials", area: "content", label: "Testimonials", icon: Quote },
+      { to: "/admin/site-stats", area: "content", label: "Site Stats", icon: BarChart3 },
+      { to: "/admin/event-categories", area: "events", label: "Event Categories", icon: Sparkles },
+      { to: "/admin/difi-awards", area: "content", label: "DIFI Awards", icon: Trophy },
+      { to: "/admin/constitution", area: "content", label: "Constitution", icon: FileText },
     ],
   },
   {
     label: "Content",
     items: [
-      { to: "/admin/events", label: "Events", icon: Calendar },
-      { to: "/admin/ticket-orders", label: "Ticket Orders", icon: Ticket },
-      { to: "/admin/check-in", label: "Event Check-in", icon: ScanLine },
-      { to: "/admin/news", label: "News", icon: Newspaper },
-      { to: "/admin/exec-team", label: "Executive Team", icon: Users },
-      { to: "/admin/gallery", label: "Gallery", icon: Image },
-      { to: "/admin/programs", label: "Programs", icon: GraduationCap },
-      { to: "/admin/past-presidents", label: "Past Presidents", icon: Award },
-      { to: "/admin/awardees", label: "Awardees", icon: Trophy },
-      { to: "/admin/tax-returns", label: "Tax Returns", icon: FileText },
+      { to: "/admin/events", area: "events", label: "Events", icon: Calendar },
+      { to: "/admin/ticket-orders", area: "tickets", label: "Ticket Orders", icon: Ticket },
+      { to: "/admin/check-in", area: "checkin", label: "Event Check-in", icon: ScanLine },
+      { to: "/admin/news", area: "content", label: "News", icon: Newspaper },
+      { to: "/admin/exec-team", area: "content", label: "Executive Team", icon: Users },
+      { to: "/admin/gallery", area: "content", label: "Gallery", icon: Image },
+      { to: "/admin/programs", area: "content", label: "Programs", icon: GraduationCap },
+      { to: "/admin/past-presidents", area: "content", label: "Past Presidents", icon: Award },
+      { to: "/admin/awardees", area: "content", label: "Awardees", icon: Trophy },
+      { to: "/admin/tax-returns", area: "content", label: "Tax Returns", icon: FileText },
     ],
   },
   {
     label: "Partners",
     items: [
-      { to: "/admin/sponsors", label: "Sponsors", icon: Building2 },
-      { to: "/admin/donors", label: "Donors", icon: Heart },
-      { to: "/admin/membership-plans", label: "Membership Plans", icon: ClipboardList },
+      { to: "/admin/sponsorships", area: "sponsors", label: "Sponsorships", icon: Handshake },
+      { to: "/admin/sponsorship-plans", area: "sponsors", label: "Sponsorship Plans", icon: ClipboardList },
+      { to: "/admin/sponsors", area: "sponsors", label: "Sponsor Listings", icon: Building2 },
+      { to: "/admin/donors", area: "sponsors", label: "Donors", icon: Heart },
+      { to: "/admin/membership-plans", area: "members", label: "Membership Plans", icon: ClipboardList },
     ],
   },
   {
     label: "Submissions",
     items: [
-      { to: "/admin/classifieds", label: "Classifieds", icon: Tag },
-      { to: "/admin/membership-applications", label: "Applications", icon: ClipboardList },
-      { to: "/admin/sponsorship-inquiries", label: "Sponsor Inquiries", icon: Building2 },
-      { to: "/admin/donations", label: "Donations", icon: DollarSign },
-      { to: "/admin/event-registrations", label: "Registrations", icon: Calendar },
-      { to: "/admin/contact-messages", label: "Contact Inbox", icon: Inbox },
-      { to: "/admin/subscribers", label: "Subscribers", icon: Users },
+      { to: "/admin/classifieds", area: "content", label: "Classifieds", icon: Tag },
+      { to: "/admin/businesses", area: "content", label: "Business Directory", icon: Store },
+      { to: "/admin/membership-applications", area: "members", label: "Applications", icon: ClipboardList },
+      { to: "/admin/sponsorship-inquiries", area: "sponsors", label: "Sponsor Inquiries", icon: Building2 },
+      { to: "/admin/donations", area: "finance", label: "Donations", icon: DollarSign },
+      { to: "/admin/event-registrations", area: "events", label: "Registrations", icon: Calendar },
+      { to: "/admin/contact-messages", area: "content", label: "Contact Inbox", icon: Inbox },
+      { to: "/admin/subscribers", area: "content", label: "Subscribers", icon: Users },
     ],
   },
   {
+    label: "Reports",
+    items: [{ to: "/admin/reports", area: "reports", label: "Reports & Exports", icon: FileSpreadsheet }],
+  },
+  {
     label: "Account",
-    items: [{ to: "/admin/settings", label: "Settings", icon: Settings }],
+    items: [
+      { to: "/admin/users", area: "users", label: "Admin Users", icon: ShieldCheck },
+      { to: "/admin/settings", label: "Settings", icon: Settings },
+    ],
   },
 ];
 
 export default function AdminLayout({ children }) {
   const loc = useLocation();
   const nav = useNavigate();
-  const { username, logout } = useAdminAuth();
+  const { username, profile, can, logout } = useAdminAuth();
+  const groups = NAV_GROUPS
+    .map((g) => ({ ...g, items: g.items.filter((it) => !it.area || can(it.area)) }))
+    .filter((g) => g.items.length);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleLogout = () => {
@@ -127,7 +140,7 @@ export default function AdminLayout({ children }) {
           </button>
         </div>
         <nav className="flex-1 overflow-y-auto py-4 scrollbar-hide">
-          {NAV_GROUPS.map((g) => (
+          {groups.map((g) => (
             <div key={g.label} className="px-3 py-2">
               <div className="px-3 mb-1 font-cinzel text-[10px] tracking-[0.22em] text-amber-200/40">
                 {g.label.toUpperCase()}
@@ -157,6 +170,7 @@ export default function AdminLayout({ children }) {
             <div className="text-xs">
               <div className="text-amber-100/70">Logged in as</div>
               <div className="font-medium text-amber-100">{username || "..."}</div>
+              {profile?.role_label && <div className="text-[10px] text-amber-200/60">{profile.role_label}</div>}
             </div>
             <button
               onClick={handleLogout}

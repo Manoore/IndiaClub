@@ -2,12 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { apiClient, downloadFile } from "../api/client";
 import { useToast } from "../hooks/use-toast";
 import { CheckCircle2, Trash2, Loader2, RefreshCw, Search, Download } from "lucide-react";
-
-const STATUS_COLOR = {
-  pending: "bg-amber-100 text-amber-800",
-  paid: "bg-emerald-100 text-emerald-800",
-  refunded: "bg-rose-100 text-rose-800",
-};
+import { PAYMENT_STATUSES, PaymentBadge, PaymentSelect } from "./PaymentStatus";
 
 const fmtMoney = (n) => `$${Number(n || 0).toFixed(2)}`;
 const fmtDate = (iso) => { try { return new Date(iso).toLocaleString(); } catch { return iso; } };
@@ -93,9 +88,7 @@ export default function TicketOrdersAdmin() {
         </select>
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-3 py-1.5 rounded border border-stone-200 text-sm bg-white" data-testid="status-filter">
           <option value="">All statuses</option>
-          <option value="pending">Pending</option>
-          <option value="paid">Paid</option>
-          <option value="refunded">Refunded</option>
+          {PAYMENT_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
         <button onClick={load} className="px-3 py-1.5 rounded border border-stone-200 text-sm bg-white hover:bg-stone-50 flex items-center gap-1"><RefreshCw className="w-3.5 h-3.5" /> Refresh</button>
         <div className="ml-auto relative">
@@ -143,7 +136,8 @@ export default function TicketOrdersAdmin() {
                     </td>
                     <td className="px-4 py-3 font-medium">{fmtMoney(o.total)}</td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium uppercase ${STATUS_COLOR[o.payment_status] || "bg-stone-100 text-stone-700"}`}>{o.payment_status}</span>
+                      <PaymentBadge status={o.payment_status} />
+                      {o.sponsor_company && <div className="text-[11px] text-stone-500 mt-1">Sponsor: {o.sponsor_company}</div>}
                     </td>
                     <td className="px-4 py-3 text-stone-600 text-xs">{fmtDate(o.created_at)}</td>
                     <td className="px-4 py-3 text-right">
@@ -153,9 +147,7 @@ export default function TicketOrdersAdmin() {
                             <CheckCircle2 className="w-3.5 h-3.5" /> Mark Paid
                           </button>
                         )}
-                        {o.payment_status === "paid" && (
-                          <button onClick={() => markStatus(o.id, "refunded")} disabled={busy === o.id} className="px-2.5 py-1 bg-stone-100 text-stone-700 rounded text-xs hover:bg-stone-200 disabled:opacity-50">Refund</button>
-                        )}
+                        <PaymentSelect value={o.payment_status} onChange={(v) => markStatus(o.id, v)} testid={`order-status-${o.id}`} />
                         {(o.tickets || []).length > 0 && (
                           <button onClick={() => downloadFile(`/admin/ticket-orders/${o.id}/pdf`, `tickets-${o.id.slice(0, 8)}.pdf`)} className="p-1.5 hover:bg-stone-100 rounded text-stone-600" title="Download PDF tickets" data-testid={`order-pdf-${o.id}`}><Download className="w-4 h-4" /></button>
                         )}

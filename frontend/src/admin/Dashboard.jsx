@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { apiClient } from "../api/client";
-import { Users, Inbox, DollarSign, Calendar, ClipboardList, Building2, Newspaper, Image, Tag, Award } from "lucide-react";
+import { Users, Inbox, DollarSign, Calendar, ClipboardList, Building2, Newspaper, Image, Tag, Award, Handshake, Store } from "lucide-react";
 
 const CARDS = [
   { key: "members_active", label: "Active Members", icon: Users, color: "#2E5E3E" },
@@ -15,6 +15,9 @@ const CARDS = [
   { key: "sponsors", label: "Sponsors", icon: Building2, color: "#2E5E3E" },
   { key: "classifieds_pending", label: "Pending Ads", icon: Tag, color: "#8B1A1A" },
   { key: "registrations", label: "Event Registrations", icon: Award, color: "#E07A1F" },
+  { key: "sponsorships_pending", label: "Sponsorships Awaiting Payment", icon: Handshake, color: "#E07A1F", to: "/admin/sponsorships" },
+  { key: "sponsorships_active", label: "Active Sponsorships", icon: Handshake, color: "#2E5E3E", to: "/admin/sponsorships" },
+  { key: "businesses_pending", label: "Businesses to Review", icon: Store, color: "#8B1A1A", to: "/admin/businesses" },
 ];
 
 export default function Dashboard() {

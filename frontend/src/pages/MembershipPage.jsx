@@ -14,6 +14,9 @@ const US_STATES = [
 ];
 
 // Returns { label, action, disabled } based on auth + membership state
+const fmtLongDate = (d) =>
+  new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+
 const getPlanCta = (plan, { isAuthed, member }) => {
   if (plan.price <= 0) return { label: "Learn More", action: "join" };
   if (!isAuthed) return { label: "Sign Up to Join", action: "join" };
@@ -145,9 +148,18 @@ const SubscribeForm = ({ plan, onSuccess, onClose, member }) => {
     payment_method: "paypal",
   });
   const [busy, setBusy] = useState(false);
+  const [quote, setQuote] = useState(null);
   const { toast } = useToast();
   const cls =
     "w-full px-4 py-2.5 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A] text-sm";
+
+  useEffect(() => {
+    apiClient
+      .get("/membership/quote", { params: { plan: plan.slug, tier: plan.tier || undefined } })
+      .then((r) => setQuote(r.data))
+      .catch(() => setQuote(null));
+  }, [plan.slug, plan.tier]);
+  const validThrough = quote?.valid_through ? fmtLongDate(quote.valid_through) : null;
 
   const total = Number(plan.price || 0) + Number(f.donation_amount || 0);
 
@@ -174,10 +186,11 @@ const SubscribeForm = ({ plan, onSuccess, onClose, member }) => {
         body.school_name = f.school_name;
         body.degree_program = f.degree_program;
       }
-      await apiClient.post("/members/me/subscribe", body);
+      const r = await apiClient.post("/members/me/subscribe", body);
+      const end = r.data?.membership?.end_date;
       toast({
         title: "Welcome to India Club! 🎉",
-        description: "Your membership is now active. Check your dashboard for payment instructions.",
+        description: `Your membership is active${end ? ` through ${fmtLongDate(end)}` : ""}. Check your dashboard for payment instructions.`,
       });
       onSuccess();
     } catch (err) {
@@ -262,10 +275,10 @@ const SubscribeForm = ({ plan, onSuccess, onClose, member }) => {
 
       {isStudent && (
         <div className="space-y-3 bg-amber-50/60 border border-amber-200 rounded-lg p-3">
-          <div className="text-xs font-cinzel tracking-wider text-[#E07A1F]">STUDENT DETAILS</div>
+          <div className="text-xs font-cinzel tracking-wider text-[#E07A1F]">YOUTH DETAILS</div>
           <input
             required
-            placeholder="School / College Name"
+            placeholder="School / College name"
             value={f.school_name}
             onChange={(e) => setF({ ...f, school_name: e.target.value })}
             className={cls}
@@ -273,7 +286,7 @@ const SubscribeForm = ({ plan, onSuccess, onClose, member }) => {
           />
           <input
             required
-            placeholder="Degree Program"
+            placeholder="Grade or program (e.g. Grade 10, BS Biology)"
             value={f.degree_program}
             onChange={(e) => setF({ ...f, degree_program: e.target.value })}
             className={cls}
@@ -335,6 +348,16 @@ const SubscribeForm = ({ plan, onSuccess, onClose, member }) => {
           You'll receive payment instructions after submitting.
         </p>
       </div>
+
+      {validThrough && (
+        <div className="border border-emerald-200 bg-emerald-50 p-3 rounded-md text-sm text-emerald-900" data-testid="sub-valid-through">
+          {quote.promo_label && (
+            <div className="font-medium mb-0.5" data-testid="sub-promo">🎉 {quote.promo_label}: you get the rest of this year plus all of next year.</div>
+          )}
+          Membership valid through <strong>{validThrough}</strong>
+          <span className="block text-xs text-emerald-800/80 mt-0.5">Memberships follow the calendar year and renew every January.</span>
+        </div>
+      )}
 
       <div className="bg-amber-50/60 border border-amber-200 p-3 rounded-md text-sm text-stone-700 flex items-center justify-between">
         <div>

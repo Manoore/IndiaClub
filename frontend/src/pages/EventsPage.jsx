@@ -1,14 +1,32 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
-import { Calendar, Clock, MapPin, Sparkles, Star, Ticket, Loader2 } from "lucide-react";
+import { Calendar, Clock, MapPin, Sparkles, Star, Ticket, Loader2, Search, List, CalendarDays, ArrowRight } from "lucide-react";
 import { useToast } from "../hooks/use-toast";
 import Mandala from "../components/Mandala";
 import TicketPurchaseModal from "../components/TicketPurchaseModal";
 import { apiClient } from "../api/client";
+import EventsCalendar, { eventDate } from "../components/EventsCalendar";
+
+// Member / guest / sponsor price summary for the cheapest ticket type
+const priceSummary = (types) => {
+  if (!types?.length) return null;
+  const t = [...types].sort((a, b) => Number(a.price || 0) - Number(b.price || 0))[0];
+  const parts = [];
+  if (t.member_price != null && Number(t.member_price) !== Number(t.price)) parts.push(`Member $${Number(t.member_price).toFixed(0)}`);
+  parts.push(`${parts.length ? "Guest" : "Tickets"} $${Number(t.price || 0).toFixed(0)}`);
+  if (t.sponsor_price != null) parts.push(Number(t.sponsor_price) === 0 ? "Sponsors included" : `Sponsor $${Number(t.sponsor_price).toFixed(0)}`);
+  return parts.join(" · ");
+};
 
 const EventsHub = ({ categories }) => (
   <section className="py-20 bg-cream" data-testid="events-hub">
+    <div className="max-w-7xl mx-auto px-6 mb-8 flex flex-wrap items-center justify-between gap-3">
+      <p className="text-stone-600">Browse by festival, or see everything that's coming up.</p>
+      <Link to="/events/upcoming" className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded-md text-sm font-medium" data-testid="events-full-calendar">
+        <CalendarDays className="w-4 h-4" /> Full events calendar <ArrowRight className="w-4 h-4" />
+      </Link>
+    </div>
     <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 lg:grid-cols-4 gap-5">
       {categories.map((e) => (
         <Link to={`/events/${e.slug}`} key={e.slug} className="group relative h-72 rounded-xl overflow-hidden card-hover" data-testid={`category-${e.slug}`}>
@@ -63,7 +81,8 @@ const EventCard = ({ e, onRegister, onBuyTickets }) => {
           {e.time && <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {e.time}</span>}
           {e.venue && <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {e.venue.split(",")[0]}</span>}
         </div>
-        <p className="text-sm text-stone-600 leading-relaxed mb-5 flex-1 line-clamp-3">{e.description}</p>
+        <p className="text-sm text-stone-600 leading-relaxed mb-3 flex-1 line-clamp-3">{e.description}</p>
+        {hasTickets && <div className="text-xs text-stone-600 mb-4" data-testid={`price-summary-${e.slug || e.id}`}>{priceSummary(e.ticket_types)}</div>}
         <div className="flex items-center justify-between">
           <span className={`text-xs font-cinzel tracking-wider ${(e.registration_open ?? e.registrationOpen) ? "text-green-700" : "text-stone-400"}`}>
             {(e.registration_open ?? e.registrationOpen) ? (hasTickets ? "TICKETS ON SALE" : "REGISTRATION OPEN") : "COMING SOON"}
@@ -104,9 +123,40 @@ const UpcomingList = ({ filterSlug }) => {
   // All events come from the backend now (Phase 3 — no mock fallback)
   const merged = liveEvents.map((live) => ({ ...live, image: live.image_url }));
 
-  const list = filterSlug && filterSlug !== "upcoming"
+  const [q, setQ] = useState("");
+  const [cat, setCat] = useState("All");
+  const [view, setView] = useState("list");
+  const [showPast, setShowPast] = useState(false);
+
+  const scoped = filterSlug && filterSlug !== "upcoming"
     ? merged.filter((e) => (e.category || "").toLowerCase().replace(/[^a-z]/g, "").includes(filterSlug.replace(/[^a-z]/g, "")))
     : merged;
+  const cats = useMemo(() => ["All", ...Array.from(new Set(scoped.map((e) => e.category).filter(Boolean)))], [scoped]);
+  const startOfToday = new Date(new Date().setHours(0, 0, 0, 0));
+  const list = scoped
+    .filter((e) => cat === "All" || e.category === cat)
+    .filter((e) => !q.trim() || `${e.title} ${e.description || ""} ${e.venue || ""} ${e.category || ""}`.toLowerCase().includes(q.trim().toLowerCase()))
+    .filter((e) => {
+      if (showPast) return true;
+      const d = eventDate(e);
+      const end = e.end_date ? new Date(e.end_date) : d;
+      return !d || (end || d) >= startOfToday;
+    })
+    .sort((a, b) => (eventDate(a) || new Date(8.64e15)) - (eventDate(b) || new Date(8.64e15)));
+
+  // Group by month for the list view ("JULY 2026")
+  const groups = [];
+  list.forEach((e) => {
+    const d = eventDate(e);
+    const key = d ? d.toLocaleDateString(undefined, { month: "long", year: "numeric" }) : "Date to be announced";
+    const g = groups.find((x) => x.key === key);
+    if (g) g.items.push(e); else groups.push({ key, items: [e] });
+  });
+
+  const selectFromCalendar = (e) => {
+    if (Array.isArray(e.ticket_types) && e.ticket_types.length && (e.registration_open ?? true)) setActiveTicketEvent(e);
+    else { setQ(e.title); setView("list"); }
+  };
 
   const handleRegister = (e) => {
     if (registered.includes(e.id)) return;
@@ -123,20 +173,61 @@ const UpcomingList = ({ filterSlug }) => {
   return (
     <section className="py-16 bg-cream">
       <div className="max-w-7xl mx-auto px-6">
+        <div className="flex flex-col lg:flex-row lg:items-center gap-3 mb-6" data-testid="events-toolbar">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search events"
+              className="w-full pl-9 pr-3 py-2.5 border border-stone-200 rounded-md text-sm bg-white outline-none focus:border-[#8B1A1A]" data-testid="events-search" />
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="inline-flex items-center gap-1.5 text-xs text-stone-600 mr-2">
+              <input type="checkbox" checked={showPast} onChange={(e) => setShowPast(e.target.checked)} className="accent-[#8B1A1A]" data-testid="events-show-past" />
+              Show past events
+            </label>
+            <div className="inline-flex rounded-md border border-stone-200 bg-white overflow-hidden">
+              <button onClick={() => setView("list")} className={`px-3 py-2 text-sm flex items-center gap-1.5 ${view === "list" ? "bg-[#8B1A1A] text-amber-50" : "text-stone-700"}`} data-testid="events-view-list">
+                <List className="w-4 h-4" /> List
+              </button>
+              <button onClick={() => setView("calendar")} className={`px-3 py-2 text-sm flex items-center gap-1.5 ${view === "calendar" ? "bg-[#8B1A1A] text-amber-50" : "text-stone-700"}`} data-testid="events-view-calendar">
+                <CalendarDays className="w-4 h-4" /> Calendar
+              </button>
+            </div>
+          </div>
+        </div>
+        {cats.length > 2 && (
+          <div className="flex flex-wrap gap-2 mb-6" data-testid="events-category-filters">
+            {cats.map((c) => (
+              <button key={c} onClick={() => setCat(c)}
+                className={`px-3 py-1.5 rounded-full text-xs border ${cat === c ? "bg-[#8B1A1A] text-amber-50 border-[#8B1A1A]" : "bg-white text-stone-700 border-stone-200 hover:border-[#8B1A1A]"}`}
+                data-testid={`events-cat-${c}`}>
+                {c}
+              </button>
+            ))}
+          </div>
+        )}
         {loading ? (
           <div className="text-center py-20">
             <Loader2 className="w-8 h-8 animate-spin text-[#8B1A1A] mx-auto" />
           </div>
+        ) : view === "calendar" ? (
+          <EventsCalendar events={list} onSelect={selectFromCalendar} />
         ) : list.length === 0 ? (
           <div className="text-center py-20">
             <Sparkles className="w-12 h-12 text-[#E07A1F] mx-auto mb-4" />
-            <h3 className="font-display text-2xl text-stone-700">More events coming soon</h3>
-            <p className="text-stone-500 mt-2">Check our calendar or subscribe to the newsletter to be the first to know.</p>
+            <h3 className="font-display text-2xl text-stone-700">{q || cat !== "All" ? "No events match" : "More events coming soon"}</h3>
+            <p className="text-stone-500 mt-2">{q || cat !== "All" ? "Try a different search or category." : "Subscribe to the newsletter to be the first to know."}</p>
           </div>
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {list.map((e) => (
-              <EventCard key={e.id || e.slug} e={e} onRegister={handleRegister} onBuyTickets={handleBuyTickets} />
+          <div className="space-y-10">
+            {groups.map((g) => (
+              <div key={g.key}>
+                <h2 className="font-cinzel text-sm tracking-[0.25em] text-[#E07A1F] mb-4">{g.key.toUpperCase()}</h2>
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {g.items.map((e) => (
+                    <EventCard key={e.id || e.slug} e={e} onRegister={handleRegister} onBuyTickets={handleBuyTickets} />
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         )}

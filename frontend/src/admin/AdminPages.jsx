@@ -2,6 +2,7 @@ import React from "react";
 import CrudPage from "./CrudPage";
 import { apiClient } from "../api/client";
 import { useToast } from "../hooks/use-toast";
+import { PaymentBadge, PaymentSelect } from "./PaymentStatus";
 
 export const EventsAdmin = () => (
   <CrudPage title="Events" description="Manage upcoming and past events." endpoint="events"
@@ -91,12 +92,13 @@ export const SponsorsAdmin = () => (
       { key: "logo_url", label: "Logo", render: (r) => r.logo_url ? <img src={r.logo_url} alt="" className="w-14 h-14 rounded object-contain bg-white border" /> : <div className="w-14 h-14 bg-stone-100 rounded" /> },
       { key: "name", label: "Name" },
       { key: "tier", label: "Tier" },
+      { key: "expires_at", label: "Expires", render: (r) => r.expires_at ? new Date(r.expires_at).toLocaleDateString() : <span className="text-stone-400 text-xs">manual</span> },
       { key: "active", label: "Active", render: (r) => r.active ? "✓" : "✕" },
     ]}
     fields={[
       { key: "name", label: "Name", type: "text", required: true },
       { key: "logo_url", label: "Logo", type: "image" },
-      { key: "tier", label: "Tier", type: "select", options: ["Diamond", "Gold", "Silver", "Bronze"], default: "Bronze" },
+      { key: "tier", label: "Tier", type: "select", options: ["Platinum", "Gold", "Silver", "Bronze"], default: "Bronze" },
       { key: "website", label: "Website", type: "text" },
       { key: "order", label: "Order", type: "number", default: 100 },
       { key: "active", label: "Active", type: "checkbox", default: true },
@@ -308,16 +310,86 @@ export const ContactInboxAdmin = () => (
     ]} fields={[]} />
 );
 
-export const DonationsAdmin = () => (
-  <CrudPage title="Donations" endpoint="donations" isInbox readOnly
+export const DonationsAdmin = () => {
+  const { toast } = useToast();
+  const setStatus = async (row, status, reload) => {
+    await apiClient.post(`/admin/donations/${row.id}/payment`, { status });
+    toast({ title: "Payment status updated" });
+    reload();
+  };
+  return (
+    <CrudPage title="Donations" description="Record payment as donations arrive (check, Zelle, cash)." endpoint="donations" isInbox readOnly
+      columns={[
+        { key: "name", label: "Donor" },
+        { key: "email", label: "Email" },
+        { key: "amount", label: "Amount", render: (r) => <span className="font-semibold text-[#E07A1F]">${r.amount}</span> },
+        { key: "payment_status", label: "Payment", render: (r) => <PaymentBadge status={r.payment_status} /> },
+        { key: "message", label: "Message" },
+        { key: "created_at", label: "Date", render: (r) => r.created_at ? new Date(r.created_at).toLocaleDateString() : "" },
+      ]}
+      extraActions={(row, reload) => <PaymentSelect value={row.payment_status} onChange={(v) => setStatus(row, v, reload)} testid={`donation-status-${row.id}`} />}
+      fields={[]} />
+  );
+};
+
+export const SponsorshipPlansAdmin = () => (
+  <CrudPage title="Sponsorship Plans" description="Annual sponsorship levels and prices shown on the Become a Sponsor page." endpoint="sponsorship-plans"
     columns={[
-      { key: "name", label: "Donor" },
-      { key: "email", label: "Email" },
-      { key: "amount", label: "Amount", render: (r) => <span className="font-semibold text-[#E07A1F]">${r.amount}</span> },
-      { key: "message", label: "Message" },
-      { key: "created_at", label: "Date", render: (r) => r.created_at ? new Date(r.created_at).toLocaleDateString() : "" },
-    ]} fields={[]} />
+      { key: "name", label: "Level" },
+      { key: "price", label: "Price", render: (r) => `$${Number(r.price || 0).toLocaleString()}` },
+      { key: "order", label: "Order" },
+      { key: "active", label: "Active", render: (r) => r.active ? "✓" : "✕" },
+    ]}
+    fields={[
+      { key: "name", label: "Level name", type: "text", required: true, placeholder: "Platinum" },
+      { key: "slug", label: "Slug", type: "text", required: true, placeholder: "platinum" },
+      { key: "price", label: "Annual price ($)", type: "number", required: true },
+      { key: "benefits", label: "Benefits", type: "tags", hint: "One benefit per line" },
+      { key: "order", label: "Display order", type: "number", default: 100 },
+      { key: "active", label: "Active", type: "checkbox", default: true },
+    ]} />
 );
+
+const BUSINESS_CATEGORIES = ["Restaurants & Catering", "Grocery", "Health & Wellness", "Real Estate", "Financial & Tax", "Legal", "Education & Tutoring", "Beauty & Fashion", "Events & Decor", "Technology", "Other"];
+
+export const BusinessesAdmin = () => {
+  const { toast } = useToast();
+  const review = async (row, action, reload) => {
+    await apiClient.post(`/admin/businesses/${row.id}/${action}`);
+    toast({ title: action === "approve" ? "Approved — now listed publicly" : "Rejected" });
+    reload();
+  };
+  return (
+    <CrudPage title="Business Directory" description="Member-submitted community businesses. Approve to publish." endpoint="businesses"
+      columns={[
+        { key: "logo_url", label: "Logo", render: (r) => r.logo_url ? <img src={r.logo_url} alt="" className="w-12 h-12 rounded object-contain bg-white border" /> : <div className="w-12 h-12 bg-stone-100 rounded" /> },
+        { key: "name", label: "Business" },
+        { key: "category", label: "Category" },
+        { key: "phone", label: "Phone" },
+        { key: "status", label: "Status", render: (r) => (
+          <span className={`text-xs font-cinzel tracking-wider ${r.status === "approved" ? "text-green-700" : r.status === "rejected" ? "text-red-600" : "text-amber-700"}`}>{(r.status || "").toUpperCase()}</span>
+        ) },
+      ]}
+      extraActions={(row, reload) => row.status !== "approved" ? (
+        <>
+          <button onClick={() => review(row, "approve", reload)} className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium mr-1 hover:bg-green-200">Approve</button>
+          <button onClick={() => review(row, "reject", reload)} className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium mr-1 hover:bg-red-200">Reject</button>
+        </>
+      ) : null}
+      fields={[
+        { key: "name", label: "Business name", type: "text", required: true },
+        { key: "category", label: "Category", type: "select", options: BUSINESS_CATEGORIES, default: "Other" },
+        { key: "description", label: "Description", type: "textarea" },
+        { key: "phone", label: "Phone", type: "text" },
+        { key: "email", label: "Email", type: "text" },
+        { key: "website", label: "Website", type: "text" },
+        { key: "address", label: "Address", type: "text" },
+        { key: "logo_url", label: "Logo", type: "image" },
+        { key: "status", label: "Status", type: "select", options: ["pending", "approved", "rejected"], default: "approved" },
+        { key: "order", label: "Display order", type: "number", default: 100 },
+      ]} />
+  );
+};
 
 export const SponsorInquiriesAdmin = () => (
   <CrudPage title="Sponsorship Inquiries" endpoint="sponsorship-inquiries" isInbox readOnly

@@ -1,16 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
-import { Heart, DollarSign, Building2, Users, ArrowRight, Check, Loader2, CheckCircle2 } from "lucide-react";
+import { Heart, DollarSign, Building2, Users, ArrowRight, Check, Loader2, CheckCircle2, Upload } from "lucide-react";
 import { useToast } from "../hooks/use-toast";
-import { apiClient } from "../api/client";
+import { apiClient, absoluteUrl } from "../api/client";
+import Honeypot, { HONEYPOT_FIELD } from "../components/Honeypot";
 
-const SPONSOR_TIERS = [
-  { name: "Diamond", price: 5000, color: "#8B1A1A", perks: ["Headline logo at all events", "Full-page newsletter ad", "VIP table at Diwali Mela", "Featured banner on website"] },
-  { name: "Gold", price: 2500, color: "#C9A961", perks: ["Logo at major events", "Half-page newsletter ad", "Reserved seating at Diwali", "Logo on website"] },
-  { name: "Silver", price: 1000, color: "#9CA3AF", perks: ["Logo at select events", "Quarter-page newsletter", "Logo on website"] },
-  { name: "Bronze", price: 500, color: "#A16207", perks: ["Mention at events", "Logo on website"] },
-];
+const TIER_COLORS = { Platinum: "#6B7280", Gold: "#C9A961", Silver: "#9CA3AF", Bronze: "#A16207" };
+const TIER_ORDER = ["Platinum", "Diamond", "Gold", "Silver", "Bronze"];
 
 const Hub = () => (
   <section className="py-20 bg-cream">
@@ -37,29 +34,48 @@ const Hub = () => (
   </section>
 );
 
+const EMPTY_SPONSOR = { company: "", contact_name: "", email: "", phone: "", website: "", message: "", logo_url: "", payment_method: "check", renewal: false };
+
 const BecomeSponsor = () => {
-  const [tier, setTier] = useState(null);
-  const [form, setForm] = useState({ company: "", contact: "", email: "", phone: "", message: "" });
+  const [plans, setPlans] = useState(null);
+  const [plan, setPlan] = useState(null);
+  const [form, setForm] = useState(EMPTY_SPONSOR);
+  const [hp, setHp] = useState("");
+  const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [submitted, setSubmitted] = useState(null);
   const { toast } = useToast();
+  const cls = "w-full px-4 py-3 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]";
+
+  useEffect(() => {
+    apiClient.get("/sponsorship-plans").then((r) => setPlans(r.data)).catch(() => setPlans([]));
+  }, []);
+
+  const uploadLogo = async (file) => {
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { toast({ title: "Logo too large", description: "Please use an image under 2 MB." }); return; }
+    setUploading(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+      const r = await apiClient.post("/sponsorships/logo", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      setForm((f) => ({ ...f, logo_url: absoluteUrl(r.data.url) }));
+    } catch (err) {
+      toast({ title: "Upload failed", description: err?.response?.data?.detail || "Try a PNG or JPG file.", variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const submit = async (e) => {
     e.preventDefault();
+    if (!plan) { toast({ title: "Pick a sponsorship level first" }); return; }
     setSubmitting(true);
     try {
-      await apiClient.post("/sponsorship-inquiries", {
-        company: form.company,
-        contact: form.contact,
-        email: form.email,
-        phone: form.phone,
-        tier: tier?.name || null,
-        message: form.message || null,
-      });
-      setSubmitted(true);
-      toast({ title: "Thank you!", description: "Our sponsorship team will contact you within 24 hours." });
+      const r = await apiClient.post("/sponsorships", { ...form, plan: plan.slug, [HONEYPOT_FIELD]: hp });
+      setSubmitted(r.data);
     } catch (err) {
-      toast({ title: "Couldn't send inquiry", description: err?.response?.data?.detail || "Please try again or email sponsorship@indiaclubdayton.org.", variant: "destructive" });
+      toast({ title: "Couldn't submit", description: err?.response?.data?.detail || "Please try again.", variant: "destructive" });
     } finally {
       setSubmitting(false);
     }
@@ -70,9 +86,20 @@ const BecomeSponsor = () => {
       <section className="py-24 bg-cream">
         <div className="max-w-xl mx-auto px-6 text-center" data-testid="sponsor-success">
           <CheckCircle2 className="w-16 h-16 text-emerald-500 mx-auto mb-4" />
-          <h2 className="font-display text-3xl text-[#8B1A1A] mb-2">Inquiry Received!</h2>
-          <p className="text-stone-600 mb-6">Our sponsorship team will reach out within 24 hours to {form.email}.</p>
-          <Link to="/" className="inline-flex px-5 py-2.5 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded-md text-sm font-medium transition">Back to Home</Link>
+          <h2 className="font-display text-3xl text-[#8B1A1A] mb-2">Thank you, {submitted.company}!</h2>
+          <p className="text-stone-600 mb-4">
+            We've received your <strong>{submitted.tier}</strong> sponsorship{submitted.is_renewal ? " renewal" : ""} (${Number(submitted.amount).toLocaleString()}).
+          </p>
+          <div className="text-left bg-white border border-amber-100 rounded-xl p-5 text-sm text-stone-700 space-y-2 mb-6">
+            {submitted.payment_method === "check" ? (
+              <p><strong>Pay by check:</strong> make it payable to <em>India Club of Greater Dayton</em> and mention your company name. Our Treasurer will confirm when it arrives.</p>
+            ) : (
+              <p><strong>Payment:</strong> our Treasurer will contact you at {submitted.email} to arrange payment.</p>
+            )}
+            <p>Your logo goes live on our sponsor page as soon as payment is recorded, and your sponsorship runs through <strong>December 31</strong>.</p>
+            <p>You'll also get a sponsor code for sponsor ticket pricing at our events.</p>
+          </div>
+          <Link to="/sponsorship/sponsor-directory" className="inline-flex px-5 py-2.5 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded-md text-sm font-medium transition">See our sponsors</Link>
         </div>
       </section>
     );
@@ -81,30 +108,66 @@ const BecomeSponsor = () => {
   return (
     <section className="py-20 bg-cream">
       <div className="max-w-7xl mx-auto px-6">
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5 mb-12" data-testid="sponsor-tiers">
-          {SPONSOR_TIERS.map((t) => (
-            <div key={t.name} onClick={() => setTier(t)} className={`p-7 rounded-2xl border-2 transition cursor-pointer ${tier?.name === t.name ? "border-[#E07A1F] bg-amber-50" : "border-amber-100 bg-white"} card-hover`} data-testid={`sponsor-tier-${t.name.toLowerCase()}`}>
-              <div className="w-12 h-12 rounded-full mb-4" style={{ background: t.color }} />
-              <div className="font-cinzel text-xs tracking-[0.22em] text-stone-500">{t.name.toUpperCase()} TIER</div>
-              <div className="font-display text-4xl text-[#8B1A1A] mt-1 mb-4">${t.price.toLocaleString()}</div>
-              <ul className="space-y-2">
-                {t.perks.map((p) => <li key={p} className="flex items-start gap-2 text-sm text-stone-700"><Check className="w-4 h-4 text-[#8B1A1A] mt-0.5" /><span>{p}</span></li>)}
-              </ul>
-            </div>
-          ))}
-        </div>
-        <form onSubmit={submit} className="max-w-xl mx-auto bg-white p-7 rounded-2xl border border-amber-100" data-testid="sponsor-form">
-          <h3 className="font-display text-2xl text-[#8B1A1A] mb-1">{tier ? `Sponsor as ${tier.name}` : "Sponsor India Club"}</h3>
-          <p className="text-stone-600 mb-5">{tier ? "Tell us about your company and we'll be in touch." : "Pick a tier above (optional) and tell us about your company."}</p>
+        {!plans ? (
+          <div className="py-12 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-[#8B1A1A]" /></div>
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5 mb-12" data-testid="sponsor-tiers">
+            {plans.map((t) => (
+              <button type="button" key={t.id} onClick={() => setPlan(t)}
+                className={`text-left p-7 rounded-2xl border-2 transition ${plan?.slug === t.slug ? "border-[#E07A1F] bg-amber-50" : "border-amber-100 bg-white"} card-hover`}
+                aria-pressed={plan?.slug === t.slug} data-testid={`sponsor-tier-${t.slug}`}>
+                <div className="w-12 h-12 rounded-full mb-4" style={{ background: TIER_COLORS[t.name] || "#8B1A1A" }} />
+                <div className="font-cinzel text-xs tracking-[0.22em] text-stone-500">{t.name.toUpperCase()} · ANNUAL</div>
+                <div className="font-display text-4xl text-[#8B1A1A] mt-1 mb-4">${Number(t.price).toLocaleString()}</div>
+                <ul className="space-y-2">
+                  {(t.benefits || []).map((p) => <li key={p} className="flex items-start gap-2 text-sm text-stone-700"><Check className="w-4 h-4 text-[#8B1A1A] mt-0.5 flex-shrink-0" /><span>{p}</span></li>)}
+                </ul>
+              </button>
+            ))}
+          </div>
+        )}
+        <form onSubmit={submit} className="relative max-w-xl mx-auto bg-white p-7 rounded-2xl border border-amber-100" data-testid="sponsor-form">
+          <Honeypot value={hp} onChange={setHp} />
+          <h3 className="font-display text-2xl text-[#8B1A1A] mb-1">{plan ? `Sponsor as ${plan.name} — $${Number(plan.price).toLocaleString()}` : "Choose a level above"}</h3>
+          <p className="text-stone-600 mb-5">Annual sponsorships run through December 31.</p>
           <div className="space-y-3">
-            <input data-testid="sponsor-input-company" required placeholder="Company name" value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} className="w-full px-4 py-3 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]" />
-            <input data-testid="sponsor-input-contact" required placeholder="Contact person" value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })} className="w-full px-4 py-3 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]" />
-            <input data-testid="sponsor-input-email" required type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full px-4 py-3 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]" />
-            <input data-testid="sponsor-input-phone" required placeholder="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="w-full px-4 py-3 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]" />
-            <textarea rows={3} placeholder="Tell us more (optional)" value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} className="w-full px-4 py-3 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]" data-testid="sponsor-input-message" />
-            <button disabled={submitting} type="submit" className="w-full py-3.5 bg-[#8B1A1A] hover:bg-[#6f1414] disabled:opacity-70 text-amber-50 rounded-md font-medium flex items-center justify-center gap-2" data-testid="sponsor-submit">
+            <label className="flex items-center gap-2 text-sm text-stone-700">
+              <input type="checkbox" checked={form.renewal} onChange={(e) => setForm({ ...form, renewal: e.target.checked })} className="accent-[#8B1A1A]" data-testid="sponsor-renewal" />
+              We're renewing an existing sponsorship
+            </label>
+            <input data-testid="sponsor-input-company" required placeholder="Company name" value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} className={cls} />
+            <input data-testid="sponsor-input-contact" required placeholder="Contact person" value={form.contact_name} onChange={(e) => setForm({ ...form, contact_name: e.target.value })} className={cls} />
+            <div className="grid sm:grid-cols-2 gap-3">
+              <input data-testid="sponsor-input-email" required type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={cls} />
+              <input data-testid="sponsor-input-phone" required minLength={7} placeholder="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={cls} />
+            </div>
+            <input placeholder="Website (optional)" value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} className={cls} data-testid="sponsor-input-website" />
+            <div className="flex items-center gap-3 p-3 border border-dashed border-stone-300 rounded-md">
+              {form.logo_url ? <img src={form.logo_url} alt="Your logo" className="w-14 h-14 object-contain rounded bg-white border" /> : <div className="w-14 h-14 rounded bg-stone-100" />}
+              <div className="text-sm">
+                <label className="inline-flex items-center gap-1.5 cursor-pointer text-[#8B1A1A] font-medium">
+                  {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                  {form.logo_url ? "Replace logo" : "Upload your logo"}
+                  <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif" className="hidden" onChange={(e) => uploadLogo(e.target.files?.[0])} data-testid="sponsor-logo" />
+                </label>
+                <div className="text-xs text-stone-500">PNG, JPG or SVG, up to 2 MB. Shown on our sponsor page.</div>
+              </div>
+            </div>
+            <textarea rows={3} placeholder="Anything we should know? (optional)" value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} className={cls} data-testid="sponsor-input-message" />
+            <div>
+              <div className="text-xs text-stone-500 mb-1.5">How will you pay?</div>
+              <div className="grid grid-cols-2 gap-2">
+                {[["check", "Pay by check"], ["other", "Other (we'll contact you)"]].map(([v, label]) => (
+                  <button type="button" key={v} onClick={() => setForm({ ...form, payment_method: v })}
+                    className={`py-2.5 rounded-md text-sm font-medium border ${form.payment_method === v ? "bg-[#8B1A1A] text-amber-50 border-[#8B1A1A]" : "bg-white text-stone-700 border-stone-200 hover:border-[#8B1A1A]"}`}
+                    data-testid={`sponsor-pay-${v}`}>{label}</button>
+                ))}
+              </div>
+              <p className="text-xs text-stone-500 mt-1.5">Online card payment is coming soon.</p>
+            </div>
+            <button disabled={submitting || uploading} type="submit" className="w-full py-3.5 bg-[#8B1A1A] hover:bg-[#6f1414] disabled:opacity-70 text-amber-50 rounded-md font-medium flex items-center justify-center gap-2" data-testid="sponsor-submit">
               {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-              {submitting ? "Sending..." : "Submit Sponsorship Inquiry"}
+              {submitting ? "Submitting..." : "Submit Sponsorship"}
             </button>
           </div>
         </form>
@@ -125,7 +188,7 @@ const SponsorDirectory = () => {
 
   // Group sponsors by tier for visual prominence
   const byTier = useMemo(() => {
-    const order = ["Diamond", "Gold", "Silver", "Bronze"];
+    const order = TIER_ORDER;
     const groups = {};
     sponsors.forEach((s) => {
       const t = s.tier || "Bronze";
@@ -176,6 +239,7 @@ const Donate = () => {
   const [amount, setAmount] = useState(100);
   const [custom, setCustom] = useState("");
   const [form, setForm] = useState({ name: "", email: "", message: "" });
+  const [hp, setHp] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const { toast } = useToast();
@@ -195,6 +259,7 @@ const Donate = () => {
         email: form.email,
         amount: finalAmt,
         message: form.message || null,
+        [HONEYPOT_FIELD]: hp,
       });
       setSubmitted(true);
       toast({ title: "Thank you for your generosity!", description: `Your $${finalAmt} pledge is recorded. We'll email payment instructions to ${form.email}.` });
@@ -240,7 +305,8 @@ const Donate = () => {
             <li className="flex gap-2"><Check className="w-4 h-4 text-[#8B1A1A] mt-1" /> Donors listed on our annual report and Honor Wall.</li>
           </ul>
         </div>
-        <form onSubmit={submit} className="lg:col-span-3 bg-white p-7 rounded-2xl border border-amber-100" data-testid="donate-form">
+        <form onSubmit={submit} className="relative lg:col-span-3 bg-white p-7 rounded-2xl border border-amber-100" data-testid="donate-form">
+          <Honeypot value={hp} onChange={setHp} />
           <div className="font-cinzel text-xs tracking-[0.22em] text-[#E07A1F] mb-2">SELECT AMOUNT</div>
           <div className="grid grid-cols-3 gap-2 mb-3" data-testid="donate-presets">
             {presets.map((p) => (

@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { apiClient } from "../api/client";
 import { useToast } from "../hooks/use-toast";
-import { CheckCircle2, XCircle, Trash2, Loader2, Search } from "lucide-react";
+import { CheckCircle2, XCircle, Trash2, Loader2, Search, Infinity as InfinityIcon } from "lucide-react";
+import { PaymentSelect } from "./PaymentStatus";
 
 const STATUS_PILL = {
   none: "bg-stone-100 text-stone-600",
@@ -92,6 +93,31 @@ export default function MembersAdmin() {
     }
   };
 
+  const setPayment = async (m, status) => {
+    try {
+      await apiClient.post(`/admin/members/${m.id}/mark-paid?status=${status}`);
+      toast({ title: "Payment status updated" });
+      await load();
+    } catch (e) {
+      toast({ title: "Update failed", description: e.response?.data?.detail });
+    }
+  };
+
+  const setLifetime = async (m, lifetime) => {
+    const msg = lifetime
+      ? `Mark ${m.first_name} ${m.last_name} as a legacy lifetime member? Their membership will never expire.`
+      : `Remove lifetime status from ${m.first_name} ${m.last_name}? They'll move to an annual membership ending Dec 31.`;
+    if (!window.confirm(msg)) return;
+    try {
+      const r = await apiClient.post(`/admin/members/${m.id}/lifetime?lifetime=${lifetime}`);
+      toast({ title: lifetime ? "Lifetime membership granted" : "Lifetime membership removed" });
+      setSelected(r.data);
+      await load();
+    } catch (e) {
+      toast({ title: "Update failed", description: e.response?.data?.detail });
+    }
+  };
+
   const filtered = items.filter((m) => {
     if (!search) return true;
     const q = search.toLowerCase();
@@ -151,7 +177,8 @@ export default function MembersAdmin() {
                 <th className="px-4 py-3">Member</th>
                 <th className="px-4 py-3">Plan / Tier</th>
                 <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Joined</th>
+                <th className="px-4 py-3">Valid through</th>
+                <th className="px-4 py-3">Payment</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
@@ -187,7 +214,20 @@ export default function MembersAdmin() {
                         {ms}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-stone-600">{fmt(m.created_at)}</td>
+                    <td className="px-4 py-3 text-stone-600 whitespace-nowrap">
+                      {m.membership?.lifetime ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-[#8B1A1A]"><InfinityIcon className="w-3.5 h-3.5" /> Lifetime</span>
+                      ) : fmt(m.membership?.end_date)}
+                    </td>
+                    <td className="px-4 py-3">
+                      {m.membership?.plan && !m.membership?.lifetime ? (
+                        <PaymentSelect
+                          value={m.membership?.payment_status || (m.membership?.payment_received ? "paid" : "pending")}
+                          onChange={(v) => setPayment(m, v)}
+                          testid={`member-pay-${m.id}`}
+                        />
+                      ) : <span className="text-stone-400 text-xs">—</span>}
+                    </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         {ms === "pending" && (
@@ -239,7 +279,7 @@ export default function MembersAdmin() {
         )}
       </div>
 
-      {selected && <MemberDetailDrawer member={selected} onClose={() => setSelected(null)} />}
+      {selected && <MemberDetailDrawer member={selected} onClose={() => setSelected(null)} onLifetime={setLifetime} />}
     </div>
   );
 }
@@ -251,7 +291,7 @@ const Field = ({ label, value }) => (
   </div>
 );
 
-const MemberDetailDrawer = ({ member: m, onClose }) => {
+const MemberDetailDrawer = ({ member: m, onClose, onLifetime }) => {
   const ms = m.membership?.status || "none";
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex justify-end" onClick={onClose}>
@@ -293,13 +333,27 @@ const MemberDetailDrawer = ({ member: m, onClose }) => {
           <Field label="Degree" value={m.membership?.degree_program} />
           <Field label="Submitted" value={fmt(m.membership?.submitted_at)} />
           <Field label="Start date" value={fmt(m.membership?.start_date)} />
-          <Field label="End date" value={fmt(m.membership?.end_date)} />
+          <Field label="Valid through" value={m.membership?.lifetime ? "Lifetime" : fmt(m.membership?.end_date)} />
           <Field label="Approved by" value={m.membership?.approved_by} />
           {m.membership?.rejection_reason && (
             <div className="col-span-2">
               <Field label="Rejection reason" value={m.membership.rejection_reason} />
             </div>
           )}
+        </div>
+
+        <div className="mt-5 p-4 border border-stone-200 rounded-lg">
+          <div className="text-sm font-medium text-stone-900">Legacy lifetime membership</div>
+          <p className="text-xs text-stone-500 mt-1">
+            Lifetime memberships can't be bought online any more. Use this for existing lifetime members so they never expire.
+          </p>
+          <button
+            onClick={() => onLifetime(m, !m.membership?.lifetime)}
+            className="mt-3 px-3 py-1.5 rounded-md text-xs font-medium border border-[#8B1A1A] text-[#8B1A1A] hover:bg-[#8B1A1A] hover:text-amber-50"
+            data-testid="toggle-lifetime"
+          >
+            {m.membership?.lifetime ? "Remove lifetime status" : "Mark as lifetime member"}
+          </button>
         </div>
       </div>
     </div>

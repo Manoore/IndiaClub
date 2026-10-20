@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
-import { ScanLine, Camera, CameraOff, CheckCircle2, AlertTriangle, XCircle, Loader2, Keyboard } from "lucide-react";
+import { ScanLine, Camera, CameraOff, CheckCircle2, AlertTriangle, XCircle, Loader2, Keyboard, Search } from "lucide-react";
 import { apiClient } from "../api/client";
 
 const SCANNER_ID = "icgd-qr-reader";
@@ -40,6 +40,8 @@ export default function CheckInAdmin() {
   const [scanning, setScanning] = useState(false);
   const scannerRef = useRef(null);
   const lastScan = useRef({ code: "", at: 0 });
+  const [nameQ, setNameQ] = useState("");
+  const [matches, setMatches] = useState(null);
 
   useEffect(() => {
     apiClient.get("/admin/events").then((r) => {
@@ -55,6 +57,18 @@ export default function CheckInAdmin() {
   }, [eventId]);
   useEffect(() => { loadStats(); }, [loadStats]);
 
+  // Name search for attendees who can't show their QR code
+  const searchNames = useCallback(async (q) => {
+    if (!eventId || q.trim().length < 2) { setMatches(null); return; }
+    try {
+      setMatches((await apiClient.get(`/admin/events/${eventId}/attendees`, { params: { q } })).data);
+    } catch { setMatches([]); }
+  }, [eventId]);
+  useEffect(() => {
+    const t = setTimeout(() => searchNames(nameQ), 250);
+    return () => clearTimeout(t);
+  }, [nameQ, searchNames]);
+
   const submitCode = useCallback(async (raw) => {
     const c = (raw || "").trim().toUpperCase();
     if (!c) return;
@@ -63,10 +77,11 @@ export default function CheckInAdmin() {
       const r = await apiClient.post("/admin/check-in", { code: c, event_id: eventId || undefined });
       setResult(r.data);
       loadStats();
+      if (nameQ.trim().length >= 2) searchNames(nameQ);
     } catch (e) {
       setResult({ error: e.response?.data?.detail || "Ticket could not be verified" });
     } finally { setBusy(false); setCode(""); }
-  }, [eventId, loadStats]);
+  }, [eventId, loadStats, nameQ, searchNames]);
 
   const stopScan = useCallback(async () => {
     const s = scannerRef.current;
@@ -111,7 +126,10 @@ export default function CheckInAdmin() {
         </div>
         {stats && (
           <div className="flex-1 min-w-[14rem]" data-testid="checkin-stats">
-            <div className="flex justify-between text-sm mb-1"><span className="text-stone-600">Checked in</span><span className="font-medium" data-testid="checkin-count">{stats.checked_in} / {stats.total}</span></div>
+            <div className="flex justify-between text-sm mb-1">
+              <span className="text-stone-600">Checked in <span className="font-medium text-stone-900" data-testid="checkin-count">{stats.checked_in} / {stats.total}</span></span>
+              <span className="text-stone-600">Remaining <span className="font-medium text-stone-900" data-testid="checkin-remaining">{Math.max(0, stats.total - stats.checked_in)}</span></span>
+            </div>
             <div className="h-2.5 bg-stone-200 rounded-full overflow-hidden"><div className="h-full bg-emerald-600 transition-[width] duration-500" style={{ width: `${pct}%` }} /></div>
           </div>
         )}
@@ -134,6 +152,31 @@ export default function CheckInAdmin() {
             </div>
             <button type="submit" disabled={busy || !code.trim()} className="px-4 py-2 bg-stone-900 text-white rounded-md text-sm disabled:opacity-50 flex items-center gap-1.5" data-testid="checkin-code-submit">{busy && <Loader2 className="w-4 h-4 animate-spin" />} Check in</button>
           </form>
+          <div className="mt-4 pt-4 border-t border-stone-100">
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+              <input value={nameQ} onChange={(e) => setNameQ(e.target.value)} placeholder="No QR code? Search by attendee or buyer name"
+                className="w-full pl-9 pr-3 py-2 border border-stone-200 rounded-md text-sm outline-none focus:border-[#8B1A1A]" data-testid="checkin-name-search" />
+            </div>
+            {matches && (
+              <div className="mt-2 divide-y divide-stone-100 border border-stone-100 rounded-md max-h-64 overflow-y-auto" data-testid="checkin-name-results">
+                {matches.length === 0 && <div className="p-3 text-sm text-stone-400">No tickets match “{nameQ}”.</div>}
+                {matches.map((m) => (
+                  <div key={m.code} className="p-2.5 flex items-center justify-between gap-2 text-sm">
+                    <div className="min-w-0">
+                      <div className="font-medium truncate">{m.attendee_name}</div>
+                      <div className="text-xs text-stone-500 truncate">{m.ticket_type_name} · booked by {m.buyer_name} · <span className="font-mono">{m.code}</span></div>
+                    </div>
+                    {m.checked_in_at ? (
+                      <span className="text-xs text-amber-700 whitespace-nowrap">In at {new Date(m.checked_in_at + "Z").toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>
+                    ) : (
+                      <button onClick={() => submitCode(m.code)} disabled={busy} className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs disabled:opacity-50 whitespace-nowrap" data-testid={`checkin-name-${m.code}`}>Check in</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="space-y-4">

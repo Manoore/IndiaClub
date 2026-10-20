@@ -22,6 +22,7 @@ import ContactPage from "./pages/ContactPage";
 import LoginPage from "./pages/LoginPage";
 import MemberDashboardPage from "./pages/MemberDashboardPage";
 import AdminRoutes from "./admin/AdminRoutes";
+import SiteMeta from "./components/SiteMeta";
 
 const GOOGLE_CLIENT_ID =
   (typeof window !== "undefined" && window.__ICGD_GOOGLE_CLIENT_ID__) ||
@@ -88,6 +89,7 @@ function App() {
             <MemberAuthProvider>
               <SiteSettingsProvider>
                 <ScrollToTop />
+                <SiteMeta />
                 <AppRoutes />
                 <Toaster />
               </SiteSettingsProvider>

@@ -1,4 +1,7 @@
 """Seed initial data into MongoDB on startup if collections are empty."""
+import logging
+import os
+import secrets
 from datetime import datetime, timedelta
 from database import db
 from auth import hash_password
@@ -7,10 +10,15 @@ from auth import hash_password
 async def seed_if_empty():
     # ---- Admin ----
     if await db.admin_users.count_documents({}) == 0:
+        # Set ADMIN_INITIAL_PASSWORD in the environment; otherwise a random one is logged once.
+        password = os.environ.get("ADMIN_INITIAL_PASSWORD") or secrets.token_urlsafe(12)
+        if not os.environ.get("ADMIN_INITIAL_PASSWORD"):
+            logging.warning(f"[seed] created admin user 'admin' with generated password: {password}")
         await db.admin_users.insert_one({
             "id": "admin-1",
             "username": "admin",
-            "password_hash": hash_password("admin123"),
+            "password_hash": hash_password(password),
+            "role": "webmaster",
             "created_at": datetime.utcnow(),
         })
 
@@ -88,7 +96,7 @@ async def seed_if_empty():
                 "benefits": ["Discounted Event Tickets", "Participation in all India Club Events", "Free India Club Samachar Newsletter", "Free India Club Namaskaar Magazine", "Free Online Classified Advt to all Members"],
                 "featured": True, "order": 1,
                 "tiers": [
-                    {"slug": "student", "name": "Student", "price": 20, "recommended": False, "benefits": ["Discounted Event Tickets", "Participation in all India Club Events", "Free India Club Samachar Newsletter", "Free India Club Namaskaar Magazine", "Free Online Classified Advt"]},
+                    {"slug": "student", "name": "Youth", "price": 20, "recommended": False, "benefits": ["Discounted Event Tickets", "Participation in all India Club Events", "Free India Club Samachar Newsletter", "Free India Club Namaskaar Magazine", "Free Online Classified Advt"]},
                     {"slug": "individual", "name": "Individual", "price": 30, "recommended": False, "benefits": ["Discounted Event Tickets", "Participation in all India Club Events", "Free India Club Samachar Newsletter", "Free India Club Namaskaar Magazine", "Free Online Classified Advt"]},
                     {"slug": "family", "name": "Family", "price": 50, "recommended": True, "benefits": ["Discounted Event Tickets", "Participation in all India Club Events", "Free India Club Samachar Newsletter", "Free India Club Namaskaar Magazine", "Free Online Classified Advt"]},
                     {"slug": "business", "name": "Business", "price": 250, "recommended": False, "benefits": ["Promotional Offer: Includes Family Membership", "Discounted Event Tickets", "Participation in all the Club Events", "Discounted Advt. on Samachar Magazine", "Discounted Event Booth Rentals", "Free India Club Namaskar (Annual)"]},

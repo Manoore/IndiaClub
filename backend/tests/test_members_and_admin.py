@@ -140,7 +140,7 @@ def test_member_change_password_then_login(s, member, member_headers):
     member["password"] = "newpass1234"
 
 
-def test_member_subscribe_pending(s, member_headers):
+def test_member_subscribe_auto_active(s, member_headers):
     payload = {
         "plan": "regular", "tier": "individual",
         "donation_amount": 25, "payment_method": "paypal", "family_count": 1,
@@ -150,7 +150,7 @@ def test_member_subscribe_pending(s, member_headers):
     r = s.post(f"{API}/members/me/subscribe", headers=member_headers, json=payload, timeout=30)
     assert r.status_code == 200, r.text
     j = r.json()
-    assert j["membership"]["status"] == "pending"
+    assert j["membership"]["status"] == "active"  # subscriptions are auto-approved
     assert j["membership"]["plan"] == "regular"
     assert j["membership"]["tier"] == "individual"
     assert j["membership"]["payment_method"] == "paypal"
@@ -199,12 +199,12 @@ def test_admin_list_members(s, admin_headers, member):
     assert member["id"] in ids
 
 
-def test_admin_list_members_filter_pending(s, admin_headers, member):
-    r = s.get(f"{API}/admin/members?status=pending", headers=admin_headers, timeout=30)
+def test_admin_list_members_filter_active(s, admin_headers, member):
+    r = s.get(f"{API}/admin/members?status=active", headers=admin_headers, timeout=30)
     assert r.status_code == 200
     data = r.json()
     for m in data:
-        assert m["membership"]["status"] == "pending"
+        assert m["membership"]["status"] == "active"
     assert member["id"] in [m["id"] for m in data]
 
 

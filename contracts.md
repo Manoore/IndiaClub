@@ -2,7 +2,7 @@
 
 ## Auth
 - Single admin user, JWT-based (HS256), 7-day token
-- Default credentials seeded on first startup: `admin / admin123`
+- First admin user `admin` is seeded on first startup with the password from `ADMIN_INITIAL_PASSWORD` (or a random one, logged once)
 - Endpoints
   - POST `/api/admin/login` → `{ token }`
   - GET `/api/admin/me` → admin profile (requires auth)
@@ -70,7 +70,7 @@ List/read/delete for: `membership-applications`, `subscribers`, `contact-message
 
 ## Seeding
 - On backend startup, if DB empty, seed:
-  - Default admin user (admin/admin123)
+  - Default admin user (password from ADMIN_INITIAL_PASSWORD)
   - Membership plans (4)
   - Programs (4)
   - Past presidents (15)

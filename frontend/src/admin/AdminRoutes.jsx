@@ -10,13 +10,16 @@ import SiteContentAdmin from "./SiteContentAdmin";
 import TicketOrdersAdmin from "./TicketOrdersAdmin";
 import FamilyApprovalsAdmin from "./FamilyApprovalsAdmin";
 import CheckInAdmin from "./CheckInAdmin";
+import SponsorshipsAdmin from "./SponsorshipsAdmin";
+import ReportsAdmin from "./ReportsAdmin";
+import AdminUsersAdmin from "./AdminUsersAdmin";
 import {
   EventsAdmin, NewsAdmin, ExecTeamAdmin, GalleryAdmin, SponsorsAdmin, DonorsAdmin,
   ClassifiedsAdmin, PastPresidentsAdmin, AwardeesAdmin, TaxReturnsAdmin, ProgramsAdmin,
   MembershipPlansAdmin, MembershipAppsAdmin, SubscribersAdmin, ContactInboxAdmin,
   DonationsAdmin, SponsorInquiriesAdmin, EventRegistrationsAdmin, PerksAdmin,
   HeroSlidesAdmin, FeatureHighlightsAdmin, TestimonialsAdmin, SiteStatsAdmin,
-  EventCategoriesAdmin, DIFIAwardsAdmin, ConstitutionAdmin,
+  EventCategoriesAdmin, DIFIAwardsAdmin, ConstitutionAdmin, SponsorshipPlansAdmin, BusinessesAdmin,
 } from "./AdminPages";
 
 const Protected = ({ children }) => {
@@ -25,11 +28,24 @@ const Protected = ({ children }) => {
   return <AdminLayout>{children}</AdminLayout>;
 };
 
+// Roles without the dashboard (e.g. check-in volunteers) land on their first allowed page
+const Home = () => {
+  const { profile, can } = useAdminAuth();
+  if (!profile) return null; // wait for the role before loading dashboard data
+  if (!can("dashboard") && can("checkin")) return <Navigate to="/admin/check-in" replace />;
+  return <Dashboard />;
+};
+
 export default function AdminRoutes() {
   return (
     <Routes>
       <Route path="login" element={<AdminLogin />} />
-      <Route path="" element={<Protected><Dashboard /></Protected>} />
+      <Route path="" element={<Protected><Home /></Protected>} />
+      <Route path="sponsorships" element={<Protected><SponsorshipsAdmin /></Protected>} />
+      <Route path="sponsorship-plans" element={<Protected><SponsorshipPlansAdmin /></Protected>} />
+      <Route path="businesses" element={<Protected><BusinessesAdmin /></Protected>} />
+      <Route path="reports" element={<Protected><ReportsAdmin /></Protected>} />
+      <Route path="users" element={<Protected><AdminUsersAdmin /></Protected>} />
       <Route path="members" element={<Protected><MembersAdmin /></Protected>} />
       <Route path="family-approvals" element={<Protected><FamilyApprovalsAdmin /></Protected>} />
       <Route path="check-in" element={<Protected><CheckInAdmin /></Protected>} />

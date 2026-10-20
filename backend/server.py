@@ -4,7 +4,8 @@ from starlette.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from pathlib import Path
 from typing import List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime
+import asyncio
 import base64
 import logging
 import os
@@ -21,7 +22,7 @@ from models import (
     MemberSubscribeRequest, MemberPasswordChange, MemberRejectRequest, MemberPerk,
     GoogleSignInRequest, SiteSettings, SiteSettingsUpdate, TicketPurchaseRequest, TicketOrder,
     HeroSlide, FeatureHighlight, Testimonial, SiteStat,
-    EventCategory, DIFIAward, ConstitutionSection,
+    EventCategory, DIFIAward, ConstitutionSection, SponsorshipPlan, Business,
 )
 from seed import seed_if_empty
 from collections import Counter
@@ -29,11 +30,20 @@ from family_tickets import (
     member_router as family_member_router, public_router as tickets_public_router,
     admin_router as family_admin_router, age_on, age_band, new_ticket_code,
 )
+from admin_access import admin_guard, current_admin, ROLES, role_areas, router as admin_users_router
+from membership_rules import compute_term, active_promo, year_end, LIFETIME_PLAN
+from sponsorships import (
+    public_router as sponsorships_public_router, admin_router as sponsorships_admin_router,
+    seed_sponsorship_plans, valid_sponsor, expire_sponsorships,
+)
+from reports import router as reports_router
+from community import public_router as community_public_router, admin_router as community_admin_router
+from spam import spam_guard
 
 
 app = FastAPI(title="India Club of Greater Dayton API")
 api = APIRouter(prefix="/api")
-admin = APIRouter(prefix="/api/admin", dependencies=[Depends(require_admin)])
+admin = APIRouter(prefix="/api/admin", dependencies=[Depends(admin_guard)])
 
 
 # ===================== Auth =====================
@@ -51,8 +61,10 @@ async def login(body: LoginRequest):
 
 
 @api.get("/admin/me")
-async def me(username: str = Depends(require_admin)):
-    return {"username": username}
+async def me(user: dict = Depends(current_admin)):
+    role = user.get("role") or "webmaster"
+    return {"username": user["username"], "name": user.get("name") or "", "role": role,
+            "role_label": ROLES.get(role, {}).get("label", role), "areas": role_areas(role)}
 
 
 @api.post("/admin/change-password")
@@ -72,7 +84,11 @@ def _public_member(m: dict) -> dict:
     return d
 
 
-@api.post("/members/register")
+async def _settings() -> dict:
+    return await db.site_settings.find_one({"id": "main"}) or {}
+
+
+@api.post("/members/register", dependencies=[Depends(spam_guard)])
 async def member_register(body: MemberRegisterRequest):
     email = body.email.lower()
     existing = await db.members.find_one({"email": email})
@@ -185,6 +201,8 @@ async def member_subscribe(body: MemberSubscribeRequest, member_id: str = Depend
     plan_doc = await db.membership_plans.find_one({"slug": body.plan})
     if not plan_doc:
         raise HTTPException(400, f"Unknown plan: {body.plan}")
+    if plan_doc.get("hidden") or body.plan == LIFETIME_PLAN:
+        raise HTTPException(400, "This membership type is no longer available")
 
     # Validate tier (if plan has tiers, tier must be one of them)
     plan_tiers = plan_doc.get("tiers") or []
@@ -209,6 +227,8 @@ async def member_subscribe(body: MemberSubscribeRequest, member_id: str = Depend
         if v is not None and v != "":
             profile_update[field] = v
 
+    now = datetime.utcnow()
+    term = compute_term(body.plan, body.tier, now, await _settings())
     membership = {
         "plan": body.plan,
         "tier": body.tier,
@@ -218,12 +238,15 @@ async def member_subscribe(body: MemberSubscribeRequest, member_id: str = Depend
         "donation_amount": body.donation_amount or 0,
         "payment_method": body.payment_method,
         "family_count": body.family_count or 1,
-        "submitted_at": datetime.utcnow(),
-        "start_date": datetime.utcnow(),
-        "end_date": datetime.utcnow() + timedelta(days=365),
-        "approved_at": datetime.utcnow(),
+        "submitted_at": now,
+        "start_date": now,
+        "end_date": term["end_date"],
+        "lifetime": False,
+        "promo_label": term["promo"],
+        "approved_at": now,
         "approved_by": "auto",
         "payment_received": False,  # admin marks True once they confirm payment
+        "payment_status": "awaiting_check" if body.payment_method == "check" else "pending",
         "rejection_reason": None,
     }
 
@@ -235,14 +258,16 @@ async def member_subscribe(body: MemberSubscribeRequest, member_id: str = Depend
 
 @api.post("/members/me/renew")
 async def member_renew(member_id: str = Depends(require_member)):
-    """Renew an active or expired membership: extend end_date by 365 days from
-    today (or from existing end_date if it's still in the future)."""
+    """Renew an active or expired membership through Dec 31 (continuing from the
+    current end date if it's still in the future; promotions apply to lapsed renewals)."""
     m = await db.members.find_one({"id": member_id})
     if not m:
         raise HTTPException(404, "Member not found")
     mem = m.get("membership") or {}
     if not mem.get("plan"):
         raise HTTPException(400, "No membership to renew — subscribe to a plan first")
+    if mem.get("lifetime"):
+        raise HTTPException(400, "Lifetime memberships never need renewal")
     now = datetime.utcnow()
     cur_end = mem.get("end_date")
     if isinstance(cur_end, str):
@@ -250,16 +275,35 @@ async def member_renew(member_id: str = Depends(require_member)):
             cur_end = datetime.fromisoformat(cur_end.replace("Z", "+00:00")).replace(tzinfo=None)
         except Exception:
             cur_end = None
-    base = cur_end if (cur_end and cur_end > now) else now
-    new_end = base + timedelta(days=365)
+    term = compute_term(mem.get("plan"), mem.get("tier"), now, await _settings(), current_end=cur_end)
     await db.members.update_one({"id": member_id}, {"$set": {
         "membership.status": "active",
-        "membership.end_date": new_end,
+        "membership.end_date": term["end_date"],
+        "membership.promo_label": term["promo"],
+        "membership.renewed_at": now,
         "membership.payment_received": False,  # admin marks True once payment received
+        "membership.payment_status": "awaiting_check" if mem.get("payment_method") == "check" else "pending",
         "updated_at": now,
     }})
+    await db.membership_history.insert_one({
+        "id": gen_id(), "member_id": member_id, "action": "renew", "previous_end": cur_end,
+        "new_end": term["end_date"], "created_at": now,
+    })
     m = await db.members.find_one({"id": member_id})
     return _public_member(m)
+
+
+@api.get("/membership/quote")
+async def membership_quote(plan: str, tier: Optional[str] = None):
+    """Valid-through date and any active promotion, shown before a member signs up."""
+    now = datetime.utcnow()
+    settings = await _settings()
+    term = compute_term(plan, tier, now, settings)
+    promo = active_promo(settings, now)
+    return {
+        "valid_through": term["end_date"], "lifetime": term["lifetime"], "promo_label": term["promo"],
+        "promo_ends": promo["end"].isoformat() if promo and promo["end"] else None,
+    }
 
 
 @api.post("/events/{event_id}/validate-promo")
@@ -347,7 +391,7 @@ async def get_event(id: str):
     return _strip(e)
 
 
-@api.post("/events/{id}/register")
+@api.post("/events/{id}/register", dependencies=[Depends(spam_guard)])
 async def register_event(id: str, body: EventRegistration):
     e = await db.events.find_one({"id": id})
     if not e:
@@ -383,23 +427,39 @@ async def list_donors():
 
 
 @api.get("/classifieds")
-async def list_classifieds(category: Optional[str] = None, location: Optional[str] = None):
+async def list_classifieds(category: Optional[str] = None, location: Optional[str] = None,
+                           authorization: Optional[str] = Header(None)):
     f = {"status": "approved"}
     if category and category != "All":
         f["category"] = category
     if location and location != "All":
         f["location"] = location
-    return _strip(await db.classifieds.find(f).sort("created_at", -1).to_list(500))
+    items = _strip(await db.classifieds.find(f).sort("created_at", -1).to_list(500))
+    if (await _settings()).get("classifieds_members_only"):
+        from auth import decode_token
+        token = authorization.split(" ", 1)[1].strip() if authorization and authorization.startswith("Bearer ") else ""
+        if not (token and decode_token(token, expected_typ="member")):
+            for c in items:
+                c["contact"] = None
+                c["contact_hidden"] = True
+    return items
 
 
-@api.post("/classifieds")
-async def submit_classified(body: Classified):
+@api.post("/classifieds", dependencies=[Depends(spam_guard)])
+async def submit_classified(body: Classified, authorization: Optional[str] = Header(None)):
+    from auth import decode_token
+    mid = None
+    if authorization and authorization.startswith("Bearer "):
+        mid = decode_token(authorization.split(" ", 1)[1].strip(), expected_typ="member")
+    if (await _settings()).get("classifieds_members_only") and not mid:
+        raise HTTPException(401, "Please sign in as a member to post a classified")
+    body.member_id = mid
     body.status = "pending"
     await db.classifieds.insert_one(body.model_dump())
     return {"ok": True, "id": body.id}
 
 
-@api.post("/subscribers")
+@api.post("/subscribers", dependencies=[Depends(spam_guard)])
 async def subscribe(body: Subscriber):
     existing = await db.subscribers.find_one({"email": body.email})
     if existing:
@@ -408,25 +468,25 @@ async def subscribe(body: Subscriber):
     return {"ok": True, "id": body.id}
 
 
-@api.post("/contact")
+@api.post("/contact", dependencies=[Depends(spam_guard)])
 async def contact(body: ContactMessage):
     await db.contact_messages.insert_one(body.model_dump())
     return {"ok": True, "id": body.id}
 
 
-@api.post("/donations")
+@api.post("/donations", dependencies=[Depends(spam_guard)])
 async def donate(body: Donation):
     await db.donations.insert_one(body.model_dump())
     return {"ok": True, "id": body.id}
 
 
-@api.post("/membership-applications")
+@api.post("/membership-applications", dependencies=[Depends(spam_guard)])
 async def membership_apply(body: MembershipApplication):
     await db.membership_applications.insert_one(body.model_dump())
     return {"ok": True, "id": body.id}
 
 
-@api.post("/sponsorship-inquiries")
+@api.post("/sponsorship-inquiries", dependencies=[Depends(spam_guard)])
 async def sponsor_inquiry(body: SponsorshipInquiry):
     await db.sponsorship_inquiries.insert_one(body.model_dump())
     return {"ok": True, "id": body.id}
@@ -463,7 +523,7 @@ async def get_program(slug: str):
 
 @api.get("/membership-plans")
 async def list_plans():
-    return _strip(await db.membership_plans.find().sort("order", 1).to_list(100))
+    return _strip(await db.membership_plans.find({"hidden": {"$ne": True}}).sort("order", 1).to_list(100))
 
 
 @api.get("/perks")
@@ -537,10 +597,12 @@ def _parse_dt(d):
         return None
 
 
-def _effective_ticket_price(t: dict, is_active_member: bool, now: datetime) -> float:
-    """Pick the right price for a ticket given member status + early-bird window.
-    Precedence: early-bird (if active) → member price → regular price.
+def _effective_ticket_price(t: dict, is_active_member: bool, now: datetime, is_sponsor: bool = False) -> float:
+    """Pick the right price for a ticket given sponsor/member status + early-bird window.
+    Precedence: sponsor price (valid sponsor code) → early-bird (if active) → member price → regular price.
     """
+    if is_sponsor and t.get("sponsor_price") is not None:
+        return float(t["sponsor_price"])
     eb_end = _parse_dt(t.get("early_bird_end_date"))
     eb_price = t.get("early_bird_price")
     if eb_price is not None and eb_end and now <= eb_end:
@@ -568,6 +630,11 @@ async def purchase_tickets(event_id: str, body: TicketPurchaseRequest, authoriza
         if mid:
             member = await db.members.find_one({"id": mid})
     is_active_member = bool(member and (member.get("membership") or {}).get("status") == "active")
+    sponsor = None
+    if body.sponsor_code:
+        sponsor = await valid_sponsor(body.sponsor_code)
+        if not sponsor:
+            raise HTTPException(400, "Sponsor code is not valid or the sponsorship has expired")
 
     types_by_id = {t["id"]: t for t in types}
     now = datetime.utcnow()
@@ -640,7 +707,7 @@ async def purchase_tickets(event_id: str, body: TicketPurchaseRequest, authoriza
     for l in lines:
         t = types_by_id[l["ticket_type_id"]]
         band = age_band(l["age"])
-        price = _effective_ticket_price(t, is_active_member, now)
+        price = _effective_ticket_price(t, is_active_member, now, is_sponsor=bool(sponsor))
         label = t["name"]
         if band == "infant":
             price, label = 0.0, f"{t['name']} (Under 3)"
@@ -700,7 +767,7 @@ async def purchase_tickets(event_id: str, body: TicketPurchaseRequest, authoriza
         subtotal=subtotal,
         total=total,
         payment_method=body.payment_method,
-        payment_status="pending",
+        payment_status="awaiting_check" if body.payment_method == "check" else "pending",
         notes=body.notes or "",
     ).model_dump()
     order["items"] = order_items
@@ -708,6 +775,9 @@ async def purchase_tickets(event_id: str, body: TicketPurchaseRequest, authoriza
     if promo_applied:
         order["promo_code"] = promo_applied
         order["discount"] = round(discount, 2)
+    if sponsor:
+        order["sponsor_code"] = sponsor["sponsor_code"]
+        order["sponsor_company"] = sponsor.get("company")
     await db.ticket_orders.insert_one(order)
 
     # Increment sold counters on the event
@@ -754,6 +824,8 @@ COLLECTIONS = {
     "event-categories": EventCategory,
     "difi-awards": DIFIAward,
     "constitution": ConstitutionSection,
+    "sponsorship-plans": SponsorshipPlan,
+    "businesses": Business,
 }
 COLL_NAMES = {
     "events": "events", "news": "news", "exec-team": "exec_team", "gallery": "gallery",
@@ -764,6 +836,7 @@ COLL_NAMES = {
     "testimonials": "testimonials", "site-stats": "site_stats",
     "event-categories": "event_categories", "difi-awards": "difi_awards",
     "constitution": "constitution_sections",
+    "sponsorship-plans": "sponsorship_plans", "businesses": "businesses",
 }
 
 # Generic admin CRUD endpoints
@@ -868,11 +941,13 @@ async def admin_approve_member(id: str, username: str = Depends(require_admin)):
     if not m:
         raise HTTPException(404, "Not found")
     now = datetime.utcnow()
-    end = now + timedelta(days=365)
+    mem = m.get("membership") or {}
+    term = compute_term(mem.get("plan"), mem.get("tier"), now, await _settings())
     await db.members.update_one({"id": id}, {"$set": {
         "membership.status": "active",
         "membership.start_date": now,
-        "membership.end_date": end,
+        "membership.end_date": term["end_date"],
+        "membership.lifetime": term["lifetime"],
         "membership.approved_at": now,
         "membership.approved_by": username,
         "membership.rejection_reason": None,
@@ -891,13 +966,39 @@ async def admin_reject_member(id: str, body: MemberRejectRequest):
     return {"ok": True}
 
 
+PAYMENT_STATUSES = ("pending", "awaiting_check", "paid", "failed", "refunded")
+
+
 @admin.post("/members/{id}/mark-paid")
-async def admin_mark_paid(id: str, paid: bool = True):
+async def admin_mark_paid(id: str, paid: bool = True, status: Optional[str] = None):
+    status = status or ("paid" if paid else "pending")
+    if status not in PAYMENT_STATUSES:
+        raise HTTPException(400, "Invalid status")
     await db.members.update_one({"id": id}, {"$set": {
-        "membership.payment_received": bool(paid),
+        "membership.payment_received": status == "paid",
+        "membership.payment_status": status,
         "updated_at": datetime.utcnow(),
     }})
     return {"ok": True}
+
+
+@admin.post("/members/{id}/lifetime")
+async def admin_set_lifetime(id: str, lifetime: bool = True):
+    """Grant (or remove) a legacy lifetime membership. Lifetime members never expire."""
+    m = await db.members.find_one({"id": id})
+    if not m:
+        raise HTTPException(404, "Not found")
+    now = datetime.utcnow()
+    if lifetime:
+        update = {"membership.plan": LIFETIME_PLAN, "membership.tier": None, "membership.lifetime": True,
+                  "membership.status": "active", "membership.end_date": None,
+                  "membership.start_date": (m.get("membership") or {}).get("start_date") or now,
+                  "membership.payment_received": True, "membership.payment_status": "paid"}
+    else:
+        update = {"membership.lifetime": False, "membership.plan": "regular", "membership.tier": "individual",
+                  "membership.end_date": year_end(now.year)}
+    await db.members.update_one({"id": id}, {"$set": {**update, "updated_at": now}})
+    return _public_member(await db.members.find_one({"id": id}))
 
 
 @admin.get("/site-settings")
@@ -931,7 +1032,7 @@ async def admin_list_ticket_orders(event_id: Optional[str] = None, status: Optio
 
 @admin.post("/ticket-orders/{order_id}/mark-paid")
 async def admin_mark_order_paid(order_id: str, status: str = "paid"):
-    if status not in ("pending", "paid", "refunded"):
+    if status not in PAYMENT_STATUSES:
         raise HTTPException(400, "Invalid status")
     await db.ticket_orders.update_one({"id": order_id}, {"$set": {"payment_status": status}})
     return {"ok": True}
@@ -993,6 +1094,9 @@ async def stats():
         "registrations": await db.event_registrations.count_documents({}),
         "sponsorship_inquiries": await db.sponsorship_inquiries.count_documents({}),
         "family_pending": await db.family_members.count_documents({"status": "pending"}),
+        "sponsorships_pending": await db.sponsorships.count_documents({"status": "pending"}),
+        "sponsorships_active": await db.sponsorships.count_documents({"status": "active"}),
+        "businesses_pending": await db.businesses.count_documents({"status": "pending"}),
     }
 
 
@@ -1000,6 +1104,12 @@ async def stats():
 app.include_router(family_member_router)
 app.include_router(tickets_public_router)
 app.include_router(family_admin_router)
+app.include_router(admin_users_router)
+app.include_router(sponsorships_public_router)
+app.include_router(sponsorships_admin_router)
+app.include_router(reports_router)
+app.include_router(community_public_router)
+app.include_router(community_admin_router)
 app.include_router(api)
 app.include_router(admin)
 
@@ -1014,23 +1124,60 @@ app.add_middleware(
 logging.basicConfig(level=logging.INFO)
 
 
+async def run_expiry_checks() -> dict:
+    """Expire memberships and sponsorships whose end date has passed (lifetime never expires)."""
+    now = datetime.utcnow()
+    r = await db.members.update_many(
+        {"membership.status": "active", "membership.lifetime": {"$ne": True},
+         "membership.end_date": {"$lt": now}},
+        {"$set": {"membership.status": "expired", "updated_at": now}},
+    )
+    s = await expire_sponsorships(now)
+    if r.modified_count or s:
+        logging.info(f"[expiry] expired {r.modified_count} memberships, {s} sponsorships")
+    return {"members": r.modified_count, "sponsorships": s}
+
+
+async def _expiry_loop():
+    while True:
+        try:
+            await run_expiry_checks()
+        except Exception as e:
+            logging.warning(f"[expiry] check failed: {e}")
+        await asyncio.sleep(6 * 3600)
+
+
+async def run_migrations():
+    """Idempotent data updates for requirement changes."""
+    for p in await db.membership_plans.find({"tiers.slug": "student"}).to_list(50):
+        tiers = [dict(t, name="Youth") if t.get("slug") == "student" and t.get("name") == "Student" else t
+                 for t in p["tiers"]]
+        await db.membership_plans.update_one({"id": p["id"]}, {"$set": {"tiers": tiers}})
+    if not await db.membership_plans.find_one({"slug": LIFETIME_PLAN}):
+        await db.membership_plans.insert_one(MembershipPlan(
+            slug=LIFETIME_PLAN, name="Lifetime (legacy)", price=0, period="legacy",
+            description="Existing lifetime memberships. No longer sold; granted by an admin only.",
+            hidden=True, order=99,
+        ).model_dump())
+    await seed_sponsorship_plans()
+
+
+_bg_tasks = []
+
+
 @app.on_event("startup")
 async def on_startup():
     await seed_if_empty()
-    # Phase 5: auto-expire memberships whose end_date has passed
     try:
-        now = datetime.utcnow()
-        r = await db.members.update_many(
-            {"membership.status": "active", "membership.end_date": {"$lt": now}},
-            {"$set": {"membership.status": "expired", "updated_at": now}},
-        )
-        if r.modified_count:
-            logging.info(f"[startup] auto-expired {r.modified_count} memberships")
+        await run_migrations()
     except Exception as e:
-        logging.warning(f"[startup] auto-expire skipped: {e}")
+        logging.warning(f"[startup] migrations skipped: {e}")
+    if os.environ.get("DISABLE_BACKGROUND_JOBS") != "1":
+        _bg_tasks.append(asyncio.create_task(_expiry_loop()))
     logging.info("ICGD API started + seed verified")
 
 
 @app.on_event("shutdown")
 async def on_shutdown():
-    pass
+    for t in _bg_tasks:
+        t.cancel()

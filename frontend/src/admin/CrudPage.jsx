@@ -300,7 +300,7 @@ function TicketTypesEditor({ value, onChange }) {
           {/* Pricing matrix */}
           <div className="mt-2 p-2 bg-white border border-stone-200 rounded">
             <div className="text-[10px] font-cinzel tracking-wider text-stone-500 mb-1.5">PRICING (USD)</div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
               <div>
                 <label className="text-[10px] text-stone-500">Regular *</label>
                 <input type="number" min="0" step="0.01" value={t.price ?? 0} onChange={(e) => update(i, "price", Number(e.target.value))} className={cls} />
@@ -317,8 +317,12 @@ function TicketTypesEditor({ value, onChange }) {
                 <label className="text-[10px] text-stone-500">Child 3–11 (optional)</label>
                 <input type="number" min="0" step="0.01" value={t.child_price ?? ""} placeholder="Adult price" onChange={(e) => update(i, "child_price", e.target.value === "" ? null : Number(e.target.value))} className={cls} data-testid={`ticket-child-price-${i}`} />
               </div>
+              <div>
+                <label className="text-[10px] text-stone-500">Sponsor (optional)</label>
+                <input type="number" min="0" step="0.01" value={t.sponsor_price ?? ""} placeholder="No sponsor price" onChange={(e) => update(i, "sponsor_price", e.target.value === "" ? null : Number(e.target.value))} className={cls} data-testid={`ticket-sponsor-price-${i}`} />
+              </div>
             </div>
-            <div className="text-[10px] text-stone-400 mt-1.5">Child price applies to admin-verified family members aged 3–11. Verified kids under 3 are free.</div>
+            <div className="text-[10px] text-stone-400 mt-1.5">Child price applies to admin-verified family members aged 3–11. Verified kids under 3 are free. Sponsor price needs an active sponsor code at checkout — set 0 for “included with sponsorship”.</div>
             {t.early_bird_price != null && (
               <div className="mt-2">
                 <label className="text-[10px] text-stone-500">Early Bird ends on</label>

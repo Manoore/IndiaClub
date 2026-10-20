@@ -67,6 +67,7 @@ export const NAV = [
       { label: "All Locations", to: "/classified/locations" },
       { label: "All Advertisements", to: "/classified/all-ads" },
       { label: "Post Ad", to: "/classified/post-ad" },
+      { label: "Business Directory", to: "/classified/business-directory" },
     ],
   },
   { label: "Gallery", to: "/gallery" },

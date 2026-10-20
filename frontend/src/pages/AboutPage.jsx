@@ -5,6 +5,7 @@ import { Award, FileText, Heart, Scroll, Trophy, Users, Building, Phone, Mail, M
 import Mandala from "../components/Mandala";
 import { useSiteSettings } from "../api/SiteSettingsContext";
 import { apiClient } from "../api/client";
+import Honeypot, { HONEYPOT_FIELD } from "../components/Honeypot";
 
 const AboutHub = () => {
   const cards = [
@@ -401,10 +402,11 @@ const Contact = () => {
 const ContactForm = () => {
   const [data, setData] = React.useState({ name: "", email: "", subject: "", message: "" });
   const [sent, setSent] = React.useState(false);
+  const [hp, setHp] = React.useState("");
   const submit = async (e) => {
     e.preventDefault();
     try {
-      await apiClient.post("/contact", data);
+      await apiClient.post("/contact", { ...data, [HONEYPOT_FIELD]: hp });
     } catch {
       // fallback to localStorage if API fails
       const inbox = JSON.parse(localStorage.getItem("icgd_inbox") || "[]");
@@ -416,7 +418,8 @@ const ContactForm = () => {
     setTimeout(() => setSent(false), 4000);
   };
   return (
-    <form onSubmit={submit} className="bg-white p-7 rounded-2xl border border-amber-100 space-y-4">
+    <form onSubmit={submit} className="relative bg-white p-7 rounded-2xl border border-amber-100 space-y-4">
+      <Honeypot value={hp} onChange={setHp} />
       <input required value={data.name} onChange={(e) => setData({ ...data, name: e.target.value })} placeholder="Your name" className="w-full px-4 py-3 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]" />
       <input required type="email" value={data.email} onChange={(e) => setData({ ...data, email: e.target.value })} placeholder="Email address" className="w-full px-4 py-3 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]" />
       <input value={data.subject} onChange={(e) => setData({ ...data, subject: e.target.value })} placeholder="Subject" className="w-full px-4 py-3 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]" />

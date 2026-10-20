@@ -419,10 +419,20 @@ export default function MemberDashboardPage() {
               <div className="space-y-4">
                 <div className="grid sm:grid-cols-2 gap-4">
                   <Info label="Plan" value={(member.membership.plan || "—").replace(/^\w/, (c) => c.toUpperCase())} />
-                  <Info label="Tier" value={member.membership.tier || "—"} />
+                  <Info label="Tier" value={member.membership.tier === "student" ? "Youth" : member.membership.tier || "—"} />
                   <Info label="Valid From" value={formatDate(member.membership.start_date)} />
-                  <Info label="Valid Until" value={formatDate(member.membership.end_date)} />
+                  <Info label="Valid Through" value={member.membership.lifetime ? "Lifetime — never expires" : formatDate(member.membership.end_date)} />
                 </div>
+                {member.membership.promo_label && (
+                  <div className="text-sm text-emerald-800" data-testid="membership-promo-note">🎉 Includes the {member.membership.promo_label} — valid through next year.</div>
+                )}
+                {!member.membership.lifetime && ["pending", "awaiting_check"].includes(member.membership.payment_status) && (
+                  <div className="bg-sky-50 border border-sky-200 rounded-lg p-3 text-sm text-sky-900" data-testid="membership-payment-note">
+                    {member.membership.payment_status === "awaiting_check"
+                      ? "We're waiting for your check — make it payable to India Club of Greater Dayton. The Treasurer will mark it received."
+                      : "Payment not yet recorded. The Treasurer will confirm it once received."}
+                  </div>
+                )}
                 <RenewBanner end={member.membership.end_date} onRenew={refresh} />
                 <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 flex items-start gap-2">
                   <CheckCircle2 className="w-5 h-5 text-emerald-700 mt-0.5 flex-shrink-0" />
@@ -457,7 +467,7 @@ export default function MemberDashboardPage() {
             {ms === "expired" && (
               <div className="space-y-3" data-testid="membership-expired-section">
                 <p className="text-stone-700">Your membership expired on {formatDate(member.membership.end_date)}.</p>
-                <RenewButton onRenew={refresh} label="Renew Now (+1 year)" />
+                <RenewButton onRenew={refresh} label="Renew through Dec 31" />
               </div>
             )}
           </div>
@@ -490,7 +500,7 @@ const Info = ({ label, value }) => (
   </div>
 );
 
-const RenewButton = ({ onRenew, label = "Renew (+1 year)" }) => {
+const RenewButton = ({ onRenew, label = "Renew" }) => {
   const [busy, setBusy] = useState(false);
   const { toast } = useToast();
   const click = async () => {
@@ -524,7 +534,7 @@ const RenewBanner = ({ end, onRenew }) => {
     <div className={`rounded-lg p-4 border flex items-center justify-between flex-wrap gap-3 ${urgent ? "bg-rose-50 border-rose-200" : "bg-amber-50 border-amber-200"}`} data-testid="membership-renewal-banner">
       <div className={`text-sm ${urgent ? "text-rose-900" : "text-amber-900"}`}>
         <strong>{days > 0 ? `Renews in ${days} day${days === 1 ? "" : "s"}` : "Expires today"}</strong>
-        <span className="ml-2 opacity-80">— extend by 1 year now to keep member pricing & perks.</span>
+        <span className="ml-2 opacity-80">— renew now to stay a member through Dec 31 next year and keep member pricing.</span>
       </div>
       <RenewButton onRenew={onRenew} label="Renew Now" />
     </div>

@@ -313,9 +313,9 @@ class TestMemberRenewal:
         new_end_str = r.json()["membership"]["end_date"]
         new_end = datetime.fromisoformat(new_end_str.replace("Z", "+00:00")).replace(tzinfo=None)
 
-        # Should be extended by ~365 days from old end (if old end was in the future)
-        delta = (new_end - old_end).days
-        assert 364 <= delta <= 366, f"Expected ~365 day extension, got {delta}"
+        # Calendar-year terms: an active membership renews through Dec 31 of the following year
+        assert (new_end.month, new_end.day) == (12, 31), f"Expected Dec 31 end date, got {new_end}"
+        assert new_end.year == old_end.year + 1, f"Expected {old_end.year + 1}, got {new_end.year}"
         assert r.json()["membership"]["status"] == "active"
 
     def test_renew_no_plan_returns_400(self, admin_headers):
