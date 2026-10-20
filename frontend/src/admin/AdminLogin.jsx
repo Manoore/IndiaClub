@@ -60,7 +60,6 @@ export default function AdminLogin() {
           <button data-testid="admin-login-submit" type="submit" disabled={loading} className="w-full py-3.5 bg-[#8B1A1A] hover:bg-[#6f1414] disabled:opacity-70 text-amber-50 rounded-md font-medium flex items-center justify-center gap-2 transition">
             <LogIn className="w-4 h-4" /> {loading ? "Signing in..." : "Sign In"}
           </button>
-          <p className="text-xs text-stone-400 text-center mt-3">Default: <code>admin</code> / <code>admin123</code></p>
         </form>
       </div>
     </div>

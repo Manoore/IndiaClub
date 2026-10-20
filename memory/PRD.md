@@ -5,7 +5,7 @@ Clone https://www.indiaclubdayton.org/ — create a modern UI with advanced feat
 
 ## What's Live
 - Frontend: Firebase Hosting (`indiaclub-69aba.web.app`)
-- Backend: Render (`https://icgd-api.onrender.com`)
+- Backend: Render (`https://indiaclub-e7ix.onrender.com`, service "IndiaClub", repo Manoore/IndiaClub, branch main, root `backend`)
 - DB: MongoDB Atlas
 - Preview/dev: Emergent preview URL (`REACT_APP_BACKEND_URL` in `.env`)
 
