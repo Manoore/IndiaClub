@@ -22,3 +22,5 @@ services:
         sync: false
       - key: ADMIN_INITIAL_PASSWORD
         sync: false # only used if the database has no admin user yet
+      # Locked out? Add ADMIN_RESET_PASSWORD (and optionally ADMIN_RESET_USERNAME, default "admin"),
+      # let the service redeploy, log in, then delete the variable.

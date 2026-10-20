@@ -22,6 +22,18 @@ async def seed_if_empty():
             "created_at": datetime.utcnow(),
         })
 
+    # Emergency reset: set ADMIN_RESET_PASSWORD, redeploy, log in, then remove the variable.
+    reset = os.environ.get("ADMIN_RESET_PASSWORD")
+    if reset:
+        username = (os.environ.get("ADMIN_RESET_USERNAME") or "admin").strip().lower()
+        await db.admin_users.update_one(
+            {"username": username},
+            {"$set": {"password_hash": hash_password(reset), "disabled": False, "role": "webmaster"},
+             "$setOnInsert": {"id": f"admin-{secrets.token_hex(4)}", "username": username, "created_at": datetime.utcnow()}},
+            upsert=True,
+        )
+        logging.warning(f"[seed] ADMIN_RESET_PASSWORD applied to '{username}'. Remove the variable from the environment now")
+
     # ---- Past Presidents ----
     if await db.past_presidents.count_documents({}) == 0:
         pres = [
