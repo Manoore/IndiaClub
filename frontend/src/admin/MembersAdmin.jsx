@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { apiClient } from "../api/client";
 import { useToast } from "../hooks/use-toast";
 import { CheckCircle2, XCircle, Trash2, Loader2, Search, Infinity as InfinityIcon } from "lucide-react";
@@ -24,7 +25,8 @@ const fmt = (iso) => {
 };
 
 export default function MembersAdmin() {
-  const [filter, setFilter] = useState("all");
+  const [searchParams] = useSearchParams();
+  const [filter, setFilter] = useState(FILTERS.includes(searchParams.get("status")) ? searchParams.get("status") : "all");
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);

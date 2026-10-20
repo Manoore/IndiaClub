@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { apiClient, downloadFile } from "../api/client";
 import { useToast } from "../hooks/use-toast";
 import { Loader2, FileText, Trash2, RefreshCw } from "lucide-react";
@@ -12,7 +13,8 @@ const fmtDate = (d) => (d ? new Date(d).toLocaleDateString(undefined, { month: "
 
 export default function SponsorshipsAdmin() {
   const [rows, setRows] = useState(null);
-  const [filter, setFilter] = useState("all");
+  const [searchParams] = useSearchParams();
+  const [filter, setFilter] = useState(STATUS_FILTERS.includes(searchParams.get("status")) ? searchParams.get("status") : "all");
   const { toast } = useToast();
 
   const load = async () => {

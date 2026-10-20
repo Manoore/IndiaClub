@@ -1,28 +1,32 @@
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { apiClient } from "../api/client";
+import { useAdminAuth } from "../api/AdminAuthContext";
 import { Users, Inbox, DollarSign, Calendar, ClipboardList, Building2, Newspaper, Image, Tag, Award, Handshake, Store } from "lucide-react";
 
+// Each card opens the screen behind the number (filtered where the screen supports it)
 const CARDS = [
-  { key: "members_active", label: "Active Members", icon: Users, color: "#2E5E3E" },
-  { key: "members_pending", label: "Pending Approvals", icon: ClipboardList, color: "#E07A1F" },
-  { key: "members", label: "Total Members", icon: Users, color: "#8B1A1A" },
-  { key: "subscribers", label: "Newsletter Subs", icon: Users, color: "#C9A961" },
-  { key: "donations", label: "Donations", icon: DollarSign, color: "#2E5E3E" },
-  { key: "contact", label: "Contact Inbox", icon: Inbox, color: "#C9A961" },
-  { key: "events", label: "Events", icon: Calendar, color: "#8B1A1A" },
-  { key: "news", label: "News", icon: Newspaper, color: "#E07A1F" },
-  { key: "gallery", label: "Gallery", icon: Image, color: "#C9A961" },
-  { key: "sponsors", label: "Sponsors", icon: Building2, color: "#2E5E3E" },
-  { key: "classifieds_pending", label: "Pending Ads", icon: Tag, color: "#8B1A1A" },
-  { key: "registrations", label: "Event Registrations", icon: Award, color: "#E07A1F" },
-  { key: "sponsorships_pending", label: "Sponsorships Awaiting Payment", icon: Handshake, color: "#E07A1F", to: "/admin/sponsorships" },
-  { key: "sponsorships_active", label: "Active Sponsorships", icon: Handshake, color: "#2E5E3E", to: "/admin/sponsorships" },
-  { key: "businesses_pending", label: "Businesses to Review", icon: Store, color: "#8B1A1A", to: "/admin/businesses" },
+  { key: "members_active", label: "Active Members", icon: Users, color: "#2E5E3E", to: "/admin/members?status=active", area: "members" },
+  { key: "members_pending", label: "Pending Approvals", icon: ClipboardList, color: "#E07A1F", to: "/admin/members?status=pending", area: "members" },
+  { key: "members", label: "Total Members", icon: Users, color: "#8B1A1A", to: "/admin/members", area: "members" },
+  { key: "subscribers", label: "Newsletter Subs", icon: Users, color: "#C9A961", to: "/admin/subscribers", area: "content" },
+  { key: "donations", label: "Donations", icon: DollarSign, color: "#2E5E3E", to: "/admin/donations", area: "finance" },
+  { key: "contact", label: "Contact Inbox", icon: Inbox, color: "#C9A961", to: "/admin/contact-messages", area: "content" },
+  { key: "events", label: "Events", icon: Calendar, color: "#8B1A1A", to: "/admin/events", area: "events" },
+  { key: "news", label: "News", icon: Newspaper, color: "#E07A1F", to: "/admin/news", area: "content" },
+  { key: "gallery", label: "Gallery", icon: Image, color: "#C9A961", to: "/admin/gallery", area: "content" },
+  { key: "sponsors", label: "Sponsors", icon: Building2, color: "#2E5E3E", to: "/admin/sponsors", area: "sponsors" },
+  { key: "classifieds_pending", label: "Pending Ads", icon: Tag, color: "#8B1A1A", to: "/admin/classifieds", area: "content" },
+  { key: "registrations", label: "Event Registrations", icon: Award, color: "#E07A1F", to: "/admin/event-registrations", area: "events" },
+  { key: "sponsorships_pending", label: "Sponsorships Awaiting Payment", icon: Handshake, color: "#E07A1F", to: "/admin/sponsorships?status=pending", area: "sponsors" },
+  { key: "sponsorships_active", label: "Active Sponsorships", icon: Handshake, color: "#2E5E3E", to: "/admin/sponsorships?status=active", area: "sponsors" },
+  { key: "businesses_pending", label: "Businesses to Review", icon: Store, color: "#8B1A1A", to: "/admin/businesses", area: "content" },
 ];
 
 export default function Dashboard() {
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(true);
+  const { can } = useAdminAuth();
   useEffect(() => {
     apiClient.get("/admin/stats").then((r) => { setStats(r.data); setLoading(false); }).catch(() => setLoading(false));
   }, []);
@@ -33,16 +37,16 @@ export default function Dashboard() {
         <p className="text-stone-500 mt-1">Quick snapshot of everything happening at India Club.</p>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-        {CARDS.map((c) => {
+        {CARDS.filter((c) => can(c.area)).map((c) => {
           const Icon = c.icon;
           return (
-            <div key={c.key} className="p-5 bg-white border border-stone-200 rounded-xl card-hover">
+            <Link key={c.key} to={c.to} className="block p-5 bg-white border border-stone-200 rounded-xl card-hover hover:border-[#8B1A1A] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8B1A1A]" data-testid={`dash-card-${c.key}`}>
               <div className="w-10 h-10 rounded-lg flex items-center justify-center mb-3" style={{ background: `${c.color}1A` }}>
                 <Icon className="w-5 h-5" style={{ color: c.color }} />
               </div>
               <div className="font-display text-3xl text-stone-900">{loading ? "—" : (stats[c.key] ?? 0)}</div>
               <div className="text-xs text-stone-500 mt-1">{c.label}</div>
-            </div>
+            </Link>
           );
         })}
       </div>
