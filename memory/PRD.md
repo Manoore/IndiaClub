@@ -53,8 +53,9 @@ Clone https://www.indiaclubdayton.org/ — create a modern UI with advanced feat
 - Code lives in `backend/family_tickets.py`; tests in `backend/tests/test_phase6_family_tickets.py` (26/26 pass)
 
 ### Phase 7 — Requirements gaps without external services (Oct 2026)
-- **Calendar-year memberships** (`backend/membership_rules.py`): every term ends Dec 31; renewals of active members continue from the current end year; Extended Silver/Gold = 5/10 calendar years
-- **Promotion window** (Site Content → Membership Promotion): purchases/renewals inside it run through Dec 31 next year; `GET /api/membership/quote` shows valid-through + promo at signup
+- **Membership terms** (`backend/membership_rules.py`, `membership_service.py`): 12 months from successful payment (recalculated when the Treasurer marks it paid); never earlier than the current expiration; Extended Silver/Gold = 5/10 years
+- **Membership Promotions** (Admin → Membership Promotions): any number of promotions with start/end window, a fixed expiration date, applies to new / renewing / both, on/off, usage count; can't delete a used promotion. Expiration shown before payment via `GET /api/membership/quote`
+- **Audit trail** `membership_history`: join, renew, payment status changes, promotion used, manual overrides (with required reason), expiries; `GET /api/admin/members/{id}/history`; admin override `POST /api/admin/members/{id}/expiration`; original join date kept in `members.joined_at`
 - **Legacy lifetime**: hidden `lifetime` plan, admin-only grant (`POST /api/admin/members/{id}/lifetime`), never expires; "Student" tier renamed **Youth**
 - **Payment statuses** everywhere: pending · awaiting_check · paid · failed · refunded (tickets, memberships, sponsorships, donations); check payments start as awaiting_check
 - **Role-based admin** (`backend/admin_access.py`): Webmaster, Treasurer, Membership Chair, Event Coordinator, Sponsorship Coordinator, Communications Lead, Volunteer (check-in only); Admin Users page; path → area guard on all `/api/admin/*`

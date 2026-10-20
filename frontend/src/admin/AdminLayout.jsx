@@ -16,6 +16,7 @@ const NAV_GROUPS = [
     label: "Members",
     items: [
       { to: "/admin/members", area: "members", label: "Members", icon: Users },
+      { to: "/admin/membership-promotions", area: "members", label: "Membership Promotions", icon: Gift },
       { to: "/admin/family-approvals", area: "members", label: "Family Approvals", icon: UsersRound },
       { to: "/admin/perks", area: "members", label: "Member Perks", icon: Gift },
     ],

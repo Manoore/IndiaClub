@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { apiClient } from "../api/client";
 import { useToast } from "../hooks/use-toast";
-import { Loader2, Save, Home as HomeIcon, Info, Phone as PhoneIcon, Share2, Footprints, BadgePercent, BarChart3 } from "lucide-react";
+import { Loader2, Save, Home as HomeIcon, Info, Phone as PhoneIcon, Share2, Footprints, BarChart3 } from "lucide-react";
 
 const TABS = [
   { id: "general", label: "General", icon: Info },
@@ -11,7 +11,6 @@ const TABS = [
   { id: "contact", label: "Contact", icon: PhoneIcon },
   { id: "social", label: "Social", icon: Share2 },
   { id: "footer", label: "Footer", icon: Footprints },
-  { id: "membership", label: "Membership Promotion", icon: BadgePercent },
   { id: "community", label: "Community & Analytics", icon: BarChart3 },
 ];
 
@@ -56,12 +55,6 @@ const FIELDS = {
   footer: [
     { k: "footer_tagline", label: "Footer Tagline", textarea: true, rows: 2 },
     { k: "footer_copyright", label: "Copyright Notice" },
-  ],
-  membership: [
-    { k: "membership_promo_enabled", label: "Promotion active", type: "checkbox", hint: "Memberships bought or renewed inside the window run through Dec 31 of the following year." },
-    { k: "membership_promo_label", label: "Promotion name (shown at signup)", placeholder: "Diwali Promotion" },
-    { k: "membership_promo_start", label: "Window starts", type: "date" },
-    { k: "membership_promo_end", label: "Window ends", type: "date", hint: "Leave dates empty to run the promotion until you switch it off." },
   ],
   community: [
     { k: "classifieds_members_only", label: "Classifieds are members-only", type: "checkbox", hint: "Members must sign in to post a classified or see seller contact details." },

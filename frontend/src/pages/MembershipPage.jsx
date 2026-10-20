@@ -5,6 +5,7 @@ import { Check, Sparkles, X, Loader2, LogIn, UserPlus } from "lucide-react";
 import { useToast } from "../hooks/use-toast";
 import { useMemberAuth } from "../api/MemberAuthContext";
 import { apiClient } from "../api/client";
+import MembershipTermNote, { fmtLongDate } from "../components/MembershipTermNote";
 
 const US_STATES = [
   "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL", "GA", "HI", "ID", "IL",
@@ -14,9 +15,6 @@ const US_STATES = [
 ];
 
 // Returns { label, action, disabled } based on auth + membership state
-const fmtLongDate = (d) =>
-  new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-
 const getPlanCta = (plan, { isAuthed, member }) => {
   if (plan.price <= 0) return { label: "Learn More", action: "join" };
   if (!isAuthed) return { label: "Sign Up to Join", action: "join" };
@@ -159,7 +157,6 @@ const SubscribeForm = ({ plan, onSuccess, onClose, member }) => {
       .then((r) => setQuote(r.data))
       .catch(() => setQuote(null));
   }, [plan.slug, plan.tier]);
-  const validThrough = quote?.valid_through ? fmtLongDate(quote.valid_through) : null;
 
   const total = Number(plan.price || 0) + Number(f.donation_amount || 0);
 
@@ -349,15 +346,7 @@ const SubscribeForm = ({ plan, onSuccess, onClose, member }) => {
         </p>
       </div>
 
-      {validThrough && (
-        <div className="border border-emerald-200 bg-emerald-50 p-3 rounded-md text-sm text-emerald-900" data-testid="sub-valid-through">
-          {quote.promo_label && (
-            <div className="font-medium mb-0.5" data-testid="sub-promo">🎉 {quote.promo_label}: you get the rest of this year plus all of next year.</div>
-          )}
-          Membership valid through <strong>{validThrough}</strong>
-          <span className="block text-xs text-emerald-800/80 mt-0.5">Memberships follow the calendar year and renew every January.</span>
-        </div>
-      )}
+      <MembershipTermNote quote={quote} />
 
       <div className="bg-amber-50/60 border border-amber-200 p-3 rounded-md text-sm text-stone-700 flex items-center justify-between">
         <div>

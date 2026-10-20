@@ -279,7 +279,14 @@ export default function MembersAdmin() {
         )}
       </div>
 
-      {selected && <MemberDetailDrawer member={selected} onClose={() => setSelected(null)} onLifetime={setLifetime} />}
+      {selected && (
+        <MemberDetailDrawer
+          member={selected}
+          onClose={() => setSelected(null)}
+          onLifetime={setLifetime}
+          onChanged={async (m) => { setSelected(m); await load(); }}
+        />
+      )}
     </div>
   );
 }
@@ -291,8 +298,80 @@ const Field = ({ label, value }) => (
   </div>
 );
 
-const MemberDetailDrawer = ({ member: m, onClose, onLifetime }) => {
+const ACTION_LABELS = {
+  join: "Joined", change_plan: "Changed plan", renew: "Renewed", payment: "Payment", override: "Manual override",
+  approve: "Approved", expire: "Expired",
+};
+const RULE_LABELS = {
+  standard: "12 months from payment", promotion: "Promotion", kept_current: "Kept current expiration (never shortened)",
+  override: "Set by admin", lifetime: "Lifetime",
+};
+
+const MembershipHistory = ({ memberId, version }) => {
+  const [items, setItems] = useState(null);
+  useEffect(() => {
+    apiClient.get(`/admin/members/${memberId}/history`).then((r) => setItems(r.data)).catch(() => setItems([]));
+  }, [memberId, version]);
+  if (!items) return <Loader2 className="w-4 h-4 animate-spin text-[#8B1A1A]" />;
+  if (!items.length) return <p className="text-xs text-stone-400">No history recorded yet.</p>;
+  return (
+    <ul className="divide-y divide-stone-100 text-xs" data-testid="member-history">
+      {items.map((e) => (
+        <li key={e.id} className="py-2">
+          <div className="flex justify-between gap-2">
+            <span className="font-medium text-stone-800">{ACTION_LABELS[e.action] || e.action}{e.payment_status ? ` · ${e.payment_status.replace("_", " ")}` : ""}</span>
+            <span className="text-stone-400 whitespace-nowrap">{fmt(e.created_at)}</span>
+          </div>
+          {(e.previous_end || e.new_end) && e.action !== "expire" && (
+            <div className="text-stone-600">Expiration: {fmt(e.previous_end)} → {fmt(e.new_end)}</div>
+          )}
+          {e.promotion?.name && <div className="text-emerald-700">Promotion: {e.promotion.name}</div>}
+          {e.reason && <div className="text-stone-600 italic">“{e.reason}”</div>}
+          <div className="text-stone-400">by {e.actor}</div>
+        </li>
+      ))}
+    </ul>
+  );
+};
+
+const ExpirationOverride = ({ member: m, onChanged }) => {
+  const { toast } = useToast();
+  const [date, setDate] = useState("");
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const submit = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const r = await apiClient.post(`/admin/members/${m.id}/expiration`, { end_date: date, reason });
+      toast({ title: "Expiration updated", description: "The change is recorded in the member's history." });
+      setDate("");
+      setReason("");
+      onChanged(r.data);
+    } catch (err) {
+      const d = err.response?.data?.detail;
+      toast({ title: "Couldn't update", description: Array.isArray(d) ? "A reason is required." : d || err.message });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <form onSubmit={submit} className="mt-5 p-4 border border-stone-200 rounded-lg space-y-2" data-testid="expiration-override">
+      <div className="text-sm font-medium text-stone-900">Set a different expiration date</div>
+      <p className="text-xs text-stone-500">For board-approved exceptions. A reason is required and kept for auditing.</p>
+      <input type="date" required value={date} onChange={(e) => setDate(e.target.value)} className="w-full px-3 py-2 border border-stone-200 rounded-md text-sm" data-testid="override-date" />
+      <input required minLength={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason (e.g. EC approved extension for volunteer service)" className="w-full px-3 py-2 border border-stone-200 rounded-md text-sm" data-testid="override-reason" />
+      <button disabled={busy} className="px-3 py-1.5 rounded-md text-xs font-medium bg-[#8B1A1A] text-amber-50 disabled:opacity-60" data-testid="override-save">
+        {busy ? "Saving…" : "Save expiration"}
+      </button>
+    </form>
+  );
+};
+
+const MemberDetailDrawer = ({ member: m, onClose, onLifetime, onChanged }) => {
   const ms = m.membership?.status || "none";
+  const [version, setVersion] = useState(0);
+  const changed = (updated) => { setVersion((v) => v + 1); onChanged(updated); };
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex justify-end" onClick={onClose}>
       <div
@@ -334,6 +413,10 @@ const MemberDetailDrawer = ({ member: m, onClose, onLifetime }) => {
           <Field label="Submitted" value={fmt(m.membership?.submitted_at)} />
           <Field label="Start date" value={fmt(m.membership?.start_date)} />
           <Field label="Valid through" value={m.membership?.lifetime ? "Lifetime" : fmt(m.membership?.end_date)} />
+          <Field label="Member since" value={fmt(m.joined_at)} />
+          <Field label="Expiration rule" value={RULE_LABELS[m.membership?.term_rule] || "—"} />
+          {m.membership?.promotion?.name && <Field label="Promotion used" value={m.membership.promotion.name} />}
+          <Field label="Payment confirmed" value={m.membership?.paid_at ? fmt(m.membership.paid_at) : "Not yet"} />
           <Field label="Approved by" value={m.membership?.approved_by} />
           {m.membership?.rejection_reason && (
             <div className="col-span-2">
@@ -355,6 +438,11 @@ const MemberDetailDrawer = ({ member: m, onClose, onLifetime }) => {
             {m.membership?.lifetime ? "Remove lifetime status" : "Mark as lifetime member"}
           </button>
         </div>
+
+        {m.membership?.plan && <ExpirationOverride member={m} onChanged={changed} />}
+
+        <h3 className="font-display text-lg text-[#8B1A1A] mt-6 mb-2">History</h3>
+        <MembershipHistory memberId={m.id} version={`${version}-${m.updated_at}`} />
       </div>
     </div>
   );

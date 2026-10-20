@@ -13,6 +13,7 @@ import CheckInAdmin from "./CheckInAdmin";
 import SponsorshipsAdmin from "./SponsorshipsAdmin";
 import ReportsAdmin from "./ReportsAdmin";
 import AdminUsersAdmin from "./AdminUsersAdmin";
+import MembershipPromotionsAdmin from "./MembershipPromotionsAdmin";
 import {
   EventsAdmin, NewsAdmin, ExecTeamAdmin, GalleryAdmin, SponsorsAdmin, DonorsAdmin,
   ClassifiedsAdmin, PastPresidentsAdmin, AwardeesAdmin, TaxReturnsAdmin, ProgramsAdmin,
@@ -46,6 +47,7 @@ export default function AdminRoutes() {
       <Route path="businesses" element={<Protected><BusinessesAdmin /></Protected>} />
       <Route path="reports" element={<Protected><ReportsAdmin /></Protected>} />
       <Route path="users" element={<Protected><AdminUsersAdmin /></Protected>} />
+      <Route path="membership-promotions" element={<Protected><MembershipPromotionsAdmin /></Protected>} />
       <Route path="members" element={<Protected><MembersAdmin /></Protected>} />
       <Route path="family-approvals" element={<Protected><FamilyApprovalsAdmin /></Protected>} />
       <Route path="check-in" element={<Protected><CheckInAdmin /></Protected>} />

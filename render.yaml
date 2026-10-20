@@ -1,0 +1,24 @@
+# Render settings for the ICGD API. Existing services keep their dashboard settings —
+# make sure they match these (Settings → Build & Deploy).
+services:
+  - type: web
+    name: icgd-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: MONGO_URL
+        sync: false # set in the dashboard: your MongoDB Atlas connection string
+      - key: DB_NAME
+        value: icgd
+      - key: JWT_SECRET
+        generateValue: true
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: ADMIN_INITIAL_PASSWORD
+        sync: false # only used if the database has no admin user yet

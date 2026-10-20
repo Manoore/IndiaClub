@@ -26,6 +26,7 @@ AREA_PREFIXES = [
     ("/family-members", ["members"]),
     ("/perks", ["members"]),
     ("/membership-plans", ["members"]),
+    ("/membership-promotions", ["members"]),
     ("/membership-applications", ["members"]),
     ("/check-in", ["checkin"]),
     ("/ticket-orders", ["tickets"]),

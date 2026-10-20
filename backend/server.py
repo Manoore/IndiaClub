@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, UploadFile, File, Response, Header
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, UploadFile, File, Response, Header, Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -31,7 +31,12 @@ from family_tickets import (
     admin_router as family_admin_router, age_on, age_band, new_ticket_code,
 )
 from admin_access import admin_guard, current_admin, ROLES, role_areas, router as admin_users_router
-from membership_rules import compute_term, active_promo, year_end, LIFETIME_PLAN
+from membership_rules import LIFETIME_PLAN, add_months, compute_term
+from membership_service import (
+    public_router as membership_public_router, admin_router as membership_admin_router,
+    plan_purchase, record_promotion_use, apply_payment_status, log_history, migrate_settings_promotion,
+    promo_snapshot, parse_dt,
+)
 from sponsorships import (
     public_router as sponsorships_public_router, admin_router as sponsorships_admin_router,
     seed_sponsorship_plans, valid_sponsor, expire_sponsorships,
@@ -50,6 +55,16 @@ admin = APIRouter(prefix="/api/admin", dependencies=[Depends(admin_guard)])
 @api.get("/")
 async def root():
     return {"message": "ICGD API is running", "version": "1.0"}
+
+
+@api.get("/health")
+async def health():
+    """Liveness + database check. Use /api/ (no database) as Render's health check path."""
+    try:
+        await asyncio.wait_for(db.command("ping"), timeout=5)
+        return {"api": "ok", "database": "ok"}
+    except Exception as e:
+        return JSONResponse(status_code=503, content={"api": "ok", "database": f"unreachable: {type(e).__name__}"})
 
 
 @api.post("/admin/login")
@@ -228,7 +243,9 @@ async def member_subscribe(body: MemberSubscribeRequest, member_id: str = Depend
             profile_update[field] = v
 
     now = datetime.utcnow()
-    term = compute_term(body.plan, body.tier, now, await _settings())
+    prev_mem = m.get("membership") or {}
+    purchase = await plan_purchase(prev_mem, body.plan, body.tier, now)
+    term = purchase["term"]
     membership = {
         "plan": body.plan,
         "tier": body.tier,
@@ -242,7 +259,12 @@ async def member_subscribe(body: MemberSubscribeRequest, member_id: str = Depend
         "start_date": now,
         "end_date": term["end_date"],
         "lifetime": False,
-        "promo_label": term["promo"],
+        "term_kind": purchase["kind"],
+        "term_rule": term["rule"],
+        "promotion": term["promotion"],
+        "eligible_promotion": promo_snapshot(purchase["promotion"]),
+        "purchase_base_end": purchase["base_end"],
+        "paid_at": None,
         "approved_at": now,
         "approved_by": "auto",
         "payment_received": False,  # admin marks True once they confirm payment
@@ -250,16 +272,22 @@ async def member_subscribe(body: MemberSubscribeRequest, member_id: str = Depend
         "rejection_reason": None,
     }
 
-    update = {**profile_update, "membership": membership, "updated_at": datetime.utcnow()}
+    update = {**profile_update, "membership": membership, "updated_at": now}
+    if not m.get("joined_at"):
+        update["joined_at"] = now  # original join date is kept forever
     await db.members.update_one({"id": member_id}, {"$set": update})
+    await record_promotion_use(term)
+    await log_history(member_id, "join" if purchase["kind"] == "new" else "change_plan", "member",
+                      previous_end=parse_dt(prev_mem.get("end_date")), new_end=term["end_date"],
+                      plan=body.plan, tier=body.tier, rule=term["rule"], promotion=term["promotion"])
     m = await db.members.find_one({"id": member_id})
     return _public_member(m)
 
 
 @api.post("/members/me/renew")
 async def member_renew(member_id: str = Depends(require_member)):
-    """Renew an active or expired membership through Dec 31 (continuing from the
-    current end date if it's still in the future; promotions apply to lapsed renewals)."""
+    """Renew: 12 months from payment (or an active promotion's fixed date) — never shortening
+    the current expiration. The date is recalculated when the payment is confirmed."""
     m = await db.members.find_one({"id": member_id})
     if not m:
         raise HTTPException(404, "Member not found")
@@ -269,41 +297,28 @@ async def member_renew(member_id: str = Depends(require_member)):
     if mem.get("lifetime"):
         raise HTTPException(400, "Lifetime memberships never need renewal")
     now = datetime.utcnow()
-    cur_end = mem.get("end_date")
-    if isinstance(cur_end, str):
-        try:
-            cur_end = datetime.fromisoformat(cur_end.replace("Z", "+00:00")).replace(tzinfo=None)
-        except Exception:
-            cur_end = None
-    term = compute_term(mem.get("plan"), mem.get("tier"), now, await _settings(), current_end=cur_end)
+    purchase = await plan_purchase(mem, mem.get("plan"), mem.get("tier"), now)
+    term = purchase["term"]
     await db.members.update_one({"id": member_id}, {"$set": {
         "membership.status": "active",
         "membership.end_date": term["end_date"],
-        "membership.promo_label": term["promo"],
+        "membership.term_kind": "renewal",
+        "membership.term_rule": term["rule"],
+        "membership.promotion": term["promotion"],
+        "membership.eligible_promotion": promo_snapshot(purchase["promotion"]),
+        "membership.purchase_base_end": purchase["base_end"],
+        "membership.paid_at": None,
         "membership.renewed_at": now,
         "membership.payment_received": False,  # admin marks True once payment received
         "membership.payment_status": "awaiting_check" if mem.get("payment_method") == "check" else "pending",
         "updated_at": now,
+        **({} if m.get("joined_at") else {"joined_at": parse_dt(mem.get("start_date")) or m.get("created_at") or now}),
     }})
-    await db.membership_history.insert_one({
-        "id": gen_id(), "member_id": member_id, "action": "renew", "previous_end": cur_end,
-        "new_end": term["end_date"], "created_at": now,
-    })
+    await record_promotion_use(term)
+    await log_history(member_id, "renew", "member", previous_end=parse_dt(mem.get("end_date")),
+                      new_end=term["end_date"], rule=term["rule"], promotion=term["promotion"])
     m = await db.members.find_one({"id": member_id})
     return _public_member(m)
-
-
-@api.get("/membership/quote")
-async def membership_quote(plan: str, tier: Optional[str] = None):
-    """Valid-through date and any active promotion, shown before a member signs up."""
-    now = datetime.utcnow()
-    settings = await _settings()
-    term = compute_term(plan, tier, now, settings)
-    promo = active_promo(settings, now)
-    return {
-        "valid_through": term["end_date"], "lifetime": term["lifetime"], "promo_label": term["promo"],
-        "promo_ends": promo["end"].isoformat() if promo and promo["end"] else None,
-    }
 
 
 @api.post("/events/{event_id}/validate-promo")
@@ -942,7 +957,9 @@ async def admin_approve_member(id: str, username: str = Depends(require_admin)):
         raise HTTPException(404, "Not found")
     now = datetime.utcnow()
     mem = m.get("membership") or {}
-    term = compute_term(mem.get("plan"), mem.get("tier"), now, await _settings())
+    term = compute_term(mem.get("plan"), mem.get("tier"), now, kind=mem.get("term_kind") or "new",
+                        current_end=parse_dt(mem.get("purchase_base_end")))
+    await log_history(id, "approve", username, previous_end=parse_dt(mem.get("end_date")), new_end=term["end_date"])
     await db.members.update_one({"id": id}, {"$set": {
         "membership.status": "active",
         "membership.start_date": now,
@@ -970,20 +987,19 @@ PAYMENT_STATUSES = ("pending", "awaiting_check", "paid", "failed", "refunded")
 
 
 @admin.post("/members/{id}/mark-paid")
-async def admin_mark_paid(id: str, paid: bool = True, status: Optional[str] = None):
+async def admin_mark_paid(id: str, request: Request, paid: bool = True, status: Optional[str] = None):
     status = status or ("paid" if paid else "pending")
     if status not in PAYMENT_STATUSES:
         raise HTTPException(400, "Invalid status")
-    await db.members.update_one({"id": id}, {"$set": {
-        "membership.payment_received": status == "paid",
-        "membership.payment_status": status,
-        "updated_at": datetime.utcnow(),
-    }})
+    m = await db.members.find_one({"id": id})
+    if not m:
+        raise HTTPException(404, "Not found")
+    await apply_payment_status(m, status, request.state.admin_user["username"])
     return {"ok": True}
 
 
 @admin.post("/members/{id}/lifetime")
-async def admin_set_lifetime(id: str, lifetime: bool = True):
+async def admin_set_lifetime(id: str, request: Request, lifetime: bool = True):
     """Grant (or remove) a legacy lifetime membership. Lifetime members never expire."""
     m = await db.members.find_one({"id": id})
     if not m:
@@ -996,8 +1012,12 @@ async def admin_set_lifetime(id: str, lifetime: bool = True):
                   "membership.payment_received": True, "membership.payment_status": "paid"}
     else:
         update = {"membership.lifetime": False, "membership.plan": "regular", "membership.tier": "individual",
-                  "membership.end_date": year_end(now.year)}
+                  "membership.end_date": add_months(now, 12)}
     await db.members.update_one({"id": id}, {"$set": {**update, "updated_at": now}})
+    await log_history(id, "override", request.state.admin_user["username"],
+                      previous_end=parse_dt((m.get("membership") or {}).get("end_date")),
+                      new_end=update["membership.end_date"],
+                      reason="Granted legacy lifetime membership" if lifetime else "Removed lifetime status")
     return _public_member(await db.members.find_one({"id": id}))
 
 
@@ -1110,6 +1130,8 @@ app.include_router(sponsorships_admin_router)
 app.include_router(reports_router)
 app.include_router(community_public_router)
 app.include_router(community_admin_router)
+app.include_router(membership_public_router)
+app.include_router(membership_admin_router)
 app.include_router(api)
 app.include_router(admin)
 
@@ -1127,15 +1149,16 @@ logging.basicConfig(level=logging.INFO)
 async def run_expiry_checks() -> dict:
     """Expire memberships and sponsorships whose end date has passed (lifetime never expires)."""
     now = datetime.utcnow()
-    r = await db.members.update_many(
-        {"membership.status": "active", "membership.lifetime": {"$ne": True},
-         "membership.end_date": {"$lt": now}},
-        {"$set": {"membership.status": "expired", "updated_at": now}},
-    )
+    due = await db.members.find({"membership.status": "active", "membership.lifetime": {"$ne": True},
+                                 "membership.end_date": {"$lt": now}}).to_list(5000)
+    for m in due:
+        await db.members.update_one({"id": m["id"]}, {"$set": {"membership.status": "expired", "updated_at": now}})
+        await log_history(m["id"], "expire", "system", previous_end=m["membership"].get("end_date"),
+                          new_end=m["membership"].get("end_date"))
     s = await expire_sponsorships(now)
-    if r.modified_count or s:
-        logging.info(f"[expiry] expired {r.modified_count} memberships, {s} sponsorships")
-    return {"members": r.modified_count, "sponsorships": s}
+    if due or s:
+        logging.info(f"[expiry] expired {len(due)} memberships, {s} sponsorships")
+    return {"members": len(due), "sponsorships": s}
 
 
 async def _expiry_loop():
@@ -1160,6 +1183,7 @@ async def run_migrations():
             hidden=True, order=99,
         ).model_dump())
     await seed_sponsorship_plans()
+    await migrate_settings_promotion()
 
 
 _bg_tasks = []
@@ -1167,11 +1191,16 @@ _bg_tasks = []
 
 @app.on_event("startup")
 async def on_startup():
-    await seed_if_empty()
+    # Never let a database problem crash the boot: a crash loop makes Render hang every request
+    # with no response. Log clearly instead, and keep serving (DB endpoints will return errors).
     try:
-        await run_migrations()
+        await asyncio.wait_for(seed_if_empty(), timeout=90)
+        await asyncio.wait_for(run_migrations(), timeout=90)
     except Exception as e:
-        logging.warning(f"[startup] migrations skipped: {e}")
+        logging.error(
+            f"[startup] database setup failed ({type(e).__name__}: {e}). Check MONGO_URL, that the Atlas "
+            "cluster isn't paused, and that Atlas Network Access allows Render (0.0.0.0/0)."
+        )
     if os.environ.get("DISABLE_BACKGROUND_JOBS") != "1":
         _bg_tasks.append(asyncio.create_task(_expiry_loop()))
     logging.info("ICGD API started + seed verified")

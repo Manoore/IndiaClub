@@ -3,13 +3,13 @@ sponsorship lifecycle, sponsor pricing, exports, reminders, directory, spam prot
 import os
 import sys
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pytest
 import requests
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from membership_rules import compute_term, year_end  # noqa: E402
+from membership_rules import add_months, compute_term, find_promotion  # noqa: E402
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL").rstrip("/")
 API = f"{BASE_URL}/api"
@@ -45,59 +45,145 @@ def _settings(admin_h, **kw):
 
 
 # ===================== Membership rules (unit) =====================
+def _promo(**kw):
+    base = {"id": "p1", "name": "Diwali", "active": True, "start_date": "2026-10-01", "end_date": "2026-11-15",
+            "expiration_date": "2027-12-31", "applies_to": "both"}
+    return {**base, **kw}
+
+
 class TestMembershipRules:
-    now = datetime(2026, 3, 10, 12, 0)
+    paid = datetime(2026, 10, 20, 12, 0)
 
-    def test_standard_ends_dec_31(self):
-        assert compute_term("regular", "family", self.now, {})["end_date"] == year_end(2026)
+    def test_standard_is_12_months_from_payment(self):
+        t = compute_term("regular", "family", self.paid)
+        assert t["end_date"] == datetime(2027, 10, 20, 12, 0) and t["rule"] == "standard"
 
-    def test_promo_window_adds_year(self):
-        s = {"membership_promo_enabled": True, "membership_promo_start": "2026-03-01", "membership_promo_end": "2026-03-31"}
-        t = compute_term("regular", "family", self.now, s)
-        assert t["end_date"] == year_end(2027) and t["promo"]
+    def test_leap_day_clamps(self):
+        assert add_months(datetime(2028, 2, 29), 12) == datetime(2029, 2, 28)
 
-    def test_promo_outside_window_ignored(self):
-        s = {"membership_promo_enabled": True, "membership_promo_start": "2026-10-20", "membership_promo_end": "2026-11-30"}
-        assert compute_term("regular", "family", self.now, s)["end_date"] == year_end(2026)
+    def test_promotion_fixed_expiration(self):
+        t = compute_term("regular", "family", self.paid, kind="renewal", promotion=_promo())
+        assert t["end_date"] == datetime(2027, 12, 31, 23, 59, 59)
+        assert t["rule"] == "promotion" and t["promotion"]["name"] == "Diwali"
+
+    def test_never_earlier_than_current(self):
+        current = datetime(2028, 6, 1)
+        t = compute_term("regular", "family", self.paid, kind="renewal", current_end=current, promotion=_promo())
+        assert t["end_date"] == current and t["rule"] == "kept_current" and t["promotion"] is None
+
+    def test_promotion_never_less_than_standard(self):
+        t = compute_term("regular", "family", self.paid, promotion=_promo(expiration_date="2027-01-31"))
+        assert t["end_date"] == datetime(2027, 10, 20, 12, 0) and t["rule"] == "standard"
+
+    def test_applies_to_and_state(self):
+        now = datetime(2026, 10, 20)
+        assert find_promotion([_promo(applies_to="new")], now, "renewal") is None
+        assert find_promotion([_promo(applies_to="renewal")], now, "renewal")["id"] == "p1"
+        assert find_promotion([_promo(active=False)], now, "new") is None
+        assert find_promotion([_promo(start_date="2026-11-01")], now, "new") is None  # scheduled
+        assert find_promotion([_promo(end_date="2026-10-19")], now, "new") is None  # ended
 
     def test_multi_year_tiers(self):
-        assert compute_term("extended", "silver", self.now, {})["end_date"] == year_end(2030)
-        assert compute_term("extended", "gold", self.now, {})["end_date"] == year_end(2035)
-
-    def test_renewal_continues_from_current_end(self):
-        t = compute_term("regular", "family", self.now, {}, current_end=year_end(2026))
-        assert t["end_date"] == year_end(2027)
+        assert compute_term("extended", "silver", self.paid)["end_date"] == datetime(2031, 10, 20, 12, 0)
 
     def test_lifetime_has_no_end(self):
-        t = compute_term("lifetime", None, self.now, {})
+        t = compute_term("lifetime", None, self.paid)
         assert t["end_date"] is None and t["lifetime"]
 
 
 # ===================== Membership API =====================
+def _history(admin_h, mid):
+    return requests.get(f"{API}/admin/members/{mid}/history", headers=admin_h).json()
+
+
+def _create_promo(admin_h, **kw):
+    today = datetime.utcnow().date()
+    body = {"name": f"P7 Promo {uuid.uuid4().hex[:4]}", "start_date": str(today - timedelta(days=1)),
+            "end_date": str(today + timedelta(days=10)), "expiration_date": f"{today.year + 2}-12-31",
+            "applies_to": "both", "active": True, **kw}
+    r = requests.post(f"{API}/admin/membership-promotions", headers=admin_h, json=body)
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def _off(admin_h, promo):
+    body = {k: promo[k] for k in ("name", "start_date", "end_date", "expiration_date", "applies_to")}
+    requests.put(f"{API}/admin/membership-promotions/{promo['id']}", headers=admin_h, json={**body, "active": False})
+
+
 class TestMembershipApi:
-    def test_subscribe_ends_dec_31_and_check_awaits(self):
-        h, _ = _new_member()
+    def test_subscribe_is_12_months_and_audited(self, admin_h):
+        h, m = _new_member()
         r = requests.post(f"{API}/members/me/subscribe", headers=h, json={"plan": "regular", "tier": "family", "payment_method": "check"})
         assert r.status_code == 200, r.text
-        mem = r.json()["membership"]
-        end = _parse(mem["end_date"])
-        assert (end.month, end.day) == (12, 31)
-        assert mem["payment_status"] == "awaiting_check"
+        j = r.json()
+        end = _parse(j["membership"]["end_date"]).date()
+        assert end == add_months(datetime.utcnow(), 12).date()
+        assert j["membership"]["payment_status"] == "awaiting_check" and j["joined_at"]
+        assert any(e["action"] == "join" for e in _history(admin_h, m["id"]))
 
-    def test_quote_and_promo(self, admin_h):
-        today = datetime.utcnow().date().isoformat()
-        _settings(admin_h, membership_promo_enabled=True, membership_promo_label="Diwali Promotion",
-                  membership_promo_start=today, membership_promo_end=today)
+    def test_payment_recalculates_from_payment_date(self, admin_h):
+        h, m = _new_member()
+        before = requests.post(f"{API}/members/me/subscribe", headers=h, json={"plan": "regular", "tier": "individual", "payment_method": "check"}).json()
+        r = requests.post(f"{API}/admin/members/{m['id']}/mark-paid?status=paid", headers=admin_h)
+        assert r.status_code == 200, r.text
+        after = requests.get(f"{API}/members/me", headers=h).json()["membership"]
+        assert after["paid_at"] and after["payment_status"] == "paid"
+        assert _parse(after["end_date"]) >= _parse(before["membership"]["end_date"])
+        entry = next(e for e in _history(admin_h, m["id"]) if e["action"] == "payment")
+        assert entry["payment_status"] == "paid" and entry["previous_payment_status"] == "awaiting_check"
+
+    def test_promotion_for_new_members(self, admin_h):
+        promo = _create_promo(admin_h, applies_to="new")
         try:
-            q = requests.get(f"{API}/membership/quote", params={"plan": "regular", "tier": "family"}).json()
-            assert q["promo_label"] == "Diwali Promotion"
-            assert _parse(q["valid_through"]).year == datetime.utcnow().year + 1
-            h, _ = _new_member()
+            h, m = _new_member()
+            q = requests.get(f"{API}/membership/quote", headers=h, params={"plan": "regular", "tier": "family"}).json()
+            assert q["kind"] == "new" and q["promotion"]["id"] == promo["id"] and q["rule"] == "promotion"
             mem = requests.post(f"{API}/members/me/subscribe", headers=h, json={"plan": "regular", "tier": "family", "payment_method": "paypal"}).json()["membership"]
-            assert _parse(mem["end_date"]).year == datetime.utcnow().year + 1
-            assert mem["promo_label"] == "Diwali Promotion"
+            assert _parse(mem["end_date"]).date().isoformat() == promo["expiration_date"]
+            assert mem["promotion"]["name"] == promo["name"]
+            listed = next(p for p in requests.get(f"{API}/admin/membership-promotions", headers=admin_h).json() if p["id"] == promo["id"])
+            assert listed["usage_count"] == 1 and listed["state"] == "active"
+            assert requests.delete(f"{API}/admin/membership-promotions/{promo['id']}", headers=admin_h).status_code == 400
+            # Rule 6: switching the promotion off leaves granted memberships untouched
+            _off(admin_h, promo)
+            assert requests.get(f"{API}/members/me", headers=h).json()["membership"]["end_date"] == mem["end_date"]
         finally:
-            _settings(admin_h, membership_promo_enabled=False)
+            _off(admin_h, promo)
+
+    def test_new_only_promotion_skips_renewals(self, admin_h):
+        h, m = _new_member()
+        requests.post(f"{API}/members/me/subscribe", headers=h, json={"plan": "regular", "tier": "family", "payment_method": "paypal"})
+        promo = _create_promo(admin_h, applies_to="new")
+        try:
+            q = requests.get(f"{API}/membership/quote", headers=h, params={"plan": "regular", "tier": "family"}).json()
+            assert q["kind"] == "renewal" and q["promotion"] is None
+        finally:
+            _off(admin_h, promo)
+
+    def test_promotion_validation(self, admin_h):
+        today = datetime.utcnow().date()
+        bad = {"name": "Bad", "start_date": str(today), "end_date": str(today + timedelta(days=5)),
+               "expiration_date": str(today + timedelta(days=2)), "applies_to": "both"}
+        assert requests.post(f"{API}/admin/membership-promotions", headers=admin_h, json=bad).status_code == 400
+
+    def test_early_renewal_never_shortens(self, admin_h):
+        h, m = _new_member()
+        requests.post(f"{API}/members/me/subscribe", headers=h, json={"plan": "regular", "tier": "family", "payment_method": "paypal"})
+        far = (datetime.utcnow() + timedelta(days=700)).date().isoformat()
+        r = requests.post(f"{API}/admin/members/{m['id']}/expiration", headers=admin_h, json={"end_date": far, "reason": "Board-approved extension"})
+        assert r.status_code == 200, r.text
+        mem = requests.post(f"{API}/members/me/renew", headers=h).json()["membership"]
+        assert _parse(mem["end_date"]).date().isoformat() == far and mem["term_rule"] == "kept_current"
+
+    def test_override_requires_reason_and_is_logged(self, admin_h):
+        h, m = _new_member()
+        requests.post(f"{API}/members/me/subscribe", headers=h, json={"plan": "regular", "tier": "family", "payment_method": "paypal"})
+        assert requests.post(f"{API}/admin/members/{m['id']}/expiration", headers=admin_h, json={"end_date": "2030-01-31"}).status_code == 422
+        requests.post(f"{API}/admin/members/{m['id']}/expiration", headers=admin_h, json={"end_date": "2030-01-31", "reason": "Volunteer of the year"})
+        entry = next(e for e in _history(admin_h, m["id"]) if e["action"] == "override")
+        assert entry["reason"] == "Volunteer of the year" and entry["actor"] == "admin"
+        assert _parse(entry["new_end"]).date().isoformat() == "2030-01-31"
 
     def test_lifetime_hidden_and_not_purchasable(self):
         slugs = [p["slug"] for p in requests.get(f"{API}/membership-plans").json()]

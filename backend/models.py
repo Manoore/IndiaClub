@@ -373,11 +373,6 @@ class SiteSettings(BaseModel):
     footer_copyright: str = "© 2026 India Club of Greater Dayton. All rights reserved."
     # Honorary
     honorary_contact_email: str = "president@indiaclubdayton.org"
-    # Membership promotion window (e.g. Diwali): purchases inside it run through Dec 31 next year
-    membership_promo_enabled: bool = False
-    membership_promo_label: str = "Diwali Promotion"
-    membership_promo_start: Optional[str] = ""  # YYYY-MM-DD
-    membership_promo_end: Optional[str] = ""  # YYYY-MM-DD
     # Community
     classifieds_members_only: bool = False
     # Analytics
@@ -414,10 +409,6 @@ class SiteSettingsUpdate(BaseModel):
     footer_tagline: Optional[str] = None
     footer_copyright: Optional[str] = None
     honorary_contact_email: Optional[str] = None
-    membership_promo_enabled: Optional[bool] = None
-    membership_promo_label: Optional[str] = None
-    membership_promo_start: Optional[str] = None
-    membership_promo_end: Optional[str] = None
     classifieds_members_only: Optional[bool] = None
     google_analytics_id: Optional[str] = None
 
@@ -440,7 +431,10 @@ class MemberMembership(BaseModel):
     rejection_reason: Optional[str] = None
     lifetime: bool = False
     payment_status: Optional[str] = None  # pending | awaiting_check | paid | failed | refunded
-    promo_label: Optional[str] = None
+    term_kind: Optional[str] = None  # new | renewal
+    term_rule: Optional[str] = None  # standard | promotion | kept_current | override | lifetime
+    promotion: Optional[dict] = None  # {id, name} when a promotion set the expiration
+    paid_at: Optional[datetime] = None  # expiration is recalculated from this date
 
 
 class Member(BaseModel):
@@ -459,6 +453,7 @@ class Member(BaseModel):
     zip: Optional[str] = None
     country: Optional[str] = "United States"
     membership: MemberMembership = Field(default_factory=MemberMembership)
+    joined_at: Optional[datetime] = None  # original join date, never overwritten
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
