@@ -44,8 +44,6 @@ const PlanCard = ({ p, onJoin, authState, navigate }) => {
   const cta = getPlanCta(p, authState);
   const handleClick = () => {
     if (cta.action === "dashboard") navigate("/member/dashboard");
-    // Plans with tiers (Individual / Youth / Family / Business) need a tier picked first
-    else if ((p.tiers || []).length) navigate(`/membership/${p.slug}`);
     else onJoin(p);
   };
   return (
@@ -131,7 +129,14 @@ const LoginPrompt = ({ onClose }) => {
 };
 
 const SubscribeForm = ({ plan, onSuccess, onClose, member }) => {
-  const isStudent = plan.tier === "student";
+  // Plans with tiers are chosen right here (recommended tier preselected) — no extra page
+  const tiers = plan.tiers || [];
+  const [tierSlug, setTierSlug] = useState(
+    plan.tier || (tiers.find((t) => t.recommended) || tiers[0] || {}).slug || null
+  );
+  const tierObj = tiers.find((t) => t.slug === tierSlug);
+  const price = tierObj ? tierObj.price : plan.price;
+  const isStudent = tierSlug === "student";
   const [f, setF] = useState({
     address: member.address || "",
     address2: member.address2 || "",
@@ -155,12 +160,12 @@ const SubscribeForm = ({ plan, onSuccess, onClose, member }) => {
 
   useEffect(() => {
     apiClient
-      .get("/membership/quote", { params: { plan: plan.slug, tier: plan.tier || undefined } })
+      .get("/membership/quote", { params: { plan: plan.slug, tier: tierSlug || undefined } })
       .then((r) => setQuote(r.data))
       .catch(() => setQuote(null));
-  }, [plan.slug, plan.tier]);
+  }, [plan.slug, tierSlug]);
 
-  const total = Number(plan.price || 0) + Number(f.donation_amount || 0);
+  const total = Number(price || 0) + Number(f.donation_amount || 0);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -168,7 +173,7 @@ const SubscribeForm = ({ plan, onSuccess, onClose, member }) => {
     try {
       const body = {
         plan: plan.slug,
-        tier: plan.tier || null,
+        tier: tierSlug || null,
         family_count: Number(f.family_count) || 1,
         donation_amount: Number(f.donation_amount) || 0,
         payment_method: f.payment_method,
@@ -204,6 +209,34 @@ const SubscribeForm = ({ plan, onSuccess, onClose, member }) => {
 
   return (
     <form onSubmit={submit} className="space-y-3">
+      {tiers.length > 0 && (
+        <div>
+          <label className="text-xs text-stone-500 block mb-1.5">Membership type</label>
+          <div className={`grid gap-2 ${tiers.length > 2 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-2"}`} role="radiogroup" data-testid="sub-tier-picker">
+            {tiers.map((t) => (
+              <button
+                type="button"
+                key={t.slug}
+                role="radio"
+                aria-checked={tierSlug === t.slug}
+                onClick={() => setTierSlug(t.slug)}
+                className={`relative p-2.5 rounded-md border text-left transition ${
+                  tierSlug === t.slug
+                    ? "border-[#8B1A1A] bg-[#8B1A1A] text-amber-50"
+                    : "border-stone-200 bg-white text-stone-800 hover:border-[#8B1A1A]"
+                }`}
+                data-testid={`sub-tier-${t.slug}`}
+              >
+                <div className="text-sm font-medium leading-tight">{t.name}</div>
+                <div className={`text-xs ${tierSlug === t.slug ? "text-amber-100" : "text-stone-500"}`}>${t.price}</div>
+                {t.recommended && (
+                  <span className={`absolute top-1 right-1.5 text-[9px] font-cinzel tracking-wider ${tierSlug === t.slug ? "text-amber-200" : "text-[#E07A1F]"}`}>POPULAR</span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="grid grid-cols-3 gap-3">
         <select
           value={f.gender}
@@ -353,7 +386,7 @@ const SubscribeForm = ({ plan, onSuccess, onClose, member }) => {
       <div className="bg-amber-50/60 border border-amber-200 p-3 rounded-md text-sm text-stone-700 flex items-center justify-between">
         <div>
           <span className="text-stone-500">Plan:</span>{" "}
-          <span className="font-medium">${plan.price}</span>
+          <span className="font-medium">${price}</span>
           {Number(f.donation_amount) > 0 && (
             <>
               <span className="text-stone-500 ml-3">Donation:</span>{" "}
@@ -443,7 +476,6 @@ const TierGrid = ({ tiers, onJoin, focusedPlan, authState, navigate }) => (
             else
               onJoin({
                 ...focusedPlan,
-                name: `${focusedPlan.name} — ${t.name}`,
                 price: t.price,
                 tier: t.slug,
               });
