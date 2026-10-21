@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
-import { Check, Sparkles, X, Loader2, LogIn, UserPlus } from "lucide-react";
+import { Check, Sparkles, X, Loader2 } from "lucide-react";
+import { GoogleLogin } from "@react-oauth/google";
 import { useToast } from "../hooks/use-toast";
 import { useMemberAuth } from "../api/MemberAuthContext";
 import { apiClient } from "../api/client";
@@ -137,12 +138,14 @@ const FreeMemberSection = ({ plan, onJoin, authState, navigate }) => {
   );
 };
 
-const FreeJoinForm = ({ plan, onSuccess }) => {
+const FreeJoinForm = ({ plan, onSuccess, guest, ensureAccount, accountFields }) => {
   const [busy, setBusy] = useState(false);
   const { toast } = useToast();
-  const join = async () => {
+  const join = async (e) => {
+    e.preventDefault();
     setBusy(true);
     try {
+      if (guest && !(await ensureAccount())) return;
       await apiClient.post("/members/me/subscribe", { plan: "free", payment_method: "none" });
       toast({ title: "Welcome to India Club! 🎉", description: "You're now a free member. Upgrade anytime for member pricing." });
       await onSuccess();
@@ -153,52 +156,50 @@ const FreeJoinForm = ({ plan, onSuccess }) => {
     }
   };
   return (
-    <div className="space-y-4" data-testid="free-join-form">
+    <form onSubmit={join} className="space-y-4" data-testid="free-join-form">
+      {accountFields}
       <ul className="space-y-2">
         {plan.benefits.map((b) => (
           <li key={b} className="flex items-start gap-2 text-sm text-stone-700"><Check className="w-4 h-4 mt-0.5 text-[#8B1A1A]" />{b}</li>
         ))}
       </ul>
       <p className="text-sm text-stone-600">No payment needed and it never expires. You can upgrade to a paid plan at any time for member pricing on events.</p>
-      <button onClick={join} disabled={busy} className="w-full py-3.5 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded-md font-medium disabled:opacity-60 flex items-center justify-center gap-2" data-testid="free-join-submit">
-        {busy && <Loader2 className="w-4 h-4 animate-spin" />} Join for free
+      <button type="submit" disabled={busy} className="w-full py-3.5 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded-md font-medium disabled:opacity-60 flex items-center justify-center gap-2" data-testid="free-join-submit">
+        {busy && <Loader2 className="w-4 h-4 animate-spin" />} {guest ? "Create account & join free" : "Join for free"}
       </button>
-    </div>
+    </form>
   );
 };
 
-const LoginPrompt = ({ onClose }) => {
-  const nav = useNavigate();
-  const goLogin = () => {
-    onClose();
-    nav("/login?next=/membership");
-  };
+// Account details collected inside the join form, so visitors sign up and subscribe in one go
+const AccountFields = ({ acct, setAcct, error, onGoogle }) => {
+  const cls = "w-full px-4 py-2.5 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A] text-sm";
   return (
-    <div className="space-y-4">
-      <p className="text-stone-700">
-        You need an India Club account to subscribe to a membership plan. It takes less than a minute.
-      </p>
-      <div className="grid grid-cols-2 gap-3">
-        <button
-          onClick={goLogin}
-          className="py-3 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded-md font-medium flex items-center justify-center gap-2"
-          data-testid="prompt-login"
-        >
-          <LogIn className="w-4 h-4" /> Sign In
-        </button>
-        <button
-          onClick={goLogin}
-          className="py-3 bg-white border border-[#8B1A1A] text-[#8B1A1A] hover:bg-amber-50 rounded-md font-medium flex items-center justify-center gap-2"
-          data-testid="prompt-register"
-        >
-          <UserPlus className="w-4 h-4" /> Register
-        </button>
+    <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50/40 p-3" data-testid="account-fields">
+      <div className="text-xs font-cinzel tracking-wider text-[#E07A1F]">YOUR ACCOUNT</div>
+      <div className="flex justify-center">
+        <GoogleLogin onSuccess={(resp) => onGoogle(resp.credential)} onError={() => onGoogle(null)} text="continue_with" width="300" shape="rectangular" />
       </div>
+      <div className="flex items-center gap-3 text-[11px] uppercase tracking-wider text-stone-400">
+        <span className="flex-1 border-t border-stone-200" /> or <span className="flex-1 border-t border-stone-200" />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <input required placeholder="First name" value={acct.first_name} onChange={(e) => setAcct({ ...acct, first_name: e.target.value })} className={cls} autoComplete="given-name" data-testid="acct-first" />
+        <input required placeholder="Last name" value={acct.last_name} onChange={(e) => setAcct({ ...acct, last_name: e.target.value })} className={cls} autoComplete="family-name" data-testid="acct-last" />
+      </div>
+      <input required type="email" placeholder="Email" value={acct.email} onChange={(e) => setAcct({ ...acct, email: e.target.value })} className={cls} autoComplete="email" data-testid="acct-email" />
+      <input required type="password" minLength={6} placeholder="Create a password (6+ characters)" value={acct.password} onChange={(e) => setAcct({ ...acct, password: e.target.value })} className={cls} autoComplete="new-password" data-testid="acct-password" />
+      {error ? (
+        <div className="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded px-3 py-2" role="alert" data-testid="acct-error">{error}</div>
+      ) : (
+        <p className="text-xs text-stone-500">Already have an account? Enter your email and existing password and we'll sign you in.</p>
+      )}
     </div>
   );
 };
 
-const SubscribeForm = ({ plan, onSuccess, onClose, member }) => {
+const SubscribeForm = ({ plan, onSuccess, onClose, member: memberProp, guest, ensureAccount, accountFields }) => {
+  const member = memberProp || {};
   // Plans with tiers are chosen right here (recommended tier preselected) — no extra page
   const tiers = plan.tiers || [];
   const [tierSlug, setTierSlug] = useState(
@@ -241,6 +242,8 @@ const SubscribeForm = ({ plan, onSuccess, onClose, member }) => {
     e.preventDefault();
     setBusy(true);
     try {
+      // Visitors: create (or sign in to) the account first, then subscribe in the same click
+      if (guest && !(await ensureAccount({ phone: f.phone }))) return;
       const body = {
         plan: plan.slug,
         tier: tierSlug || null,
@@ -279,6 +282,7 @@ const SubscribeForm = ({ plan, onSuccess, onClose, member }) => {
 
   return (
     <form onSubmit={submit} className="space-y-3">
+      {accountFields}
       {tiers.length > 0 && (
         <div>
           <label className="text-xs text-stone-500 block mb-1.5">Membership type</label>
@@ -479,15 +483,43 @@ const SubscribeForm = ({ plan, onSuccess, onClose, member }) => {
         data-testid="sub-submit"
       >
         {busy && <Loader2 className="w-4 h-4 animate-spin" />}
-        Submit Application
+        {guest ? "Create account & subscribe" : "Submit Application"}
       </button>
     </form>
   );
 };
 
 const JoinModal = ({ plan, onClose }) => {
-  const { isAuthed, member, refresh } = useMemberAuth();
+  const { isAuthed, member, refresh, register, login, loginWithGoogle } = useMemberAuth();
   const nav = useNavigate();
+  const [acct, setAcct] = useState({ first_name: "", last_name: "", email: "", password: "" });
+  const [acctError, setAcctError] = useState("");
+
+  // Create the account, or sign in if that email is already registered
+  const ensureAccount = async (extra = {}) => {
+    if (isAuthed) return true;
+    setAcctError("");
+    const payload = {
+      email: acct.email.trim(), password: acct.password,
+      first_name: acct.first_name.trim(), last_name: acct.last_name.trim(), phone: extra.phone || undefined,
+    };
+    const r = await register(payload);
+    if (r.ok) return true;
+    if (/already registered/i.test(r.error || "")) {
+      const l = await login(payload.email, payload.password);
+      if (l.ok) return true;
+      setAcctError("This email already has an account and that password didn't match. Enter your existing password, or sign in from Member Login.");
+      return false;
+    }
+    setAcctError(typeof r.error === "string" ? r.error : "Couldn't create your account — check the details.");
+    return false;
+  };
+
+  const onGoogle = async (credential) => {
+    if (!credential) { setAcctError("Google sign-in failed — use email and password instead."); return; }
+    const r = await loginWithGoogle(credential);
+    if (!r.ok) setAcctError(r.error || "Google sign-in failed — use email and password instead.");
+  };
   const onSuccess = async () => {
     await refresh(); // pick up the new membership before showing the dashboard
     onClose();
@@ -512,13 +544,16 @@ const JoinModal = ({ plan, onClose }) => {
             <X className="w-5 h-5" />
           </button>
         </div>
-        {!isAuthed ? (
-          <LoginPrompt onClose={onClose} />
-        ) : (
-          plan.slug === "free"
-            ? <FreeJoinForm plan={plan} onSuccess={onSuccess} />
-            : <SubscribeForm plan={plan} onSuccess={onSuccess} onClose={onClose} member={member} />
-        )}
+        {(() => {
+          const guestProps = {
+            guest: !isAuthed,
+            ensureAccount,
+            accountFields: !isAuthed ? <AccountFields acct={acct} setAcct={setAcct} error={acctError} onGoogle={onGoogle} /> : null,
+          };
+          return plan.slug === "free"
+            ? <FreeJoinForm plan={plan} onSuccess={onSuccess} {...guestProps} />
+            : <SubscribeForm plan={plan} onSuccess={onSuccess} onClose={onClose} member={member} {...guestProps} />;
+        })()}
       </div>
     </div>
   );
