@@ -219,10 +219,10 @@ export default function MembersAdmin() {
                     <td className="px-4 py-3 text-stone-600 whitespace-nowrap">
                       {m.membership?.lifetime ? (
                         <span className="inline-flex items-center gap-1 text-xs font-medium text-[#8B1A1A]"><InfinityIcon className="w-3.5 h-3.5" /> Lifetime</span>
-                      ) : fmt(m.membership?.end_date)}
+                      ) : m.membership?.plan === "free" ? <span className="text-xs text-stone-500">Free · no expiry</span> : fmt(m.membership?.end_date)}
                     </td>
                     <td className="px-4 py-3">
-                      {m.membership?.plan && !m.membership?.lifetime ? (
+                      {m.membership?.plan && !m.membership?.lifetime && m.membership?.plan !== "free" ? (
                         <PaymentSelect
                           value={m.membership?.payment_status || (m.membership?.payment_received ? "paid" : "pending")}
                           onChange={(v) => setPayment(m, v)}

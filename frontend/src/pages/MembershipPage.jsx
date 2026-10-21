@@ -16,6 +16,12 @@ const US_STATES = [
 
 // Returns { label, action, disabled } based on auth + membership state
 const getPlanCta = (plan, { isAuthed, member }) => {
+  if (plan.slug === "free") {
+    const m = member?.membership || {};
+    if (isAuthed && m.status === "active" && m.plan === "free") return { label: "Your Current Plan", action: "dashboard", disabled: true };
+    if (isAuthed && m.status === "active") return { label: "Included in your membership", action: "dashboard", disabled: true };
+    return { label: "Join Free", action: "join" };
+  }
   if (plan.price <= 0) return { label: "Learn More", action: "join" };
   if (!isAuthed) return { label: "Sign Up to Join", action: "join" };
 
@@ -94,6 +100,70 @@ const PlanCard = ({ p, onJoin, authState, navigate }) => {
       {cta.label}
     </button>
   </div>
+  );
+};
+
+// Free tier: its own band above the paid plans
+const FreeMemberSection = ({ plan, onJoin, authState, navigate }) => {
+  const cta = getPlanCta(plan, authState);
+  return (
+    <section className="pt-16 bg-cream" data-testid="free-member-section">
+      <div className="max-w-7xl mx-auto px-6">
+        <div className="rounded-2xl border border-amber-200 bg-white p-6 md:p-8 flex flex-col lg:flex-row lg:items-center gap-6">
+          <div className="lg:w-64 flex-shrink-0">
+            <div className="font-cinzel text-xs tracking-[0.22em] text-[#E07A1F]">START HERE</div>
+            <h3 className="font-display text-3xl text-[#8B1A1A]">{plan.name}</h3>
+            <div className="font-display text-4xl text-stone-900 mt-1">Free <span className="text-sm font-sans text-stone-500">{plan.period}</span></div>
+          </div>
+          <ul className="flex-1 grid sm:grid-cols-3 gap-3">
+            {plan.benefits.map((b) => (
+              <li key={b} className="flex items-start gap-2 text-sm text-stone-700"><Check className="w-4 h-4 mt-0.5 text-[#8B1A1A] flex-shrink-0" />{b}</li>
+            ))}
+          </ul>
+          <div className="lg:w-56 flex-shrink-0">
+            <button
+              onClick={() => (cta.action === "dashboard" ? navigate("/member/dashboard") : onJoin(plan))}
+              disabled={cta.disabled}
+              className={`w-full py-3 rounded-md font-medium transition ${cta.disabled ? "bg-stone-200 text-stone-500 cursor-not-allowed" : "bg-[#E07A1F] hover:bg-[#c66c1a] text-white"}`}
+              data-testid="join-free"
+            >
+              {cta.label}
+            </button>
+            <p className="text-xs text-stone-500 mt-2 text-center">Want member pricing on events? Choose a paid plan below.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+const FreeJoinForm = ({ plan, onSuccess }) => {
+  const [busy, setBusy] = useState(false);
+  const { toast } = useToast();
+  const join = async () => {
+    setBusy(true);
+    try {
+      await apiClient.post("/members/me/subscribe", { plan: "free", payment_method: "none" });
+      toast({ title: "Welcome to India Club! 🎉", description: "You're now a free member. Upgrade anytime for member pricing." });
+      await onSuccess();
+    } catch (err) {
+      toast({ title: "Couldn't join", description: err.response?.data?.detail || "Please try again." });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="space-y-4" data-testid="free-join-form">
+      <ul className="space-y-2">
+        {plan.benefits.map((b) => (
+          <li key={b} className="flex items-start gap-2 text-sm text-stone-700"><Check className="w-4 h-4 mt-0.5 text-[#8B1A1A]" />{b}</li>
+        ))}
+      </ul>
+      <p className="text-sm text-stone-600">No payment needed and it never expires. You can upgrade to a paid plan at any time for member pricing on events.</p>
+      <button onClick={join} disabled={busy} className="w-full py-3.5 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded-md font-medium disabled:opacity-60 flex items-center justify-center gap-2" data-testid="free-join-submit">
+        {busy && <Loader2 className="w-4 h-4 animate-spin" />} Join for free
+      </button>
+    </div>
   );
 };
 
@@ -445,7 +515,9 @@ const JoinModal = ({ plan, onClose }) => {
         {!isAuthed ? (
           <LoginPrompt onClose={onClose} />
         ) : (
-          <SubscribeForm plan={plan} onSuccess={onSuccess} onClose={onClose} member={member} />
+          plan.slug === "free"
+            ? <FreeJoinForm plan={plan} onSuccess={onSuccess} />
+            : <SubscribeForm plan={plan} onSuccess={onSuccess} onClose={onClose} member={member} />
         )}
       </div>
     </div>
@@ -714,9 +786,12 @@ export default function MembershipPage() {
     <>
       <PageHeader {...header} />
       {memberBanner}
+      {plans.find((p) => p.slug === "free") && (
+        <FreeMemberSection plan={plans.find((p) => p.slug === "free")} onJoin={setActive} authState={authState} navigate={navigate} />
+      )}
       <section className="py-20 bg-cream">
         <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {plans.map((p) => (
+          {plans.filter((p) => p.slug !== "free").map((p) => (
             <PlanCard key={p.slug} p={p} onJoin={setActive} authState={authState} navigate={navigate} />
           ))}
         </div>

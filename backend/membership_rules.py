@@ -11,6 +11,7 @@ from datetime import datetime, date, time
 from typing import Optional
 
 LIFETIME_PLAN = "lifetime"
+FREE_PLAN = "free"  # no fee, no expiry, no member pricing
 # Multi-year tiers on the "extended" plan → number of years covered
 MULTI_YEAR_TIERS = {"silver": 5, "gold": 10}
 APPLIES_TO = ("new", "renewal", "both")
@@ -19,6 +20,12 @@ APPLIES_TO = ("new", "renewal", "both")
 # Memberships that cover a household (My Family, family ticket pricing)
 FAMILY_TIERS = {"family", "business"}
 FAMILY_PLANS = {"business", "honorary", LIFETIME_PLAN}
+
+
+def paid_member(membership: Optional[dict]) -> bool:
+    """Active paid membership: unlocks member ticket pricing and members-only tickets."""
+    m = membership or {}
+    return m.get("status") == "active" and m.get("plan") != FREE_PLAN
 
 
 def family_enabled(membership: Optional[dict]) -> bool:
@@ -98,6 +105,8 @@ def compute_term(plan: Optional[str], tier: Optional[str], paid_at: datetime, *,
     """
     if plan == LIFETIME_PLAN:
         return {"end_date": None, "lifetime": True, "promotion": None, "rule": "lifetime"}
+    if plan == FREE_PLAN:
+        return {"end_date": None, "lifetime": False, "promotion": None, "rule": "free"}
     standard = add_months(paid_at, 12 * years_covered(plan, tier))
     end, rule = standard, "standard"
     if promotion and to_date(promotion.get("expiration_date")):

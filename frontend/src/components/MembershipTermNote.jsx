@@ -5,6 +5,9 @@ export const fmtLongDate = (d) =>
 
 // Shows the expiration a member will get before they pay (from GET /membership/quote)
 export default function MembershipTermNote({ quote, testid = "sub-valid-through" }) {
+  if (quote?.rule === "free") {
+    return <div className="border border-emerald-200 bg-emerald-50 p-3 rounded-md text-sm text-emerald-900" data-testid={testid}>Free membership — no payment and no expiry.</div>;
+  }
   if (!quote || (!quote.valid_through && !quote.lifetime)) return null;
   if (quote.lifetime) {
     return <div className="border border-emerald-200 bg-emerald-50 p-3 rounded-md text-sm text-emerald-900" data-testid={testid}>Lifetime membership — never expires.</div>;

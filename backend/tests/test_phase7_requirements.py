@@ -435,3 +435,42 @@ class TestFamilyAndTierChange:
         assert mem["tier"] == "family" and mem["scheduled_tier"] == "individual"
         renewed = requests.post(f"{API}/members/me/renew", headers=h).json()["membership"]
         assert renewed["tier"] == "individual" and not renewed.get("scheduled_tier")
+
+
+# ===================== Free membership =====================
+class TestFreeMembership:
+    def _free(self):
+        h, m = _new_member()
+        r = requests.post(f"{API}/members/me/subscribe", headers=h, json={"plan": "free", "payment_method": "check"})
+        assert r.status_code == 200, r.text
+        return h, r.json()
+
+    def test_free_plan_listed_first(self):
+        plans = requests.get(f"{API}/membership-plans").json()
+        free = next(p for p in plans if p["slug"] == "free")
+        assert free["price"] == 0 and "Free India Club Vibrant Dayton eNewsletter" in free["benefits"]
+        assert plans[0]["slug"] == "free"
+
+    def test_free_signup_no_payment_no_expiry(self):
+        _, j = self._free()
+        mem = j["membership"]
+        assert mem["status"] == "active" and mem["end_date"] is None and mem["term_rule"] == "free"
+        assert mem["payment_method"] == "none" and mem["payment_status"] is None
+        assert j["family_enabled"] is False
+
+    def test_free_member_pays_regular_ticket_price(self):
+        h, _ = self._free()
+        body = {"event_id": EVT, "items": [{"ticket_type_id": "tt-diwali-gen", "quantity": 1}], "buyer_name": "Free Fan",
+                "buyer_email": "free@example.com", "payment_method": "check"}
+        o = requests.post(f"{API}/events/{EVT}/purchase-tickets", headers=h, json=body).json()
+        assert o["total"] == 25  # regular price, not the $20 member price
+        admin = _admin_login()
+        requests.delete(f"{API}/admin/ticket-orders/{o['id']}", headers=admin)
+
+    def test_free_cannot_renew_but_can_upgrade(self):
+        h, _ = self._free()
+        assert requests.post(f"{API}/members/me/renew", headers=h).status_code == 400
+        q = requests.get(f"{API}/membership/quote", headers=h, params={"plan": "regular", "tier": "family"}).json()
+        assert q["kind"] == "new"
+        r = requests.post(f"{API}/members/me/subscribe", headers=h, json={"plan": "regular", "tier": "family", "payment_method": "check"})
+        assert r.status_code == 200 and r.json()["membership"]["plan"] == "regular" and r.json()["family_enabled"] is True

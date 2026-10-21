@@ -309,7 +309,8 @@ const SubscriptionSummary = ({ membership: m, plans }) => {
   const tier = (plan?.tiers || []).find((t) => t.slug === m.tier);
   const planName = m.lifetime ? "Lifetime (legacy)" : plan?.name || (m.plan || "").replace(/^\w/, (c) => c.toUpperCase());
   const tierName = tier?.name || (m.tier === "student" ? "Youth" : m.tier ? m.tier.replace(/^\w/, (c) => c.toUpperCase()) : null);
-  const fee = m.lifetime ? 0 : tier ? tier.price : plan?.price;
+  const isFree = m.plan === "free";
+  const fee = m.lifetime || isFree ? 0 : tier ? tier.price : plan?.price;
   const donation = Number(m.donation_amount || 0);
   const pay = PAY_LABELS[m.payment_status || (m.payment_received ? "paid" : "pending")] || PAY_LABELS.pending;
   return (
@@ -322,7 +323,7 @@ const SubscriptionSummary = ({ membership: m, plans }) => {
           </div>
           {tierName && <div className="text-sm text-stone-600">{planName}</div>}
         </div>
-        {!m.lifetime && <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${pay.cls}`} data-testid="subscription-payment">{pay.label}</span>}
+        {!m.lifetime && !isFree && <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${pay.cls}`} data-testid="subscription-payment">{pay.label}</span>}
       </div>
       {m.scheduled_tier && (
         <div className="mt-2 text-sm text-amber-800" data-testid="scheduled-tier-note">
@@ -334,7 +335,13 @@ const SubscriptionSummary = ({ membership: m, plans }) => {
           Upgrade balance due: <strong>${u.amount}</strong> ({u.payment_method}). The Treasurer will confirm it once received.
         </div>
       ))}
-      {!m.lifetime && fee != null && (
+      {isFree && (
+        <div className="mt-3 text-sm text-stone-700" data-testid="free-upgrade-note">
+          Free plan — no expiry. <a href="/membership" className="text-[#8B1A1A] font-medium hover:underline">Upgrade to a paid membership</a> for member pricing on events
+          {" "}and family benefits.
+        </div>
+      )}
+      {!m.lifetime && !isFree && fee != null && (
         <div className="mt-3 text-sm text-stone-700 flex flex-wrap gap-x-5 gap-y-1">
           <span>Fee: <strong>${Number(fee).toLocaleString()}</strong></span>
           {donation > 0 && <span>Donation: <strong>${donation.toLocaleString()}</strong></span>}
@@ -386,7 +393,9 @@ export default function MemberDashboardPage() {
   }
 
   const ms = (member.membership && member.membership.status) || "none";
-  const meta = STATUS_META[ms] || STATUS_META.none;
+  const isFreePlan = member.membership?.plan === "free";
+  const baseMeta = STATUS_META[ms] || STATUS_META.none;
+  const meta = ms === "active" && isFreePlan ? { ...baseMeta, label: "Free Member" } : baseMeta;
   const StatusIcon = meta.Icon;
 
   return (
@@ -495,7 +504,7 @@ export default function MemberDashboardPage() {
                 <div className="grid sm:grid-cols-2 gap-4">
                   <Info label="Member Since" value={formatDate(member.joined_at || member.membership.start_date)} />
                   <Info label="Valid From" value={formatDate(member.membership.start_date)} />
-                  <Info label="Valid Through" value={member.membership.lifetime ? "Lifetime — never expires" : formatDate(member.membership.end_date)} />
+                  <Info label="Valid Through" value={member.membership.lifetime ? "Lifetime — never expires" : member.membership.plan === "free" ? "No expiry (free plan)" : formatDate(member.membership.end_date)} />
                 </div>
                 {member.membership.promotion?.name && (
                   <div className="text-sm text-emerald-800" data-testid="membership-promo-note">🎉 Your expiration comes from the {member.membership.promotion.name}.</div>
@@ -511,11 +520,18 @@ export default function MemberDashboardPage() {
                 <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 flex items-start gap-2">
                   <CheckCircle2 className="w-5 h-5 text-emerald-700 mt-0.5 flex-shrink-0" />
                   <div>
-                    <div className="font-medium text-emerald-900">You're an active India Club member!</div>
+                    <div className="font-medium text-emerald-900">{isFreePlan ? "You're a free India Club member!" : "You're an active India Club member!"}</div>
+                    {isFreePlan ? (
+                      <div className="text-sm text-emerald-900/90 mt-1">
+                        You get the Vibrant Dayton eNewsletter, select events and discounted classifieds. Upgrade for member
+                        pricing on all events.
+                      </div>
+                    ) : (
                     <div className="text-sm text-emerald-900/90 mt-1">
                       Enjoy member pricing on events, our quarterly newsletter, and the joy of belonging to this 1000+
                       family community.
                     </div>
+                    )}
                   </div>
                 </div>
               </div>

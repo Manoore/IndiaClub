@@ -54,7 +54,8 @@ export default function TicketPurchaseModal({ event, onClose, onSuccess }) {
   const [sponsorErr, setSponsorErr] = useState("");
 
   const types = event.ticket_types || [];
-  const isActiveMember = isAuthed && member?.membership?.status === "active";
+  // Member pricing is for paid memberships (not the free plan)
+  const isActiveMember = isAuthed && member?.membership?.status === "active" && member?.membership?.plan !== "free";
   const [mode, setMode] = useState(isAuthed ? "named" : "quantity");
   const [attendees, setAttendees] = useState([]);
   const [family, setFamily] = useState([]);

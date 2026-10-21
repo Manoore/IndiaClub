@@ -31,7 +31,7 @@ from family_tickets import (
     admin_router as family_admin_router, age_on, age_band, new_ticket_code,
 )
 from admin_access import admin_guard, current_admin, ROLES, role_areas, router as admin_users_router
-from membership_rules import LIFETIME_PLAN, add_months, compute_term, family_enabled
+from membership_rules import LIFETIME_PLAN, FREE_PLAN, add_months, compute_term, family_enabled, paid_member
 from membership_service import (
     public_router as membership_public_router, admin_router as membership_admin_router,
     plan_purchase, record_promotion_use, apply_payment_status, log_history, migrate_settings_promotion,
@@ -237,7 +237,10 @@ async def member_subscribe(body: MemberSubscribeRequest, member_id: str = Depend
         raise HTTPException(400, "School name and degree program are required for student tier")
 
     # Validate payment method
-    if body.payment_method not in ("paypal", "check", "other"):
+    is_free = body.plan == FREE_PLAN
+    if is_free:
+        body.payment_method = "none"
+    elif body.payment_method not in ("paypal", "check", "other"):
         raise HTTPException(400, "Invalid payment method")
 
     profile_update = {}
@@ -271,8 +274,8 @@ async def member_subscribe(body: MemberSubscribeRequest, member_id: str = Depend
         "paid_at": None,
         "approved_at": now,
         "approved_by": "auto",
-        "payment_received": False,  # admin marks True once they confirm payment
-        "payment_status": "awaiting_check" if body.payment_method == "check" else "pending",
+        "payment_received": is_free,  # admin marks True once they confirm payment (nothing to pay on the free plan)
+        "payment_status": None if is_free else ("awaiting_check" if body.payment_method == "check" else "pending"),
         "rejection_reason": None,
     }
 
@@ -300,6 +303,8 @@ async def member_renew(member_id: str = Depends(require_member)):
         raise HTTPException(400, "No membership to renew — subscribe to a plan first")
     if mem.get("lifetime"):
         raise HTTPException(400, "Lifetime memberships never need renewal")
+    if mem.get("plan") == FREE_PLAN:
+        raise HTTPException(400, "Free memberships don't expire — choose a paid plan to upgrade")
     now = datetime.utcnow()
     # A downgrade the member scheduled earlier takes effect at this renewal
     tier = mem.get("scheduled_tier") or mem.get("tier")
@@ -652,7 +657,7 @@ async def purchase_tickets(event_id: str, body: TicketPurchaseRequest, authoriza
         mid = decode_token(authorization.split(" ", 1)[1].strip(), expected_typ="member")
         if mid:
             member = await db.members.find_one({"id": mid})
-    is_active_member = bool(member and (member.get("membership") or {}).get("status") == "active")
+    is_active_member = bool(member and paid_member(member.get("membership")))
     sponsor = None
     if body.sponsor_code:
         sponsor = await valid_sponsor(body.sponsor_code)
@@ -1194,6 +1199,14 @@ async def run_migrations():
         ).model_dump())
     await seed_sponsorship_plans()
     await migrate_settings_promotion()
+    if not await db.membership_plans.find_one({"slug": FREE_PLAN}):
+        await db.membership_plans.insert_one(MembershipPlan(
+            slug=FREE_PLAN, name="Free Membership", price=0, period="always free",
+            description="Stay connected with the India Club community at no cost.",
+            benefits=["Participation in select India Club Events", "Free India Club Vibrant Dayton eNewsletter",
+                      "Free Online Classified Entry (discounted)"],
+            order=0,
+        ).model_dump())
 
 
 _bg_tasks = []

@@ -62,7 +62,8 @@ def promo_snapshot(p: Optional[dict]) -> Optional[dict]:
 
 
 def purchase_kind(mem: dict) -> str:
-    return "renewal" if (mem or {}).get("plan") else "new"
+    # Moving up from the free plan counts as joining (new-member promotions apply)
+    return "renewal" if (mem or {}).get("plan") not in (None, "", "free") else "new"
 
 
 def current_valid_end(mem: dict, now: datetime) -> Optional[datetime]:

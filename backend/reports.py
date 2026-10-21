@@ -65,7 +65,7 @@ async def revenue_rows(year: Optional[int] = None) -> list:
     fees = await membership_fees()
     for m in await db.members.find({"membership.plan": {"$nin": [None, ""]}}).to_list(20000):
         mem = m.get("membership") or {}
-        if mem.get("lifetime"):
+        if mem.get("lifetime") or mem.get("plan") == "free":
             continue
         amount = _fee(fees, mem) + float(mem.get("donation_amount") or 0)
         status = mem.get("payment_status") or ("paid" if mem.get("payment_received") else "pending")
