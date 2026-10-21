@@ -294,9 +294,59 @@ const ProfileEditor = ({ member, onSaved }) => {
   );
 };
 
+const PAY_LABELS = {
+  pending: { label: "Payment pending", cls: "bg-amber-100 text-amber-800" },
+  awaiting_check: { label: "Awaiting check", cls: "bg-sky-100 text-sky-800" },
+  paid: { label: "Paid", cls: "bg-emerald-100 text-emerald-800" },
+  failed: { label: "Payment failed", cls: "bg-rose-100 text-rose-800" },
+  refunded: { label: "Refunded", cls: "bg-stone-200 text-stone-700" },
+};
+
+// "What did I sign up for": plan + tier names and fee, looked up from the published plans
+const SubscriptionSummary = ({ membership: m, plans }) => {
+  const plan = plans.find((p) => p.slug === m.plan);
+  const tier = (plan?.tiers || []).find((t) => t.slug === m.tier);
+  const planName = m.lifetime ? "Lifetime (legacy)" : plan?.name || (m.plan || "").replace(/^\w/, (c) => c.toUpperCase());
+  const tierName = tier?.name || (m.tier === "student" ? "Youth" : m.tier ? m.tier.replace(/^\w/, (c) => c.toUpperCase()) : null);
+  const fee = m.lifetime ? 0 : tier ? tier.price : plan?.price;
+  const donation = Number(m.donation_amount || 0);
+  const pay = PAY_LABELS[m.payment_status || (m.payment_received ? "paid" : "pending")] || PAY_LABELS.pending;
+  return (
+    <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4" data-testid="subscription-summary">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="text-xs uppercase tracking-wider text-stone-500">Your membership</div>
+          <div className="font-display text-2xl text-[#8B1A1A]" data-testid="subscription-name">
+            {tierName ? `${tierName} membership` : planName}
+          </div>
+          {tierName && <div className="text-sm text-stone-600">{planName}</div>}
+        </div>
+        {!m.lifetime && <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${pay.cls}`} data-testid="subscription-payment">{pay.label}</span>}
+      </div>
+      {!m.lifetime && fee != null && (
+        <div className="mt-3 text-sm text-stone-700 flex flex-wrap gap-x-5 gap-y-1">
+          <span>Fee: <strong>${Number(fee).toLocaleString()}</strong></span>
+          {donation > 0 && <span>Donation: <strong>${donation.toLocaleString()}</strong></span>}
+          <span>Total: <strong>${(Number(fee) + donation).toLocaleString()}</strong></span>
+          {m.payment_method && <span>Paying by: <strong className="capitalize">{m.payment_method}</strong></span>}
+          {m.family_count > 1 && <span>Family members: <strong>{m.family_count}</strong></span>}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function MemberDashboardPage() {
   const { member, isAuthed, bootstrapping, logout, refresh } = useMemberAuth();
   const nav = useNavigate();
+  const [plans, setPlans] = useState([]);
+
+  // Always load fresh membership details (e.g. right after signing up or renewing)
+  useEffect(() => {
+    if (isAuthed) refresh();
+    apiClient.get("/membership-plans").then((r) => setPlans(Array.isArray(r.data) ? r.data : [])).catch(() => setPlans([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthed]);
 
   useEffect(() => {
     if (!bootstrapping && !isAuthed) nav("/login");
@@ -384,9 +434,8 @@ export default function MemberDashboardPage() {
 
             {ms === "pending" && (
               <div className="space-y-4">
+                <SubscriptionSummary membership={member.membership} plans={plans} />
                 <div className="grid sm:grid-cols-2 gap-4">
-                  <Info label="Plan" value={(member.membership.plan || "—").replace(/^\w/, (c) => c.toUpperCase())} />
-                  <Info label="Tier" value={member.membership.tier || "—"} />
                   <Info label="Family Count" value={member.membership.family_count} />
                   <Info label="Donation" value={`$${member.membership.donation_amount || 0}`} />
                   <Info label="Payment Method" value={(member.membership.payment_method || "—").toUpperCase()} />
@@ -418,9 +467,9 @@ export default function MemberDashboardPage() {
 
             {ms === "active" && (
               <div className="space-y-4">
+                <SubscriptionSummary membership={member.membership} plans={plans} />
                 <div className="grid sm:grid-cols-2 gap-4">
-                  <Info label="Plan" value={(member.membership.plan || "—").replace(/^\w/, (c) => c.toUpperCase())} />
-                  <Info label="Tier" value={member.membership.tier === "student" ? "Youth" : member.membership.tier || "—"} />
+                  <Info label="Member Since" value={formatDate(member.joined_at || member.membership.start_date)} />
                   <Info label="Valid From" value={formatDate(member.membership.start_date)} />
                   <Info label="Valid Through" value={member.membership.lifetime ? "Lifetime — never expires" : formatDate(member.membership.end_date)} />
                 </div>

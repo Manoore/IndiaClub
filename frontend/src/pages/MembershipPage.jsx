@@ -416,9 +416,10 @@ const SubscribeForm = ({ plan, onSuccess, onClose, member }) => {
 };
 
 const JoinModal = ({ plan, onClose }) => {
-  const { isAuthed, member } = useMemberAuth();
+  const { isAuthed, member, refresh } = useMemberAuth();
   const nav = useNavigate();
-  const onSuccess = () => {
+  const onSuccess = async () => {
+    await refresh(); // pick up the new membership before showing the dashboard
     onClose();
     nav("/member/dashboard");
   };
