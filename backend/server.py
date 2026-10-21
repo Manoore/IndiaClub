@@ -31,7 +31,7 @@ from family_tickets import (
     admin_router as family_admin_router, age_on, age_band, new_ticket_code,
 )
 from admin_access import admin_guard, current_admin, ROLES, role_areas, router as admin_users_router
-from membership_rules import LIFETIME_PLAN, add_months, compute_term
+from membership_rules import LIFETIME_PLAN, add_months, compute_term, family_enabled
 from membership_service import (
     public_router as membership_public_router, admin_router as membership_admin_router,
     plan_purchase, record_promotion_use, apply_payment_status, log_history, migrate_settings_promotion,
@@ -96,6 +96,7 @@ def _public_member(m: dict) -> dict:
     d = dict(m)
     d.pop("_id", None)
     d.pop("password_hash", None)
+    d["family_enabled"] = family_enabled(d.get("membership"))
     return d
 
 
@@ -218,6 +219,9 @@ async def member_subscribe(body: MemberSubscribeRequest, member_id: str = Depend
         raise HTTPException(400, f"Unknown plan: {body.plan}")
     if plan_doc.get("hidden") or body.plan == LIFETIME_PLAN:
         raise HTTPException(400, "This membership type is no longer available")
+    cur = m.get("membership") or {}
+    if cur.get("status") == "active" and cur.get("plan") == body.plan and not cur.get("lifetime"):
+        raise HTTPException(400, "You already have this membership. To switch type (e.g. Individual to Family), use Change membership type on your dashboard.")
 
     # Validate tier (if plan has tiers, tier must be one of them)
     plan_tiers = plan_doc.get("tiers") or []
@@ -297,12 +301,16 @@ async def member_renew(member_id: str = Depends(require_member)):
     if mem.get("lifetime"):
         raise HTTPException(400, "Lifetime memberships never need renewal")
     now = datetime.utcnow()
-    purchase = await plan_purchase(mem, mem.get("plan"), mem.get("tier"), now)
+    # A downgrade the member scheduled earlier takes effect at this renewal
+    tier = mem.get("scheduled_tier") or mem.get("tier")
+    purchase = await plan_purchase(mem, mem.get("plan"), tier, now)
     term = purchase["term"]
     await db.members.update_one({"id": member_id}, {"$set": {
         "membership.status": "active",
         "membership.end_date": term["end_date"],
         "membership.term_kind": "renewal",
+        "membership.tier": tier,
+        "membership.scheduled_tier": None,
         "membership.term_rule": term["rule"],
         "membership.promotion": term["promotion"],
         "membership.eligible_promotion": promo_snapshot(purchase["promotion"]),
@@ -661,6 +669,8 @@ async def purchase_tickets(event_id: str, body: TicketPurchaseRequest, authoriza
         if fam_ids:
             if not member:
                 raise HTTPException(401, "Sign in to book tickets for family members")
+            if not family_enabled(member.get("membership")):
+                raise HTTPException(403, "Booking for family members needs a Family or Business membership")
             fams = {f["id"]: f for f in await db.family_members.find({"id": {"$in": fam_ids}, "member_id": member["id"]}).to_list(100)}
         seen = set()
         for a in body.attendees:

@@ -302,7 +302,8 @@ const Field = ({ label, value }) => (
 
 const ACTION_LABELS = {
   join: "Joined", change_plan: "Changed plan", renew: "Renewed", payment: "Payment", override: "Manual override",
-  approve: "Approved", expire: "Expired",
+  approve: "Approved", expire: "Expired", upgrade: "Upgraded", upgrade_payment: "Upgrade payment",
+  downgrade_scheduled: "Downgrade scheduled", downgrade_cancelled: "Downgrade cancelled",
 };
 const RULE_LABELS = {
   standard: "12 months from payment", promotion: "Promotion", kept_current: "Kept current expiration (never shortened)",
@@ -324,8 +325,11 @@ const MembershipHistory = ({ memberId, version }) => {
             <span className="font-medium text-stone-800">{ACTION_LABELS[e.action] || e.action}{e.payment_status ? ` · ${e.payment_status.replace("_", " ")}` : ""}</span>
             <span className="text-stone-400 whitespace-nowrap">{fmt(e.created_at)}</span>
           </div>
-          {(e.previous_end || e.new_end) && e.action !== "expire" && (
+          {(e.previous_end || e.new_end) && !["expire", "upgrade"].includes(e.action) && (
             <div className="text-stone-600">Expiration: {fmt(e.previous_end)} → {fmt(e.new_end)}</div>
+          )}
+          {e.from_tier && e.to_tier && (
+            <div className="text-stone-600 capitalize">{e.from_tier} → {e.to_tier}{e.amount ? ` · $${e.amount}` : ""}</div>
           )}
           {e.promotion?.name && <div className="text-emerald-700">Promotion: {e.promotion.name}</div>}
           {e.reason && <div className="text-stone-600 italic">“{e.reason}”</div>}
@@ -367,6 +371,35 @@ const ExpirationOverride = ({ member: m, onChanged }) => {
         {busy ? "Saving…" : "Save expiration"}
       </button>
     </form>
+  );
+};
+
+const UpgradeCharges = ({ member: m, onChanged }) => {
+  const { toast } = useToast();
+  const ups = (m.membership?.upgrades || []).filter((u) => u.amount > 0);
+  if (!ups.length) return null;
+  const setStatus = async (u, status) => {
+    try {
+      await apiClient.post(`/admin/members/${m.id}/upgrades/${u.id}/payment`, { status });
+      toast({ title: "Upgrade payment updated" });
+      const r = await apiClient.get(`/admin/members/${m.id}`);
+      onChanged(r.data);
+    } catch (e) {
+      toast({ title: "Update failed", description: e.response?.data?.detail });
+    }
+  };
+  return (
+    <div className="mt-5 p-4 border border-stone-200 rounded-lg" data-testid="upgrade-charges">
+      <div className="text-sm font-medium text-stone-900 mb-2">Upgrade charges</div>
+      <ul className="space-y-2 text-sm">
+        {ups.map((u) => (
+          <li key={u.id} className="flex items-center justify-between gap-2">
+            <span className="capitalize">{u.from_tier} → {u.to_tier} · <strong>${u.amount}</strong> <span className="text-xs text-stone-500">({u.payment_method}, {fmt(u.created_at)})</span></span>
+            <PaymentSelect value={u.payment_status} onChange={(v) => setStatus(u, v)} testid={`upgrade-pay-${u.id}`} />
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 };
 
@@ -441,6 +474,12 @@ const MemberDetailDrawer = ({ member: m, onClose, onLifetime, onChanged }) => {
           </button>
         </div>
 
+        {m.membership?.scheduled_tier && (
+          <div className="mt-5 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-900">
+            Member asked to switch to <strong className="capitalize">{m.membership.scheduled_tier}</strong> at their next renewal.
+          </div>
+        )}
+        <UpgradeCharges member={m} onChanged={changed} />
         {m.membership?.plan && <ExpirationOverride member={m} onChanged={changed} />}
 
         <h3 className="font-display text-lg text-[#8B1A1A] mt-6 mb-2">History</h3>

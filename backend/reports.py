@@ -72,6 +72,11 @@ async def revenue_rows(year: Optional[int] = None) -> list:
         rows.append([mem.get("submitted_at") or m.get("created_at"), "Membership",
                      f"{mem.get('plan')}/{mem.get('tier') or '-'}", f"{m.get('first_name', '')} {m.get('last_name', '')}".strip(),
                      m.get("email"), round(amount, 2), mem.get("payment_method"), status])
+        for u in mem.get("upgrades") or []:
+            if float(u.get("amount") or 0) > 0:
+                rows.append([u.get("created_at"), "Membership upgrade", f"{u.get('from_tier')} -> {u.get('to_tier')}",
+                             f"{m.get('first_name', '')} {m.get('last_name', '')}".strip(), m.get("email"),
+                             round(float(u["amount"]), 2), u.get("payment_method"), u.get("payment_status")])
     for s in await db.sponsorships.find().to_list(5000):
         rows.append([s.get("created_at"), "Sponsorship", f"{s.get('tier')} sponsorship", s.get("company"),
                      s.get("email"), round(float(s.get("amount") or 0), 2), s.get("payment_method"), s.get("payment_status")])

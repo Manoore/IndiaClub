@@ -24,6 +24,7 @@ import PerksSection from "../components/PerksSection";
 import FamilySection from "../components/FamilySection";
 import MyTicketsSection from "../components/MyTicketsSection";
 import MembershipTermNote, { fmtLongDate } from "../components/MembershipTermNote";
+import ChangeTierDialog from "../components/ChangeTierDialog";
 
 const STATUS_META = {
   none: {
@@ -323,6 +324,16 @@ const SubscriptionSummary = ({ membership: m, plans }) => {
         </div>
         {!m.lifetime && <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${pay.cls}`} data-testid="subscription-payment">{pay.label}</span>}
       </div>
+      {m.scheduled_tier && (
+        <div className="mt-2 text-sm text-amber-800" data-testid="scheduled-tier-note">
+          Switching to {(plan?.tiers || []).find((t) => t.slug === m.scheduled_tier)?.name || m.scheduled_tier} at your next renewal.
+        </div>
+      )}
+      {(m.upgrades || []).filter((u) => u.amount > 0 && ["pending", "awaiting_check"].includes(u.payment_status)).map((u) => (
+        <div key={u.id} className="mt-2 text-sm text-sky-900 bg-sky-50 border border-sky-200 rounded-md px-3 py-2" data-testid="upgrade-due-note">
+          Upgrade balance due: <strong>${u.amount}</strong> ({u.payment_method}). The Treasurer will confirm it once received.
+        </div>
+      ))}
       {!m.lifetime && fee != null && (
         <div className="mt-3 text-sm text-stone-700 flex flex-wrap gap-x-5 gap-y-1">
           <span>Fee: <strong>${Number(fee).toLocaleString()}</strong></span>
@@ -340,6 +351,7 @@ export default function MemberDashboardPage() {
   const { member, isAuthed, bootstrapping, logout, refresh } = useMemberAuth();
   const nav = useNavigate();
   const [plans, setPlans] = useState([]);
+  const [changeTier, setChangeTier] = useState(null); // tier slug to preselect, or "" for default
 
   // Always load fresh membership details (e.g. right after signing up or renewing)
   useEffect(() => {
@@ -347,6 +359,13 @@ export default function MemberDashboardPage() {
     apiClient.get("/membership-plans").then((r) => setPlans(Array.isArray(r.data) ? r.data : [])).catch(() => setPlans([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthed]);
+
+  // /member/dashboard#change-type opens the change-type dialog (linked from the Membership page)
+  useEffect(() => {
+    if (member && window.location.hash.startsWith("#change-type")) {
+      setChangeTier(new URLSearchParams(window.location.hash.split("?")[1] || "").get("tier") || "");
+    }
+  }, [member]);
 
   useEffect(() => {
     if (!bootstrapping && !isAuthed) nav("/login");
@@ -468,6 +487,11 @@ export default function MemberDashboardPage() {
             {ms === "active" && (
               <div className="space-y-4">
                 <SubscriptionSummary membership={member.membership} plans={plans} />
+                {!member.membership.lifetime && (plans.find((p) => p.slug === member.membership.plan)?.tiers || []).length > 1 && (
+                  <button onClick={() => setChangeTier("")} className="text-sm font-medium text-[#8B1A1A] hover:text-[#E07A1F] underline-offset-2 hover:underline" data-testid="change-tier-btn">
+                    Change membership type
+                  </button>
+                )}
                 <div className="grid sm:grid-cols-2 gap-4">
                   <Info label="Member Since" value={formatDate(member.joined_at || member.membership.start_date)} />
                   <Info label="Valid From" value={formatDate(member.membership.start_date)} />
@@ -522,7 +546,23 @@ export default function MemberDashboardPage() {
             )}
           </div>
 
-          <FamilySection />
+          <FamilySection
+            enabled={!!member.family_enabled}
+            onUpgrade={
+              ms === "active" && (plans.find((p) => p.slug === member.membership.plan)?.tiers || []).some((t) => t.slug === "family")
+                ? () => setChangeTier("family")
+                : undefined
+            }
+          />
+          {changeTier !== null && plans.length > 0 && (
+            <ChangeTierDialog
+              membership={member.membership}
+              plan={plans.find((p) => p.slug === member.membership.plan)}
+              initialTier={changeTier}
+              onClose={() => { setChangeTier(null); if (window.location.hash) window.history.replaceState(null, "", window.location.pathname); }}
+              onDone={refresh}
+            />
+          )}
           <MyTicketsSection />
 
           {/* Profile + Password */}

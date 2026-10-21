@@ -10,7 +10,7 @@ from admin_access import admin_guard
 from auth import decode_token
 from database import db
 from membership_rules import (
-    APPLIES_TO, LIFETIME_PLAN, compute_term, end_of_day, find_promotion, promotion_state, to_date,
+    APPLIES_TO, LIFETIME_PLAN, compute_term, end_of_day, family_enabled, find_promotion, promotion_state, to_date,
 )
 from models import gen_id
 
@@ -24,6 +24,12 @@ def _clean(d):
     d = dict(d)
     d.pop("_id", None)
     return d
+
+
+async def _member_out(mid: str) -> dict:
+    m = _clean(await db.members.find_one({"id": mid}, {"password_hash": 0}))
+    m["family_enabled"] = family_enabled(m.get("membership"))
+    return m
 
 
 def parse_dt(v) -> Optional[datetime]:
@@ -123,6 +129,116 @@ async def apply_payment_status(member: dict, status: str, actor: str) -> dict:
                       previous_payment_status=mem.get("payment_status"),
                       previous_end=prev_end, new_end=new_end)
     return await db.members.find_one({"id": member["id"]})
+
+
+# ===================== Member: change membership type =====================
+class TierChange(BaseModel):
+    tier: str
+    payment_method: str = "check"  # paypal | check | other (used for upgrade charges)
+
+
+def _tier_price(plan: dict, slug: Optional[str]) -> Optional[float]:
+    t = next((t for t in plan.get("tiers") or [] if t.get("slug") == slug), None)
+    return float(t["price"]) if t and t.get("price") is not None else None
+
+
+async def _load_change(member_id: str, target: str):
+    m = await db.members.find_one({"id": member_id})
+    if not m:
+        raise HTTPException(404, "Member not found")
+    mem = m.get("membership") or {}
+    if mem.get("status") != "active" or mem.get("lifetime"):
+        raise HTTPException(400, "Only active annual memberships can change type")
+    plan = await db.membership_plans.find_one({"slug": mem.get("plan")})
+    if not plan or not plan.get("tiers"):
+        raise HTTPException(400, "Your plan has no other membership types to switch to")
+    if target not in [t.get("slug") for t in plan["tiers"]]:
+        raise HTTPException(400, "That membership type isn't part of your plan")
+    return m, mem, plan
+
+
+@public_router.get("/members/me/change-tier/quote")
+async def change_tier_quote(tier: str, authorization: Optional[str] = Header(None)):
+    """What switching to `tier` would mean, shown before the member confirms."""
+    mid = decode_token(authorization.split(" ", 1)[1].strip(), expected_typ="member") if authorization and authorization.startswith("Bearer ") else None
+    if not mid:
+        raise HTTPException(401, "Missing token")
+    m, mem, plan = await _load_change(mid, tier)
+    old_p, new_p = _tier_price(plan, mem.get("tier")), _tier_price(plan, tier)
+    if tier == mem.get("tier"):
+        kind = "cancel_downgrade" if mem.get("scheduled_tier") else "same"
+    elif new_p is not None and old_p is not None and new_p > old_p:
+        kind = "upgrade"
+    elif new_p is not None and old_p is not None and new_p == old_p:
+        kind = "switch"
+    else:
+        kind = "downgrade"
+    return {"kind": kind, "from_tier": mem.get("tier"), "to_tier": tier, "amount": round(max(0.0, (new_p or 0) - (old_p or 0)), 2),
+            "valid_through": mem.get("end_date"), "new_price": new_p, "current_price": old_p}
+
+
+@public_router.post("/members/me/change-tier")
+async def change_tier(body: TierChange, authorization: Optional[str] = Header(None)):
+    """Upgrade now for the price difference (expiration unchanged), or schedule a downgrade for the next renewal."""
+    mid = decode_token(authorization.split(" ", 1)[1].strip(), expected_typ="member") if authorization and authorization.startswith("Bearer ") else None
+    if not mid:
+        raise HTTPException(401, "Missing token")
+    if body.payment_method not in ("paypal", "check", "other"):
+        raise HTTPException(400, "Invalid payment method")
+    m, mem, plan = await _load_change(mid, body.tier)
+    now = datetime.utcnow()
+    cur, target = mem.get("tier"), body.tier
+    if target == cur:
+        if mem.get("scheduled_tier"):
+            await db.members.update_one({"id": mid}, {"$unset": {"membership.scheduled_tier": ""}, "$set": {"updated_at": now}})
+            await log_history(mid, "downgrade_cancelled", "member", from_tier=cur, to_tier=mem.get("scheduled_tier"))
+            return await _member_out(mid)
+        raise HTTPException(400, "You already have this membership type")
+    old_p, new_p = _tier_price(plan, cur), _tier_price(plan, target)
+    if old_p is not None and new_p is not None and new_p < old_p:
+        await db.members.update_one({"id": mid}, {"$set": {"membership.scheduled_tier": target, "updated_at": now}})
+        await log_history(mid, "downgrade_scheduled", "member", from_tier=cur, to_tier=target,
+                          reason="Takes effect at next renewal")
+    else:
+        amount = round(max(0.0, (new_p or 0) - (old_p or 0)), 2)
+        upgrade = {
+            "id": gen_id(), "from_tier": cur, "to_tier": target, "amount": amount,
+            "payment_method": body.payment_method,
+            "payment_status": "paid" if amount == 0 else ("awaiting_check" if body.payment_method == "check" else "pending"),
+            "created_at": now,
+        }
+        await db.members.update_one({"id": mid}, {
+            "$set": {"membership.tier": target, "updated_at": now},
+            "$unset": {"membership.scheduled_tier": ""},
+            "$push": {"membership.upgrades": upgrade},
+        })
+        await log_history(mid, "upgrade", "member", from_tier=cur, to_tier=target, amount=amount,
+                          previous_end=parse_dt(mem.get("end_date")), new_end=parse_dt(mem.get("end_date")))
+    return await _member_out(mid)
+
+
+class UpgradePayment(BaseModel):
+    status: str
+
+
+@admin_router.post("/members/{mid}/upgrades/{uid}/payment")
+async def upgrade_payment(mid: str, uid: str, body: UpgradePayment, request: Request):
+    if body.status not in ("pending", "awaiting_check", "paid", "failed", "refunded"):
+        raise HTTPException(400, "Invalid payment status")
+    m = await db.members.find_one({"id": mid})
+    upgrades = ((m or {}).get("membership") or {}).get("upgrades") or []
+    up = next((u for u in upgrades if u.get("id") == uid), None)
+    if not up:
+        raise HTTPException(404, "Upgrade not found")
+    prev = up.get("payment_status")
+    up["payment_status"] = body.status
+    if body.status == "paid":
+        up["paid_at"] = datetime.utcnow()
+    await db.members.update_one({"id": mid}, {"$set": {"membership.upgrades": upgrades, "updated_at": datetime.utcnow()}})
+    await log_history(mid, "upgrade_payment", request.state.admin_user["username"], payment_status=body.status,
+                      previous_payment_status=prev, from_tier=up.get("from_tier"), to_tier=up.get("to_tier"),
+                      amount=up.get("amount"))
+    return {"ok": True}
 
 
 # ===================== Admin: promotions =====================

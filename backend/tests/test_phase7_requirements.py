@@ -381,3 +381,57 @@ class TestCommunity:
         r = requests.post(f"{API}/contact", json={"name": "Bot", "email": "bot@example.com", "subject": "hi",
                                                   "message": "spam", "website_hp": "http://spam.example"})
         assert r.status_code == 400
+
+
+# ===================== My Family gating + changing membership type =====================
+class TestFamilyAndTierChange:
+    def _member(self, tier):
+        h, m = _new_member()
+        r = requests.post(f"{API}/members/me/subscribe", headers=h, json={"plan": "regular", "tier": tier, "payment_method": "check"})
+        assert r.status_code == 200, r.text
+        return h, r.json()
+
+    def test_individual_cannot_use_family(self):
+        h, me = self._member("individual")
+        assert me["family_enabled"] is False
+        r = requests.post(f"{API}/members/me/family", headers=h, json={"name": "Kid", "relation": "child", "date_of_birth": "2018-05-01"})
+        assert r.status_code == 403
+
+    def test_family_member_can_use_family(self):
+        h, me = self._member("family")
+        assert me["family_enabled"] is True
+        r = requests.post(f"{API}/members/me/family", headers=h, json={"name": "Kid", "relation": "child", "date_of_birth": "2018-05-01"})
+        assert r.status_code == 200, r.text
+
+    def test_same_plan_resubscribe_blocked(self):
+        h, _ = self._member("individual")
+        r = requests.post(f"{API}/members/me/subscribe", headers=h, json={"plan": "regular", "tier": "family", "payment_method": "check"})
+        assert r.status_code == 400 and "Change membership type" in r.text
+
+    def test_upgrade_pays_difference_keeps_expiry(self, admin_h):
+        h, me = self._member("individual")
+        q = requests.get(f"{API}/members/me/change-tier/quote", headers=h, params={"tier": "family"}).json()
+        assert q["kind"] == "upgrade" and q["amount"] == 20
+        r = requests.post(f"{API}/members/me/change-tier", headers=h, json={"tier": "family", "payment_method": "check"})
+        assert r.status_code == 200, r.text
+        j = r.json()
+        mem = j["membership"]
+        assert mem["tier"] == "family" and j["family_enabled"] is True
+        assert mem["end_date"] == me["membership"]["end_date"]
+        up = mem["upgrades"][-1]
+        assert up["amount"] == 20 and up["payment_status"] == "awaiting_check"
+        assert requests.post(f"{API}/admin/members/{j['id']}/upgrades/{up['id']}/payment", headers=admin_h, json={"status": "paid"}).status_code == 200
+        hist = _history(admin_h, j["id"])
+        assert any(e["action"] == "upgrade" and e["amount"] == 20 for e in hist)
+        assert any(e["action"] == "upgrade_payment" and e["payment_status"] == "paid" for e in hist)
+        csv_text = requests.get(f"{API}/admin/exports/revenue", headers=admin_h).content.decode("utf-8-sig")
+        assert "Membership upgrade" in csv_text
+
+    def test_downgrade_waits_for_renewal(self):
+        h, me = self._member("family")
+        q = requests.get(f"{API}/members/me/change-tier/quote", headers=h, params={"tier": "individual"}).json()
+        assert q["kind"] == "downgrade" and q["amount"] == 0
+        mem = requests.post(f"{API}/members/me/change-tier", headers=h, json={"tier": "individual"}).json()["membership"]
+        assert mem["tier"] == "family" and mem["scheduled_tier"] == "individual"
+        renewed = requests.post(f"{API}/members/me/renew", headers=h).json()["membership"]
+        assert renewed["tier"] == "individual" and not renewed.get("scheduled_tier")

@@ -15,6 +15,7 @@ from reportlab.pdfgen import canvas
 from admin_access import admin_guard
 from auth import require_admin, require_member, decode_token
 from database import db
+from membership_rules import family_enabled
 from models import gen_id
 
 INFANT_MAX_AGE = 2  # under 3 → free
@@ -75,6 +76,12 @@ def new_ticket_code() -> str:
 
 
 # ===================== Member: My Family =====================
+async def _require_family_membership(member_id: str):
+    m = await db.members.find_one({"id": member_id})
+    if not family_enabled((m or {}).get("membership")):
+        raise HTTPException(403, "My Family is part of Family and Business memberships — upgrade your membership to add family members")
+
+
 @member_router.get("/family")
 async def list_family(member_id: str = Depends(require_member)):
     items = await db.family_members.find({"member_id": member_id}).sort("created_at", 1).to_list(100)
@@ -87,6 +94,7 @@ async def list_family(member_id: str = Depends(require_member)):
 
 @member_router.post("/family")
 async def add_family(body: FamilyMemberIn, member_id: str = Depends(require_member)):
+    await _require_family_membership(member_id)
     if body.date_of_birth > date.today():
         raise HTTPException(400, "Date of birth cannot be in the future")
     count = await db.family_members.count_documents({"member_id": member_id})
@@ -108,6 +116,7 @@ async def add_family(body: FamilyMemberIn, member_id: str = Depends(require_memb
 
 @member_router.put("/family/{fid}")
 async def update_family(fid: str, body: FamilyMemberIn, member_id: str = Depends(require_member)):
+    await _require_family_membership(member_id)
     existing = await db.family_members.find_one({"id": fid, "member_id": member_id})
     if not existing:
         raise HTTPException(404, "Family member not found")

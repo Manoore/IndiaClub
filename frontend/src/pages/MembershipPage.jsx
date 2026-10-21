@@ -471,9 +471,14 @@ const TierGrid = ({ tiers, onJoin, focusedPlan, authState, navigate }) => (
           let label = cta.label;
           if (cta.disabled && sameSelection) {
             label = authState.member?.membership?.status === "pending" ? "Application Pending" : "Your Current Tier";
+          } else if (authState.member?.membership?.status === "active" && authState.member?.membership?.plan === focusedPlan.slug) {
+            label = `Switch to ${t.name}`;
           }
           const handleClick = () => {
             if (cta.action === "dashboard") navigate("/member/dashboard");
+            // Active members switching type on the same plan pay only the difference
+            else if (authState.member?.membership?.status === "active" && authState.member?.membership?.plan === focusedPlan.slug)
+              navigate(`/member/dashboard#change-type?tier=${t.slug}`);
             else
               onJoin({
                 ...focusedPlan,

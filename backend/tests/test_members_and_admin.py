@@ -5,6 +5,7 @@ Covers: register/login/me/update/change-password/subscribe + admin approve/rejec
 """
 import os
 import time
+import uuid
 import random
 import string
 import pytest
@@ -157,7 +158,11 @@ def test_member_subscribe_auto_active(s, member_headers):
     assert j["address"] == "123 Test St"
 
 
-def test_member_subscribe_student_requires_school(s, member_headers):
+def test_member_subscribe_student_requires_school(s):
+    # Fresh member: an active member switching tiers now goes through change-tier, not subscribe
+    email = f"test_student_{uuid.uuid4().hex[:8]}@example.com"
+    reg = s.post(f"{API}/members/register", json={"email": email, "password": "test12345", "first_name": "Stu", "last_name": "Dent"}, timeout=30)
+    member_headers = {"Authorization": f"Bearer {reg.json()['token']}"}
     # Student tier with school fields
     payload = {
         "plan": "regular", "tier": "student", "school_name": "Wright State",

@@ -16,6 +16,18 @@ MULTI_YEAR_TIERS = {"silver": 5, "gold": 10}
 APPLIES_TO = ("new", "renewal", "both")
 
 
+# Memberships that cover a household (My Family, family ticket pricing)
+FAMILY_TIERS = {"family", "business"}
+FAMILY_PLANS = {"business", "honorary", LIFETIME_PLAN}
+
+
+def family_enabled(membership: Optional[dict]) -> bool:
+    m = membership or {}
+    if m.get("status") != "active":
+        return False
+    return bool(m.get("lifetime")) or m.get("tier") in FAMILY_TIERS or m.get("plan") in FAMILY_PLANS
+
+
 def add_months(d: datetime, months: int) -> datetime:
     """Same day-of-month `months` later, clamped to the month's last day (Feb 29 → Feb 28)."""
     y, m = divmod(d.month - 1 + months, 12)

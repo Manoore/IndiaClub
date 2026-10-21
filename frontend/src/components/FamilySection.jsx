@@ -31,7 +31,33 @@ const FamilyForm = ({ initial, onSubmit, onCancel, busy, testPrefix }) => {
   );
 };
 
-export default function FamilySection() {
+// Shown in place of My Family for memberships that don't cover a household
+const FamilyLocked = ({ onUpgrade }) => (
+  <div id="family" className="bg-white rounded-2xl p-6 border border-amber-100 scroll-mt-24" data-testid="family-locked">
+    <div className="flex items-center gap-2 mb-1">
+      <Users className="w-5 h-5 text-[#8B1A1A]" />
+      <h2 className="font-display text-2xl text-[#8B1A1A]">My Family</h2>
+    </div>
+    <p className="text-sm text-stone-600 mb-4">
+      Family features are part of <strong>Family</strong> and <strong>Business</strong> memberships: add your spouse, kids and parents,
+      book named tickets for everyone in one checkout, and get child pricing for kids aged 3–11 (under-3s free).
+    </p>
+    {onUpgrade ? (
+      <button onClick={onUpgrade} className="px-4 py-2 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded-md text-sm font-medium" data-testid="family-upgrade-btn">
+        Upgrade to Family
+      </button>
+    ) : (
+      <a href="/membership" className="inline-flex px-4 py-2 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded-md text-sm font-medium">See membership options</a>
+    )}
+  </div>
+);
+
+export default function FamilySection({ enabled = true, onUpgrade }) {
+  if (!enabled) return <FamilyLocked onUpgrade={onUpgrade} />;
+  return <FamilyManager />;
+}
+
+function FamilyManager() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);

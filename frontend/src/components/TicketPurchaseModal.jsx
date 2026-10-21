@@ -59,8 +59,10 @@ export default function TicketPurchaseModal({ event, onClose, onSuccess }) {
   const [attendees, setAttendees] = useState([]);
   const [family, setFamily] = useState([]);
   useEffect(() => {
-    if (isAuthed) apiClient.get("/members/me/family").then((r) => setFamily(r.data || [])).catch(() => setFamily([]));
-  }, [isAuthed]);
+    // Family attendees are only offered to Family / Business memberships
+    if (isAuthed && member?.family_enabled) apiClient.get("/members/me/family").then((r) => setFamily(r.data || [])).catch(() => setFamily([]));
+    else setFamily([]);
+  }, [isAuthed, member?.family_enabled]);
 
   // Filter types — hide member-only for non-members; hide expired/sold out (or show with notice)
   const visibleTypes = useMemo(() => {
