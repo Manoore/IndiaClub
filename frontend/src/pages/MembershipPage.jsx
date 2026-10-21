@@ -44,6 +44,8 @@ const PlanCard = ({ p, onJoin, authState, navigate }) => {
   const cta = getPlanCta(p, authState);
   const handleClick = () => {
     if (cta.action === "dashboard") navigate("/member/dashboard");
+    // Plans with tiers (Individual / Youth / Family / Business) need a tier picked first
+    else if ((p.tiers || []).length) navigate(`/membership/${p.slug}`);
     else onJoin(p);
   };
   return (
