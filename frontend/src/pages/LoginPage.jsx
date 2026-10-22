@@ -45,6 +45,11 @@ export default function LoginPage() {
         setError("Passwords don't match.");
         return;
       }
+      if ((form.phone.match(/\d/g) || []).length < 7) {
+        setBusy(false);
+        setError("Please enter a valid phone number.");
+        return;
+      }
       if (form.password.length < 6) {
         setBusy(false);
         setError("Password must be at least 6 characters.");
@@ -55,7 +60,7 @@ export default function LoginPage() {
         password: form.password,
         first_name: form.first_name.trim(),
         last_name: form.last_name.trim(),
-        phone: form.phone.trim() || undefined,
+        phone: form.phone.trim(),
       });
       setBusy(false);
       if (r.ok) {
@@ -134,10 +139,13 @@ export default function LoginPage() {
                 <div className="flex-grow border-t border-stone-200"></div>
               </div>
               {tab === "register" && (
+                <p className="text-xs text-stone-500" data-testid="required-legend"><span className="text-[#8B1A1A]">*</span> Required</p>
+              )}
+              {tab === "register" && (
                 <div className="grid grid-cols-2 gap-3">
                   <input
                     required
-                    placeholder="First name"
+                    placeholder="First name *"
                     value={form.first_name}
                     onChange={(e) => setForm({ ...form, first_name: e.target.value })}
                     className="px-4 py-3 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]"
@@ -145,7 +153,7 @@ export default function LoginPage() {
                   />
                   <input
                     required
-                    placeholder="Last name"
+                    placeholder="Last name *"
                     value={form.last_name}
                     onChange={(e) => setForm({ ...form, last_name: e.target.value })}
                     className="px-4 py-3 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]"
@@ -156,7 +164,7 @@ export default function LoginPage() {
               <input
                 required
                 type="email"
-                placeholder="Email"
+                placeholder={tab === "register" ? "Email *" : "Email"}
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 className="w-full px-4 py-3 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]"
@@ -164,7 +172,9 @@ export default function LoginPage() {
               />
               {tab === "register" && (
                 <input
-                  placeholder="Phone (optional)"
+                  required
+                  type="tel"
+                  placeholder="Phone *"
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                   className="w-full px-4 py-3 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]"
@@ -174,7 +184,7 @@ export default function LoginPage() {
               <input
                 required
                 type="password"
-                placeholder="Password"
+                placeholder={tab === "register" ? "Password (6+ characters) *" : "Password"}
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 className="w-full px-4 py-3 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]"
@@ -184,7 +194,7 @@ export default function LoginPage() {
                 <input
                   required
                   type="password"
-                  placeholder="Confirm password"
+                  placeholder="Confirm password *"
                   value={form.confirm}
                   onChange={(e) => setForm({ ...form, confirm: e.target.value })}
                   className="w-full px-4 py-3 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]"

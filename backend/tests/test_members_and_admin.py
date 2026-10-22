@@ -85,7 +85,7 @@ def test_member_register_returns_token_and_profile(member):
 
 def test_member_register_duplicate_email_409(s, member):
     r = s.post(f"{API}/members/register", json={
-        "email": member["email"], "password": "anything", "first_name": "X", "last_name": "Y"
+        "email": member["email"], "password": "anything", "first_name": "X", "last_name": "Y", "phone": "9375550100"
     }, timeout=30)
     assert r.status_code == 409
 
@@ -161,7 +161,7 @@ def test_member_subscribe_auto_active(s, member_headers):
 def test_member_subscribe_student_requires_school(s):
     # Fresh member: an active member switching tiers now goes through change-tier, not subscribe
     email = f"test_student_{uuid.uuid4().hex[:8]}@example.com"
-    reg = s.post(f"{API}/members/register", json={"email": email, "password": "test12345", "first_name": "Stu", "last_name": "Dent"}, timeout=30)
+    reg = s.post(f"{API}/members/register", json={"email": email, "password": "test12345", "first_name": "Stu", "last_name": "Dent", "phone": "9375550100"}, timeout=30)
     member_headers = {"Authorization": f"Bearer {reg.json()['token']}"}
     # Student tier with school fields
     payload = {
@@ -238,7 +238,7 @@ def test_admin_reject_member(s, admin_headers):
     # Make new member to reject
     email = f"e2ereject+{_rand()}@example.com"
     reg = s.post(f"{API}/members/register", json={
-        "email": email, "password": "x12345678", "first_name": "Rej", "last_name": "Ect"
+        "email": email, "password": "x12345678", "first_name": "Rej", "last_name": "Ect", "phone": "9375550100"
     }, timeout=30).json()
     mid = reg["member"]["id"]
     r = s.post(f"{API}/admin/members/{mid}/reject", headers=admin_headers, json={"reason": "Incomplete info"}, timeout=30)
@@ -251,7 +251,7 @@ def test_admin_reject_member(s, admin_headers):
 def test_admin_delete_member(s, admin_headers):
     email = f"e2edel+{_rand()}@example.com"
     reg = s.post(f"{API}/members/register", json={
-        "email": email, "password": "x12345678", "first_name": "Del", "last_name": "Me"
+        "email": email, "password": "x12345678", "first_name": "Del", "last_name": "Me", "phone": "9375550100"
     }, timeout=30).json()
     mid = reg["member"]["id"]
     r = s.delete(f"{API}/admin/members/{mid}", headers=admin_headers, timeout=30)

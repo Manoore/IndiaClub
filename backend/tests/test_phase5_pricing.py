@@ -323,7 +323,7 @@ class TestMemberRenewal:
         email = f"test_no_plan_{int(datetime.utcnow().timestamp())}@example.com"
         reg = requests.post(f"{API}/members/register", json={
             "email": email, "password": "test1234",
-            "first_name": "Test", "last_name": "NoPlan",
+            "first_name": "Test", "last_name": "NoPlan", "phone": "9375550100",
         })
         assert reg.status_code == 200, reg.text
         token = reg.json()["token"]

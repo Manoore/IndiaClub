@@ -157,6 +157,7 @@ const FreeJoinForm = ({ plan, onSuccess, guest, ensureAccount, accountFields }) 
   };
   return (
     <form onSubmit={join} className="space-y-4" data-testid="free-join-form">
+      <p className="text-xs text-stone-500" data-testid="required-legend"><span className="text-[#8B1A1A]">*</span> Required</p>
       {accountFields}
       <ul className="space-y-2">
         {plan.benefits.map((b) => (
@@ -172,7 +173,7 @@ const FreeJoinForm = ({ plan, onSuccess, guest, ensureAccount, accountFields }) 
 };
 
 // Account details collected inside the join form, so visitors sign up and subscribe in one go
-const AccountFields = ({ acct, setAcct, error, onGoogle }) => {
+const AccountFields = ({ acct, setAcct, error, onGoogle, withPhone }) => {
   const cls = "w-full px-4 py-2.5 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A] text-sm";
   return (
     <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50/40 p-3" data-testid="account-fields">
@@ -184,11 +185,14 @@ const AccountFields = ({ acct, setAcct, error, onGoogle }) => {
         <span className="flex-1 border-t border-stone-200" /> or <span className="flex-1 border-t border-stone-200" />
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <input required placeholder="First name" value={acct.first_name} onChange={(e) => setAcct({ ...acct, first_name: e.target.value })} className={cls} autoComplete="given-name" data-testid="acct-first" />
-        <input required placeholder="Last name" value={acct.last_name} onChange={(e) => setAcct({ ...acct, last_name: e.target.value })} className={cls} autoComplete="family-name" data-testid="acct-last" />
+        <input required placeholder="First name *" value={acct.first_name} onChange={(e) => setAcct({ ...acct, first_name: e.target.value })} className={cls} autoComplete="given-name" data-testid="acct-first" />
+        <input required placeholder="Last name *" value={acct.last_name} onChange={(e) => setAcct({ ...acct, last_name: e.target.value })} className={cls} autoComplete="family-name" data-testid="acct-last" />
       </div>
-      <input required type="email" placeholder="Email" value={acct.email} onChange={(e) => setAcct({ ...acct, email: e.target.value })} className={cls} autoComplete="email" data-testid="acct-email" />
-      <input required type="password" minLength={6} placeholder="Create a password (6+ characters)" value={acct.password} onChange={(e) => setAcct({ ...acct, password: e.target.value })} className={cls} autoComplete="new-password" data-testid="acct-password" />
+      <input required type="email" placeholder="Email *" value={acct.email} onChange={(e) => setAcct({ ...acct, email: e.target.value })} className={cls} autoComplete="email" data-testid="acct-email" />
+      {withPhone && (
+        <input required type="tel" placeholder="Phone *" value={acct.phone} onChange={(e) => setAcct({ ...acct, phone: e.target.value })} className={cls} autoComplete="tel" data-testid="acct-phone" />
+      )}
+      <input required type="password" minLength={6} placeholder="Create a password (6+ characters) *" value={acct.password} onChange={(e) => setAcct({ ...acct, password: e.target.value })} className={cls} autoComplete="new-password" data-testid="acct-password" />
       {error ? (
         <div className="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded px-3 py-2" role="alert" data-testid="acct-error">{error}</div>
       ) : (
@@ -282,6 +286,7 @@ const SubscribeForm = ({ plan, onSuccess, onClose, member: memberProp, guest, en
 
   return (
     <form onSubmit={submit} className="space-y-3">
+      <p className="text-xs text-stone-500" data-testid="required-legend"><span className="text-[#8B1A1A]">*</span> Required</p>
       {accountFields}
       {tiers.length > 0 && (
         <div>
@@ -325,7 +330,8 @@ const SubscribeForm = ({ plan, onSuccess, onClose, member: memberProp, guest, en
         </select>
         <input
           required
-          placeholder="Phone"
+          type="tel"
+          placeholder="Phone *"
           value={f.phone}
           onChange={(e) => setF({ ...f, phone: e.target.value })}
           className={`col-span-2 ${cls}`}
@@ -334,7 +340,7 @@ const SubscribeForm = ({ plan, onSuccess, onClose, member: memberProp, guest, en
       </div>
       <input
         required
-        placeholder="Address"
+        placeholder="Address *"
         value={f.address}
         onChange={(e) => setF({ ...f, address: e.target.value })}
         className={cls}
@@ -349,7 +355,7 @@ const SubscribeForm = ({ plan, onSuccess, onClose, member: memberProp, guest, en
       <div className="grid grid-cols-3 gap-3">
         <input
           required
-          placeholder="City"
+          placeholder="City *"
           value={f.city}
           onChange={(e) => setF({ ...f, city: e.target.value })}
           className={cls}
@@ -362,7 +368,7 @@ const SubscribeForm = ({ plan, onSuccess, onClose, member: memberProp, guest, en
           className={cls}
           data-testid="sub-state"
         >
-          <option value="">State</option>
+          <option value="">State *</option>
           {US_STATES.map((s) => (
             <option key={s} value={s}>
               {s}
@@ -371,7 +377,7 @@ const SubscribeForm = ({ plan, onSuccess, onClose, member: memberProp, guest, en
         </select>
         <input
           required
-          placeholder="ZIP"
+          placeholder="ZIP *"
           value={f.zip}
           onChange={(e) => setF({ ...f, zip: e.target.value })}
           className={cls}
@@ -384,7 +390,7 @@ const SubscribeForm = ({ plan, onSuccess, onClose, member: memberProp, guest, en
           <div className="text-xs font-cinzel tracking-wider text-[#E07A1F]">YOUTH DETAILS</div>
           <input
             required
-            placeholder="School / College name"
+            placeholder="School / College name *"
             value={f.school_name}
             onChange={(e) => setF({ ...f, school_name: e.target.value })}
             className={cls}
@@ -392,7 +398,7 @@ const SubscribeForm = ({ plan, onSuccess, onClose, member: memberProp, guest, en
           />
           <input
             required
-            placeholder="Grade or program (e.g. Grade 10, BS Biology)"
+            placeholder="Grade or program (e.g. Grade 10, BS Biology) *"
             value={f.degree_program}
             onChange={(e) => setF({ ...f, degree_program: e.target.value })}
             className={cls}
@@ -492,7 +498,7 @@ const SubscribeForm = ({ plan, onSuccess, onClose, member: memberProp, guest, en
 const JoinModal = ({ plan, onClose }) => {
   const { isAuthed, member, refresh, register, login, loginWithGoogle } = useMemberAuth();
   const nav = useNavigate();
-  const [acct, setAcct] = useState({ first_name: "", last_name: "", email: "", password: "" });
+  const [acct, setAcct] = useState({ first_name: "", last_name: "", email: "", password: "", phone: "" });
   const [acctError, setAcctError] = useState("");
 
   // Create the account, or sign in if that email is already registered
@@ -501,8 +507,12 @@ const JoinModal = ({ plan, onClose }) => {
     setAcctError("");
     const payload = {
       email: acct.email.trim(), password: acct.password,
-      first_name: acct.first_name.trim(), last_name: acct.last_name.trim(), phone: extra.phone || undefined,
+      first_name: acct.first_name.trim(), last_name: acct.last_name.trim(), phone: (extra.phone || acct.phone || "").trim(),
     };
+    if ((payload.phone.match(/\d/g) || []).length < 7) {
+      setAcctError("Please enter a valid phone number.");
+      return false;
+    }
     const r = await register(payload);
     if (r.ok) return true;
     if (/already registered/i.test(r.error || "")) {
@@ -548,7 +558,7 @@ const JoinModal = ({ plan, onClose }) => {
           const guestProps = {
             guest: !isAuthed,
             ensureAccount,
-            accountFields: !isAuthed ? <AccountFields acct={acct} setAcct={setAcct} error={acctError} onGoogle={onGoogle} /> : null,
+            accountFields: !isAuthed ? <AccountFields acct={acct} setAcct={setAcct} error={acctError} onGoogle={onGoogle} withPhone={plan.slug === "free"} /> : null,
           };
           return plan.slug === "free"
             ? <FreeJoinForm plan={plan} onSuccess={onSuccess} {...guestProps} />

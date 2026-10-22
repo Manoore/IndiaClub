@@ -30,7 +30,7 @@ def admin_h():
 
 def _new_member():
     email = f"p7_{uuid.uuid4().hex[:8]}@example.com"
-    r = requests.post(f"{API}/members/register", json={"email": email, "password": "test12345", "first_name": "P7", "last_name": "Tester"})
+    r = requests.post(f"{API}/members/register", json={"email": email, "password": "test12345", "first_name": "P7", "last_name": "Tester", "phone": "9375550100"})
     assert r.status_code == 200, r.text
     return {"Authorization": f"Bearer {r.json()['token']}"}, r.json()["member"]
 
@@ -474,3 +474,21 @@ class TestFreeMembership:
         assert q["kind"] == "new"
         r = requests.post(f"{API}/members/me/subscribe", headers=h, json={"plan": "regular", "tier": "family", "payment_method": "check"})
         assert r.status_code == 200 and r.json()["membership"]["plan"] == "regular" and r.json()["family_enabled"] is True
+
+
+class TestRegisterPhoneRequired:
+    def test_register_without_phone_rejected(self):
+        email = f"nophone+{uuid.uuid4().hex[:8]}@example.com"
+        r = requests.post(f"{API}/members/register", json={"email": email, "password": "test12345", "first_name": "No", "last_name": "Phone"})
+        assert r.status_code == 422
+
+    def test_register_with_bad_phone_rejected(self):
+        email = f"badphone+{uuid.uuid4().hex[:8]}@example.com"
+        r = requests.post(f"{API}/members/register", json={"email": email, "password": "test12345", "first_name": "Bad", "last_name": "Phone", "phone": "123"})
+        assert r.status_code == 422
+
+    def test_register_with_phone_saves_it(self):
+        email = f"phone+{uuid.uuid4().hex[:8]}@example.com"
+        r = requests.post(f"{API}/members/register", json={"email": email, "password": "test12345", "first_name": "Has", "last_name": "Phone", "phone": " (937) 555-0101 "})
+        assert r.status_code == 200
+        assert r.json()["member"]["phone"] == "(937) 555-0101"

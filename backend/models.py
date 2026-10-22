@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, EmailStr, field_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 import uuid
@@ -463,7 +463,15 @@ class MemberRegisterRequest(BaseModel):
     password: str
     first_name: str
     last_name: str
-    phone: Optional[str] = None
+    phone: str
+
+    @field_validator("phone")
+    @classmethod
+    def _phone_required(cls, v: str) -> str:
+        v = (v or "").strip()
+        if sum(c.isdigit() for c in v) < 7:
+            raise ValueError("Enter a valid phone number")
+        return v
 
 
 class MemberLoginRequest(BaseModel):
