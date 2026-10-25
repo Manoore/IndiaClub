@@ -11,6 +11,8 @@ import logging
 import os
 
 load_dotenv(Path(__file__).parent / ".env")
+if not os.environ.get("JWT_SECRET"):
+    raise RuntimeError("JWT_SECRET is not set. Add a long random value in the hosting environment.")
 
 from database import db
 from auth import verify_password, hash_password, create_token, require_admin, require_member
@@ -43,7 +45,7 @@ from sponsorships import (
 )
 from reports import router as reports_router
 from community import public_router as community_public_router, admin_router as community_admin_router
-from spam import spam_guard
+from spam import spam_guard, check_login_allowed, record_login_failure, clear_login_failures
 
 
 app = FastAPI(title="India Club of Greater Dayton API")
@@ -68,10 +70,13 @@ async def health():
 
 
 @api.post("/admin/login")
-async def login(body: LoginRequest):
+async def login(body: LoginRequest, request: Request):
+    check_login_allowed(request, body.username)
     user = await db.admin_users.find_one({"username": body.username})
-    if not user or not verify_password(body.password, user["password_hash"]):
+    if not user or user.get("disabled") or not verify_password(body.password, user["password_hash"]):
+        record_login_failure(request, body.username)
         raise HTTPException(401, "Invalid credentials")
+    clear_login_failures(request, body.username)
     return {"token": create_token(user["username"]), "username": user["username"]}
 
 
@@ -83,10 +88,13 @@ async def me(user: dict = Depends(current_admin)):
 
 
 @api.post("/admin/change-password")
-async def change_password(body: ChangePasswordRequest, username: str = Depends(require_admin)):
+async def change_password(body: ChangePasswordRequest, admin_user: dict = Depends(current_admin)):
+    username = admin_user["username"]
     user = await db.admin_users.find_one({"username": username})
     if not user or not verify_password(body.current_password, user["password_hash"]):
         raise HTTPException(401, "Current password incorrect")
+    if len(body.new_password or "") < 8:
+        raise HTTPException(400, "New password must be at least 8 characters")
     await db.admin_users.update_one({"username": username}, {"$set": {"password_hash": hash_password(body.new_password)}})
     return {"ok": True}
 
@@ -123,11 +131,14 @@ async def member_register(body: MemberRegisterRequest):
 
 
 @api.post("/members/login")
-async def member_login(body: MemberLoginRequest):
+async def member_login(body: MemberLoginRequest, request: Request):
     email = body.email.lower()
+    check_login_allowed(request, email)
     m = await db.members.find_one({"email": email})
     if not m or not verify_password(body.password, m["password_hash"]):
+        record_login_failure(request, email)
         raise HTTPException(401, "Invalid email or password")
+    clear_login_failures(request, email)
     return {"token": create_token(m["id"], typ="member"), "member": _public_member(m)}
 
 
@@ -147,6 +158,9 @@ async def member_google_signin(body: GoogleSignInRequest):
     email = (info.get("email") or "").lower()
     if not email:
         raise HTTPException(400, "Google account did not return an email")
+    # Accounts are matched by email, so only trust addresses Google has verified
+    if info.get("email_verified") is not True:
+        raise HTTPException(401, "Your Google account's email isn't verified. Verify it with Google or sign up with email and password.")
 
     m = await db.members.find_one({"email": email})
     if not m:
@@ -379,7 +393,16 @@ async def get_file(fid: str):
     doc = await db.files.find_one({"id": fid})
     if not doc:
         raise HTTPException(404, "Not found")
-    return Response(content=base64.b64decode(doc["data_base64"]), media_type=doc["mime_type"])
+    mime = doc.get("mime_type") or "application/octet-stream"
+    headers = {
+        "X-Content-Type-Options": "nosniff",
+        # Uploaded files are shown as images/PDFs only; nothing inside them may run scripts
+        "Content-Security-Policy": "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox",
+        "Cache-Control": "public, max-age=86400",
+    }
+    if not (mime.startswith("image/") or mime == "application/pdf"):
+        headers["Content-Disposition"] = "attachment"
+    return Response(content=base64.b64decode(doc["data_base64"]), media_type=mime, headers=headers)
 
 
 # Helper for stripping mongo _id
@@ -1150,13 +1173,32 @@ app.include_router(membership_admin_router)
 app.include_router(api)
 app.include_router(admin)
 
+# Only the club's own sites may call the API from a browser. Add more with CORS_ORIGINS (comma-separated).
+DEFAULT_ORIGINS = [
+    "https://india-club-self.vercel.app",
+    "https://indiaclubdayton.org",
+    "https://www.indiaclubdayton.org",
+]
+CORS_ORIGINS = DEFAULT_ORIGINS + [o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS,
+    # Vercel preview deployments of this project, plus local development
+    allow_origin_regex=r"https://india-club-self(-[a-z0-9-]+)?\.vercel\.app|http://(localhost|127\.0\.0\.1)(:\d+)?",
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    return response
 
 logging.basicConfig(level=logging.INFO)
 

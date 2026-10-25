@@ -148,9 +148,9 @@ const BecomeSponsor = () => {
                 <label className="inline-flex items-center gap-1.5 cursor-pointer text-[#8B1A1A] font-medium">
                   {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                   {form.logo_url ? "Replace logo" : "Upload your logo"}
-                  <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif" className="hidden" onChange={(e) => uploadLogo(e.target.files?.[0])} data-testid="sponsor-logo" />
+                  <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="hidden" onChange={(e) => uploadLogo(e.target.files?.[0])} data-testid="sponsor-logo" />
                 </label>
-                <div className="text-xs text-stone-500">PNG, JPG or SVG, up to 2 MB. Shown on our sponsor page.</div>
+                <div className="text-xs text-stone-500">PNG, JPG, WebP or GIF, up to 2 MB. Shown on our sponsor page.</div>
               </div>
             </div>
             <textarea rows={3} placeholder="Anything we should know? (optional)" value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} className={cls} data-testid="sponsor-input-message" />

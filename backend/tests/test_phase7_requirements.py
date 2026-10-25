@@ -492,3 +492,51 @@ class TestRegisterPhoneRequired:
         r = requests.post(f"{API}/members/register", json={"email": email, "password": "test12345", "first_name": "Has", "last_name": "Phone", "phone": " (937) 555-0101 "})
         assert r.status_code == 200
         assert r.json()["member"]["phone"] == "(937) 555-0101"
+
+
+class TestSecurityHardening:
+    def test_member_login_locks_after_repeated_failures(self):
+        email = f"lock+{uuid.uuid4().hex[:8]}@example.com"
+        requests.post(f"{API}/members/register", json={"email": email, "password": "test12345", "first_name": "Lo", "last_name": "Ck", "phone": "9375550100"})
+        codes = [requests.post(f"{API}/members/login", json={"email": email, "password": "wrong-pass"}).status_code for _ in range(11)]
+        assert codes[:10] == [401] * 10
+        assert codes[10] == 429
+        # Even the right password waits out the lockout
+        assert requests.post(f"{API}/members/login", json={"email": email, "password": "test12345"}).status_code == 429
+
+    def test_successful_login_resets_failures(self):
+        email = f"reset+{uuid.uuid4().hex[:8]}@example.com"
+        requests.post(f"{API}/members/register", json={"email": email, "password": "test12345", "first_name": "Re", "last_name": "Set", "phone": "9375550100"})
+        for _ in range(9):
+            requests.post(f"{API}/members/login", json={"email": email, "password": "nope"})
+        assert requests.post(f"{API}/members/login", json={"email": email, "password": "test12345"}).status_code == 200
+        assert requests.post(f"{API}/members/login", json={"email": email, "password": "nope"}).status_code == 401
+
+    def test_public_logo_upload_rejects_svg(self):
+        svg = b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'
+        r = requests.post(f"{API}/sponsorships/logo", files={"file": ("x.svg", svg, "image/svg+xml")})
+        assert r.status_code == 400
+
+    def test_files_served_with_protective_headers(self):
+        png = bytes.fromhex("89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c6360000002000154a24f5d0000000049454e44ae426082")
+        up = requests.post(f"{API}/sponsorships/logo", files={"file": ("x.png", png, "image/png")})
+        assert up.status_code == 200
+        r = requests.get(f"{BASE_URL}{up.json()['url']}")
+        assert r.headers.get("X-Content-Type-Options") == "nosniff"
+        assert "sandbox" in r.headers.get("Content-Security-Policy", "")
+
+    def test_cors_only_allows_club_sites(self):
+        ok = requests.get(f"{API}/site-settings", headers={"Origin": "https://india-club-self.vercel.app"})
+        assert ok.headers.get("access-control-allow-origin") == "https://india-club-self.vercel.app"
+        bad = requests.get(f"{API}/site-settings", headers={"Origin": "https://evil.example"})
+        assert "access-control-allow-origin" not in {k.lower() for k in bad.headers}
+
+    def test_security_headers_on_api(self):
+        r = requests.get(f"{API}/")
+        assert r.headers.get("X-Frame-Options") == "DENY"
+        assert r.headers.get("X-Content-Type-Options") == "nosniff"
+
+    def test_forged_token_rejected(self):
+        import jwt as pyjwt
+        forged = pyjwt.encode({"sub": "admin", "typ": "admin"}, "icgd-default-secret-change-in-prod-2026", algorithm="HS256")
+        assert requests.get(f"{API}/admin/me", headers={"Authorization": f"Bearer {forged}"}).status_code == 401

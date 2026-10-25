@@ -22,7 +22,8 @@ public_router = APIRouter(prefix="/api")
 admin_router = APIRouter(prefix="/api/admin", dependencies=[Depends(admin_guard)])
 
 PAYMENT_STATUSES = ("pending", "awaiting_check", "paid", "failed", "refunded")
-LOGO_TYPES = {"image/png", "image/jpeg", "image/webp", "image/gif", "image/svg+xml"}
+# SVG can carry scripts, so public uploads are limited to bitmap formats
+LOGO_TYPES = {"image/png", "image/jpeg", "image/webp", "image/gif"}
 
 DEFAULT_PLANS = [
     {"slug": "platinum", "name": "Platinum", "price": 5000, "order": 1,
@@ -106,7 +107,7 @@ async def validate_code(code: str):
 @public_router.post("/sponsorships/logo", dependencies=[Depends(spam_guard)])
 async def upload_logo(file: UploadFile = File(...)):
     if (file.content_type or "") not in LOGO_TYPES:
-        raise HTTPException(400, "Logo must be a PNG, JPG, WebP, GIF or SVG image")
+        raise HTTPException(400, "Logo must be a PNG, JPG, WebP or GIF image")
     raw = await file.read()
     if len(raw) > 2 * 1024 * 1024:
         raise HTTPException(400, "Logo too large (2MB max)")

@@ -5,7 +5,6 @@ from passlib.hash import bcrypt_sha256
 from fastapi import HTTPException, Header
 from typing import Optional
 
-SECRET = os.environ.get("JWT_SECRET", "icgd-default-secret-change-in-prod-2026")
 ALGO = "HS256"
 EXPIRE_DAYS = 7
 
@@ -21,6 +20,14 @@ def verify_password(pw: str, hashed: str) -> bool:
         return False
 
 
+def _secret() -> str:
+    # Read at call time so .env loading order doesn't matter; never fall back to a built-in value
+    secret = os.environ.get("JWT_SECRET")
+    if not secret:
+        raise RuntimeError("JWT_SECRET is not set")
+    return secret
+
+
 def create_token(sub: str, typ: str = "admin") -> str:
     payload = {
         "sub": sub,
@@ -28,12 +35,12 @@ def create_token(sub: str, typ: str = "admin") -> str:
         "iat": datetime.utcnow(),
         "exp": datetime.utcnow() + timedelta(days=EXPIRE_DAYS),
     }
-    return jwt.encode(payload, SECRET, algorithm=ALGO)
+    return jwt.encode(payload, _secret(), algorithm=ALGO)
 
 
 def decode_token(token: str, expected_typ: Optional[str] = None) -> Optional[str]:
     try:
-        payload = jwt.decode(token, SECRET, algorithms=[ALGO])
+        payload = jwt.decode(token, _secret(), algorithms=[ALGO])
         if expected_typ and payload.get("typ", "admin") != expected_typ:
             return None
         return payload.get("sub")

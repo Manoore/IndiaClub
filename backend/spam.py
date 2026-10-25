@@ -13,9 +13,10 @@ _hits = defaultdict(deque)
 
 
 def _client_ip(request: Request) -> str:
+    # Render's proxy appends the real client IP; earlier entries can be forged by the caller
     fwd = request.headers.get("x-forwarded-for")
     if fwd:
-        return fwd.split(",")[0].strip()
+        return fwd.split(",")[-1].strip()
     return request.client.host if request.client else "unknown"
 
 
@@ -40,3 +41,36 @@ async def spam_guard(request: Request):
 
 def reset():
     _hits.clear()
+
+
+# ===================== Sign-in throttling =====================
+LOGIN_WINDOW_SECONDS = 900
+LOGIN_MAX_FAILS = int(os.environ.get("LOGIN_MAX_FAILS", "10"))  # per IP + account
+LOGIN_MAX_FAILS_PER_IP = int(os.environ.get("LOGIN_MAX_FAILS_PER_IP", "50"))
+
+_login_fails = defaultdict(deque)
+
+
+def _login_keys(request: Request, account: str):
+    ip = _client_ip(request)
+    return [(("acct", ip, (account or "").strip().lower()), LOGIN_MAX_FAILS), (("ip", ip), LOGIN_MAX_FAILS_PER_IP)]
+
+
+def check_login_allowed(request: Request, account: str):
+    now = time.monotonic()
+    for key, limit in _login_keys(request, account):
+        q = _login_fails[key]
+        while q and now - q[0] > LOGIN_WINDOW_SECONDS:
+            q.popleft()
+        if len(q) >= limit:
+            raise HTTPException(429, "Too many failed sign-in attempts. Please wait 15 minutes and try again.")
+
+
+def record_login_failure(request: Request, account: str):
+    now = time.monotonic()
+    for key, _ in _login_keys(request, account):
+        _login_fails[key].append(now)
+
+
+def clear_login_failures(request: Request, account: str):
+    _login_fails.pop(_login_keys(request, account)[0][0], None)
