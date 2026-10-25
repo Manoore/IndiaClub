@@ -12,7 +12,13 @@ import os
 
 load_dotenv(Path(__file__).parent / ".env")
 if not os.environ.get("JWT_SECRET"):
-    raise RuntimeError("JWT_SECRET is not set. Add a long random value in the hosting environment.")
+    # Never fall back to a fixed, public value. A random per-process secret keeps the site up and safe,
+    # but every restart signs everyone out, so set JWT_SECRET in the hosting environment.
+    import secrets
+    os.environ["JWT_SECRET"] = secrets.token_urlsafe(48)
+    logging.getLogger(__name__).error(
+        "JWT_SECRET is not set: using a temporary random secret. Everyone is signed out whenever the "
+        "server restarts. Add JWT_SECRET (a long random value) in the hosting environment.")
 
 from database import db
 from auth import verify_password, hash_password, create_token, require_admin, require_member
