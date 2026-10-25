@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { apiClient } from "../api/client";
+import MediaUpload from "./MediaUpload";
 import { useToast } from "../hooks/use-toast";
 import { Loader2, Save, Home as HomeIcon, Info, Phone as PhoneIcon, Share2, Footprints, BarChart3, Heart } from "lucide-react";
 
@@ -26,7 +27,7 @@ const FIELDS = {
     { k: "home_hero_subtitle", label: "Hero Subtitle", textarea: true, rows: 3 },
     { k: "home_hero_cta_primary", label: "Primary Button Text" },
     { k: "home_hero_cta_secondary", label: "Secondary Button Text" },
-    { k: "home_hero_image", label: "Hero Background Image URL" },
+    { k: "home_hero_image", label: "Hero Background Image", type: "image" },
   ],
   stats: [
     { k: "home_stat_1_value", label: "Stat 1 — Value (e.g. 1967)" },
@@ -137,7 +138,9 @@ export default function SiteContentAdmin() {
             <label className="block text-xs uppercase tracking-wider text-stone-500 font-medium mb-1.5">
               {f.label}
             </label>
-            {f.type === "amounts" ? (
+            {f.type === "image" ? (
+              <MediaUpload value={settings[f.k] || ""} onChange={(v) => setSettings({ ...settings, [f.k]: v })} kind="image" testid={`field-${f.k}`} />
+            ) : f.type === "amounts" ? (
               <input
                 value={Array.isArray(settings[f.k]) ? settings[f.k].join(", ") : (settings[f.k] ?? "")}
                 onChange={(e) => setSettings({ ...settings, [f.k]: e.target.value })}

@@ -4,7 +4,7 @@ import PageHeader from "../components/PageHeader";
 import { Award, FileText, Heart, Scroll, Trophy, Users, Building, Phone, Mail, MapPin } from "lucide-react";
 import Mandala from "../components/Mandala";
 import { useSiteSettings } from "../api/SiteSettingsContext";
-import { apiClient } from "../api/client";
+import { apiClient, absoluteUrl } from "../api/client";
 import Honeypot, { HONEYPOT_FIELD } from "../components/Honeypot";
 
 const AboutHub = () => {
@@ -184,6 +184,9 @@ const Nonprofit = () => (
   </section>
 );
 
+// Uploaded PDF (or one uploaded earlier by file id)
+const taxReturnUrl = (t) => t.file_url || (t.file_id ? absoluteUrl(`/api/files/${t.file_id}`) : null);
+
 const TaxReturns = () => {
   const [returns, setReturns] = useState([]);
   useEffect(() => {
@@ -220,8 +223,8 @@ const TaxReturns = () => {
                     <td className="px-5 py-3 text-stone-700">{t.filed_by || "—"}</td>
                     <td className="px-5 py-3 text-stone-700">{t.president || "—"}</td>
                     <td className="px-5 py-3 text-right">
-                      {t.available ? (
-                        <a href="#" className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded text-xs font-medium transition">View {t.year}</a>
+                      {t.available && taxReturnUrl(t) ? (
+                        <a href={taxReturnUrl(t)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded text-xs font-medium transition" data-testid={`tax-return-view-${t.year}`}>View {t.year}</a>
                       ) : (
                         <span className="text-stone-400 text-xs italic">Not Available</span>
                       )}

@@ -386,6 +386,19 @@ async def validate_promo_code(event_id: str, body: dict):
 # ===================== Files =====================
 @api.post("/files/upload")
 async def upload_file(file: UploadFile = File(...), _: str = Depends(require_admin)):
+    return await _store_upload(file)
+
+
+@admin.post("/files/upload")
+async def admin_upload_file(file: UploadFile = File(...)):
+    """Upload used by the admin screens (sent with the admin sign-in like every /admin request)."""
+    return await _store_upload(file)
+
+
+async def _store_upload(file: UploadFile) -> dict:
+    ctype = (file.content_type or "").lower()
+    if not (ctype in ("image/png", "image/jpeg", "image/webp", "image/gif") or ctype == "application/pdf"):
+        raise HTTPException(400, "Upload a PNG, JPG, WebP or GIF image, or a PDF")
     raw = await file.read()
     if len(raw) > 5 * 1024 * 1024:
         raise HTTPException(400, "File too large (5MB max)")

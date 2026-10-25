@@ -232,7 +232,7 @@ export const TaxReturnsAdmin = () => (
       { key: "year", label: "Year", type: "number", required: true },
       { key: "filed_by", label: "Filed By", type: "text" },
       { key: "president", label: "President", type: "text" },
-      { key: "file_id", label: "File ID (uploaded PDF)", type: "text", hint: "Upload PDF first, then paste file id" },
+      { key: "file_url", label: "Tax return (PDF)", type: "file", hint: "Shown as the View button on About → Tax Returns" },
       { key: "available", label: "Document Available", type: "checkbox", default: true },
       { key: "order", label: "Order", type: "number", default: 0 },
     ]} />

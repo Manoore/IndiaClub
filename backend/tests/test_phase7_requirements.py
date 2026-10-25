@@ -590,3 +590,30 @@ class TestAdminManagedPlans:
             assert _parse(q["valid_through"]).year == datetime.utcnow().year + 3
         finally:
             requests.put(f"{API}/admin/membership-plans/{ext['id']}", headers=admin_h, json={**ext, "tiers": original})
+
+
+class TestAdminUploads:
+    PNG = bytes.fromhex("89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c6360000002000154a24f5d0000000049454e44ae426082")
+
+    def test_admin_can_upload_image_and_pdf(self, admin_h):
+        r = requests.post(f"{API}/files/upload", headers=admin_h, files={"file": ("hero.png", self.PNG, "image/png")})
+        assert r.status_code == 200 and r.json()["url"].startswith("/api/files/")
+        img = requests.get(f"{BASE_URL}{r.json()['url']}")
+        assert img.status_code == 200 and img.headers["content-type"].startswith("image/png")
+        pdf = requests.post(f"{API}/files/upload", headers=admin_h, files={"file": ("990.pdf", b"%PDF-1.4\n%%EOF", "application/pdf")})
+        assert pdf.status_code == 200
+
+    def test_other_types_and_anonymous_rejected(self, admin_h):
+        r = requests.post(f"{API}/files/upload", headers=admin_h, files={"file": ("x.html", b"<script>1</script>", "text/html")})
+        assert r.status_code == 400
+        assert requests.post(f"{API}/files/upload", files={"file": ("a.png", self.PNG, "image/png")}).status_code == 401
+
+    def test_tax_return_keeps_pdf_link(self, admin_h):
+        r = requests.post(f"{API}/admin/tax-returns", headers=admin_h, json={"year": 2099, "file_url": "https://example.com/990.pdf"})
+        assert r.status_code == 200 and r.json()["file_url"] == "https://example.com/990.pdf"
+        requests.delete(f"{API}/admin/tax-returns/{r.json()['id']}", headers=admin_h)
+
+    def test_admin_screen_upload_route(self, admin_h):
+        r = requests.post(f"{API}/admin/files/upload", headers=admin_h, files={"file": ("slide.png", self.PNG, "image/png")})
+        assert r.status_code == 200 and r.json()["url"].startswith("/api/files/")
+        assert requests.post(f"{API}/admin/files/upload", files={"file": ("slide.png", self.PNG, "image/png")}).status_code == 401

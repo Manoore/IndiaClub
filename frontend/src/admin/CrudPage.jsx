@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, X, Upload, Search, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Search, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
+import MediaUpload from "./MediaUpload";
 import { PricePeriodsEditor, PeriodPriceGrid, SponsorPerksEditor, PromoCodesEditor, PricingPreview } from "./EventPricingEditors";
 import { apiClient } from "../api/client";
 import { useToast } from "../hooks/use-toast";
 
-const RESOLVED_BASE =
-  ((typeof window !== "undefined" && window.__ICGD_API_URL__) || process.env.REACT_APP_BACKEND_URL || "").replace(/\/+$/, "");
 
 /**
  * Generic admin CRUD page.
@@ -13,7 +12,8 @@ const RESOLVED_BASE =
  *  - title, description
  *  - endpoint (e.g. "events")
  *  - columns: [{ key, label, render?(row) }]
- *  - fields: [{ key, label, type: 'text'|'textarea'|'number'|'select'|'image'|'checkbox'|'tags'|'array-of-objects'|'plan-tiers', options?, required, placeholder, default }]
+ *  - fields: [{ key, label, type: 'text'|'textarea'|'number'|'select'|'image'|'file'|'checkbox'|'tags'|'array-of-objects'|'plan-tiers', options?, required, placeholder, default }]
+ *    'image' and 'file' (PDF) upload straight from the computer, with an optional pasted link
  *  - readOnly (for inbox-style)
  *  - extraActions: function(row) returning JSX (for approve/reject etc)
  */
@@ -147,29 +147,9 @@ function EditModal({ isNew, initial, fields, title, onClose, onSave }) {
   const seed = {};
   fields.forEach((f) => { seed[f.key] = initial[f.key] ?? f.default ?? (f.type === "checkbox" ? false : (f.type === "tags" || f.type === "array-of-objects" ? [] : "")); });
   const [data, setData] = useState(seed);
-  const [uploading, setUploading] = useState(false);
-  const { toast } = useToast();
-
   const updateField = (key, value) => setData((d) => ({ ...d, [key]: value }));
 
   const submit = (e) => { e.preventDefault(); onSave(data); };
-
-  const uploadFile = async (key, file) => {
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { toast({ title: "File too large (5MB max)" }); return; }
-    setUploading(true);
-    const fd = new FormData(); fd.append("file", file);
-    try {
-      const r = await apiClient.post("/files/upload", fd, { headers: { "Content-Type": "multipart/form-data" } });
-      const fullUrl = RESOLVED_BASE + r.data.url;
-      updateField(key, fullUrl);
-      toast({ title: "Uploaded" });
-    } catch (e) {
-      toast({ title: "Upload failed", description: e.response?.data?.detail || String(e.message) });
-    } finally {
-      setUploading(false);
-    }
-  };
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
@@ -200,14 +180,9 @@ function EditModal({ isNew, initial, fields, title, onClose, onSave }) {
                   <span className="text-sm text-stone-700">{f.hint || "Yes"}</span>
                 </label>
               ) : f.type === "image" ? (
-                <div className="space-y-2">
-                  <input type="text" value={data[f.key] || ""} onChange={(e) => updateField(f.key, e.target.value)} placeholder="Image URL or upload below" className="w-full px-3 py-2 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]" />
-                  <label className="inline-flex items-center gap-2 px-3 py-1.5 bg-stone-100 hover:bg-stone-200 rounded text-xs cursor-pointer">
-                    <Upload className="w-3.5 h-3.5" /> {uploading ? "Uploading..." : "Upload Image"}
-                    <input type="file" accept="image/*" className="hidden" onChange={(e) => uploadFile(f.key, e.target.files[0])} />
-                  </label>
-                  {data[f.key] && <img src={data[f.key]} alt="preview" className="max-h-32 rounded border border-stone-200" />}
-                </div>
+                <MediaUpload value={data[f.key] || ""} onChange={(v) => updateField(f.key, v)} kind="image" testid={`upload-${f.key}`} />
+              ) : f.type === "file" ? (
+                <MediaUpload value={data[f.key] || ""} onChange={(v) => updateField(f.key, v)} kind="pdf" testid={`upload-${f.key}`} />
               ) : f.type === "tags" ? (
                 <textarea rows={3} value={(data[f.key] || []).join("\n")} onChange={(e) => updateField(f.key, e.target.value.split("\n").filter(Boolean))} placeholder={"One per line"} className="w-full px-3 py-2 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]" />
               ) : f.type === "array-of-objects" ? (

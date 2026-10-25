@@ -224,7 +224,8 @@ class TaxReturn(BaseModel):
     year: int
     filed_by: Optional[str] = None
     president: Optional[str] = None
-    file_id: Optional[str] = None
+    file_id: Optional[str] = None  # older records
+    file_url: Optional[str] = None  # uploaded PDF
     available: bool = True
     order: int = 100
 

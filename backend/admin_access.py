@@ -61,6 +61,8 @@ AREA_PREFIXES = [
     ("/classifieds", ["content"]),
     ("/businesses", ["content"]),
     ("/contact-messages", ["content"]),
+    # Images and PDFs for any screen an editor can manage
+    ("/files", ["content", "events", "sponsors", "members"]),
     ("/subscribers", ["content"]),
 ]
 
