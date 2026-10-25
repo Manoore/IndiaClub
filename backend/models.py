@@ -61,7 +61,15 @@ class Event(BaseModel):
     end_date: Optional[datetime] = None  # if set and != start_date → multi-day
     online_url: Optional[str] = None  # Zoom / Meet / YouTube link
     schedule: List[dict] = []  # [{day, time, title, location_or_link}]
-    promo_codes: List[dict] = []  # [{code, kind, value, max_uses, used}]
+    promo_codes: List[dict] = []  # [{code, kind, value, max_uses, used, per_customer, starts, ends, min_purchase, categories, enabled}]
+    # ---- Pricing (see checkout.py) ----
+    price_periods: List[dict] = []  # [{id, name, start, end}] in Eastern time; ticket_types[].period_prices[id] = {non_member, member}
+    sponsor_perks: dict = {}  # {level_slug: {mode: default|off|price, price}}
+    donations_enabled: bool = True
+    fee_mode: str = "absorb"  # absorb (ICGD pays card fees) | voluntary (buyer may add a contribution)
+    fee_percent: float = 3.0
+    fee_fixed: float = 0.30
+    capacity: int = 0  # whole-event limit across ticket types; 0 = unlimited
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -384,6 +392,11 @@ class SiteSettings(BaseModel):
     classifieds_members_only: bool = False
     # Analytics
     google_analytics_id: Optional[str] = ""
+    # Checkout donation prompt
+    donation_title: str = "Support India Club"
+    donation_text: str = ("Your additional contribution helps ICGD continue bringing our community together "
+                          "through cultural, educational, and community programs.")
+    donation_presets: List[float] = [10, 25, 50, 100]
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -418,6 +431,9 @@ class SiteSettingsUpdate(BaseModel):
     honorary_contact_email: Optional[str] = None
     classifieds_members_only: Optional[bool] = None
     google_analytics_id: Optional[str] = None
+    donation_title: Optional[str] = None
+    donation_text: Optional[str] = None
+    donation_presets: Optional[List[float]] = None
 
 
 # ---------- Member (logged-in user) ----------
@@ -624,6 +640,10 @@ class SponsorshipPlan(BaseModel):
     benefits: List[str] = []
     active: bool = True
     order: int = 100
+    # Event ticket perk for people named on the sponsorship (events can switch it off or set a price)
+    perk_kind: str = "none"  # none | free | member | percent | fixed
+    perk_value: float = 0
+    named_people: int = 0  # how many people the sponsor can name
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 

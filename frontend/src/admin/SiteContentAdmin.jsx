@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { apiClient } from "../api/client";
 import { useToast } from "../hooks/use-toast";
-import { Loader2, Save, Home as HomeIcon, Info, Phone as PhoneIcon, Share2, Footprints, BarChart3 } from "lucide-react";
+import { Loader2, Save, Home as HomeIcon, Info, Phone as PhoneIcon, Share2, Footprints, BarChart3, Heart } from "lucide-react";
 
 const TABS = [
   { id: "general", label: "General", icon: Info },
@@ -12,6 +12,7 @@ const TABS = [
   { id: "social", label: "Social", icon: Share2 },
   { id: "footer", label: "Footer", icon: Footprints },
   { id: "community", label: "Community & Analytics", icon: BarChart3 },
+  { id: "donations", label: "Checkout Donations", icon: Heart },
 ];
 
 const FIELDS = {
@@ -60,7 +61,15 @@ const FIELDS = {
     { k: "classifieds_members_only", label: "Classifieds are members-only", type: "checkbox", hint: "Members must sign in to post a classified or see seller contact details." },
     { k: "google_analytics_id", label: "Google Analytics measurement ID", placeholder: "G-XXXXXXXXXX", hint: "Leave empty to turn analytics off." },
   ],
+  donations: [
+    { k: "donation_title", label: "Donation heading", placeholder: "Support India Club" },
+    { k: "donation_text", label: "Donation message", textarea: true, rows: 3 },
+    { k: "donation_presets", label: "Suggested amounts ($)", type: "amounts", placeholder: "10, 25, 50, 100",
+      hint: "Comma-separated. Buyers can also enter another amount or choose No donation (the default). Each event can switch the prompt off." },
+  ],
 };
+
+const parseAmounts = (v) => String(v || "").split(",").map((x) => Number(x.trim())).filter((n) => n > 0);
 
 export default function SiteContentAdmin() {
   const [tab, setTab] = useState("general");
@@ -81,7 +90,11 @@ export default function SiteContentAdmin() {
     try {
       // Send only fields in current tab to keep payloads small (and avoid stomping unrelated edits)
       const payload = {};
-      FIELDS[tab].forEach((f) => { payload[f.k] = f.type === "checkbox" ? !!settings[f.k] : (settings[f.k] ?? ""); });
+      FIELDS[tab].forEach((f) => {
+        payload[f.k] = f.type === "checkbox" ? !!settings[f.k]
+          : f.type === "amounts" ? parseAmounts(Array.isArray(settings[f.k]) ? settings[f.k].join(",") : settings[f.k])
+          : (settings[f.k] ?? "");
+      });
       const r = await apiClient.put("/admin/site-settings", payload);
       setSettings(r.data);
       toast({ title: "Saved", description: "Site content updated. Refresh public pages to see changes." });
@@ -124,7 +137,15 @@ export default function SiteContentAdmin() {
             <label className="block text-xs uppercase tracking-wider text-stone-500 font-medium mb-1.5">
               {f.label}
             </label>
-            {f.type === "checkbox" ? (
+            {f.type === "amounts" ? (
+              <input
+                value={Array.isArray(settings[f.k]) ? settings[f.k].join(", ") : (settings[f.k] ?? "")}
+                onChange={(e) => setSettings({ ...settings, [f.k]: e.target.value })}
+                placeholder={f.placeholder}
+                className="w-full px-3 py-2 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]"
+                data-testid={`field-${f.k}`}
+              />
+            ) : f.type === "checkbox" ? (
               <label className="inline-flex items-center gap-2 text-sm text-stone-700">
                 <input
                   type="checkbox"

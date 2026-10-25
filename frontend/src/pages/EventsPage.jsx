@@ -9,8 +9,25 @@ import { apiClient } from "../api/client";
 import EventsCalendar, { eventDate } from "../components/EventsCalendar";
 
 // Member / guest / sponsor price summary for the cheapest ticket type
-const priceSummary = (types) => {
+// The registration period on sale now (display only; the server enforces periods in Eastern time)
+const currentPeriod = (e) => {
+  const now = new Date();
+  return (e.price_periods || []).find((p) => (!p.start || new Date(p.start) <= now) && (!p.end || now < new Date(p.end)));
+};
+
+const priceSummary = (e) => {
+  const types = e.ticket_types;
   if (!types?.length) return null;
+  const period = currentPeriod(e);
+  if (period) {
+    const rows = types.map((t) => {
+      const pp = (t.period_prices || {})[period.id] || {};
+      const nm = Number(pp.non_member ?? t.price ?? 0);
+      return { nm, mem: Number(pp.member ?? nm) };
+    }).sort((x, y) => x.nm - y.nm);
+    const { nm, mem } = rows[0];
+    return `${period.name}: ${mem !== nm ? `Members $${mem.toFixed(0)} · Non-members $${nm.toFixed(0)}` : `$${nm.toFixed(0)}`}`;
+  }
   const t = [...types].sort((a, b) => Number(a.price || 0) - Number(b.price || 0))[0];
   const parts = [];
   if (t.member_price != null && Number(t.member_price) !== Number(t.price)) parts.push(`Member $${Number(t.member_price).toFixed(0)}`);
@@ -82,7 +99,7 @@ const EventCard = ({ e, onRegister, onBuyTickets }) => {
           {e.venue && <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {e.venue.split(",")[0]}</span>}
         </div>
         <p className="text-sm text-stone-600 leading-relaxed mb-3 flex-1 line-clamp-3">{e.description}</p>
-        {hasTickets && <div className="text-xs text-stone-600 mb-4" data-testid={`price-summary-${e.slug || e.id}`}>{priceSummary(e.ticket_types)}</div>}
+        {hasTickets && <div className="text-xs text-stone-600 mb-4" data-testid={`price-summary-${e.slug || e.id}`}>{priceSummary(e)}</div>}
         <div className="flex items-center justify-between">
           <span className={`text-xs font-cinzel tracking-wider ${(e.registration_open ?? e.registrationOpen) ? "text-green-700" : "text-stone-400"}`}>
             {(e.registration_open ?? e.registrationOpen) ? (hasTickets ? "TICKETS ON SALE" : "REGISTRATION OPEN") : "COMING SOON"}

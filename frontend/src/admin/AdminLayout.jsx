@@ -4,7 +4,7 @@ import { useAdminAuth } from "../api/AdminAuthContext";
 import {
   LogOut, LayoutDashboard, Calendar, Newspaper, Users, Image, Building2, Heart, FileText,
   Award, Trophy, Inbox, ClipboardList, DollarSign, Tag, GraduationCap, Settings, Menu, X, Gift, Edit3, Ticket,
-  Sparkles, Quote, BarChart3, UsersRound, ScanLine, Handshake, Store, FileSpreadsheet, ShieldCheck,
+  Sparkles, Quote, BarChart3, UsersRound, ScanLine, Handshake, Store, FileSpreadsheet, ShieldCheck, History,
 } from "lucide-react";
 
 const NAV_GROUPS = [
@@ -74,7 +74,10 @@ const NAV_GROUPS = [
   },
   {
     label: "Reports",
-    items: [{ to: "/admin/reports", area: "reports", label: "Reports & Exports", icon: FileSpreadsheet }],
+    items: [
+      { to: "/admin/reports", area: "reports", label: "Reports & Exports", icon: FileSpreadsheet },
+      { to: "/admin/audit-log", area: "reports", label: "Change History", icon: History },
+    ],
   },
   {
     label: "Account",

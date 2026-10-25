@@ -22,6 +22,9 @@ bcrypt==4.1.3
 google-auth==2.52.0
 requests==2.34.1
 
+# Time zones (registration periods run on America/New_York)
+tzdata==2026.5
+
 # PDFs and QR codes (tickets, invoices)
 reportlab==5.0.1
 qrcode==8.2

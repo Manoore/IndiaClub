@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Plus, Pencil, Trash2, X, Upload, Search, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
+import { PricePeriodsEditor, PeriodPriceGrid, SponsorPerksEditor, PromoCodesEditor, PricingPreview } from "./EventPricingEditors";
 import { apiClient } from "../api/client";
 import { useToast } from "../hooks/use-toast";
 
@@ -214,7 +215,13 @@ function EditModal({ isNew, initial, fields, title, onClose, onSave }) {
               ) : f.type === "plan-tiers" ? (
                 <PlanTiersEditor value={data[f.key] || []} onChange={(v) => updateField(f.key, v)} />
               ) : f.type === "ticket-types" ? (
-                <TicketTypesEditor value={data[f.key] || []} onChange={(v) => updateField(f.key, v)} />
+                <TicketTypesEditor value={data[f.key] || []} onChange={(v) => updateField(f.key, v)} periods={data.price_periods || []} />
+              ) : f.type === "price-periods" ? (
+                <PricePeriodsEditor value={data[f.key] || []} onChange={(v) => updateField(f.key, v)} />
+              ) : f.type === "sponsor-perks" ? (
+                <SponsorPerksEditor value={data[f.key] || {}} onChange={(v) => updateField(f.key, v)} />
+              ) : f.type === "pricing-preview" ? (
+                <PricingPreview data={data} />
               ) : f.type === "promo-codes" ? (
                 <PromoCodesEditor value={data[f.key] || []} onChange={(v) => updateField(f.key, v)} />
               ) : f.type === "datetime" ? (
@@ -260,7 +267,8 @@ function ArrayOfObjects({ value, onChange, schema = [] }) {
   );
 }
 
-function TicketTypesEditor({ value, onChange }) {
+function TicketTypesEditor({ value, onChange, periods = [] }) {
+  const hasPeriods = periods.length > 0;
   const genId = () => Math.random().toString(36).slice(2, 10);
   const add = () =>
     onChange([
@@ -299,14 +307,17 @@ function TicketTypesEditor({ value, onChange }) {
             <input placeholder="Short description (optional)" value={t.description || ""} onChange={(e) => update(i, "description", e.target.value)} className={cls} />
           </div>
 
+          {hasPeriods && <PeriodPriceGrid ticket={t} periods={periods} onChange={(pp) => update(i, "period_prices", pp)} />}
+
           {/* Pricing matrix */}
           <div className="mt-2 p-2 bg-white border border-stone-200 rounded">
-            <div className="text-[10px] font-cinzel tracking-wider text-stone-500 mb-1.5">PRICING (USD)</div>
+            <div className="text-[10px] font-cinzel tracking-wider text-stone-500 mb-1.5">{hasPeriods ? "OTHER PRICES (USD)" : "PRICING (USD)"}</div>
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
               <div>
-                <label className="text-[10px] text-stone-500">Regular *</label>
+                <label className="text-[10px] text-stone-500">{hasPeriods ? "Default (used where a period is blank)" : "Regular *"}</label>
                 <input type="number" min="0" step="0.01" value={t.price ?? 0} onChange={(e) => update(i, "price", Number(e.target.value))} className={cls} />
               </div>
+              {!hasPeriods && <>
               <div>
                 <label className="text-[10px] text-stone-500">Member (optional)</label>
                 <input type="number" min="0" step="0.01" value={t.member_price ?? ""} placeholder="Same as regular" onChange={(e) => update(i, "member_price", e.target.value === "" ? null : Number(e.target.value))} className={cls} />
@@ -315,17 +326,18 @@ function TicketTypesEditor({ value, onChange }) {
                 <label className="text-[10px] text-stone-500">Early Bird (optional)</label>
                 <input type="number" min="0" step="0.01" value={t.early_bird_price ?? ""} placeholder="No EB" onChange={(e) => update(i, "early_bird_price", e.target.value === "" ? null : Number(e.target.value))} className={cls} />
               </div>
+              </>}
               <div>
                 <label className="text-[10px] text-stone-500">Child 3–11 (optional)</label>
                 <input type="number" min="0" step="0.01" value={t.child_price ?? ""} placeholder="Adult price" onChange={(e) => update(i, "child_price", e.target.value === "" ? null : Number(e.target.value))} className={cls} data-testid={`ticket-child-price-${i}`} />
               </div>
-              <div>
+              {!hasPeriods && <div>
                 <label className="text-[10px] text-stone-500">Sponsor (optional)</label>
                 <input type="number" min="0" step="0.01" value={t.sponsor_price ?? ""} placeholder="No sponsor price" onChange={(e) => update(i, "sponsor_price", e.target.value === "" ? null : Number(e.target.value))} className={cls} data-testid={`ticket-sponsor-price-${i}`} />
-              </div>
+              </div>}
             </div>
             <div className="text-[10px] text-stone-400 mt-1.5">Child price applies to admin-verified family members aged 3–11. Verified kids under 3 are free. Sponsor price needs an active sponsor code at checkout — set 0 for “included with sponsorship”.</div>
-            {t.early_bird_price != null && (
+            {!hasPeriods && t.early_bird_price != null && (
               <div className="mt-2">
                 <label className="text-[10px] text-stone-500">Early Bird ends on</label>
                 <input type="datetime-local" value={t.early_bird_end_date ? String(t.early_bird_end_date).slice(0, 16) : ""} onChange={(e) => update(i, "early_bird_end_date", e.target.value || null)} className={cls} />
@@ -412,36 +424,6 @@ function PlanTiersEditor({ value, onChange }) {
     </div>
   );
 }
-
-function PromoCodesEditor({ value, onChange }) {
-  const add = () => onChange([...value, { code: "", kind: "percent", value: 10, max_uses: 0, used: 0 }]);
-  const update = (i, key, v) => onChange(value.map((it, idx) => (idx === i ? { ...it, [key]: v } : it)));
-  const remove = (i) => onChange(value.filter((_, idx) => idx !== i));
-  const cls = "px-2 py-1.5 border border-stone-200 rounded text-sm outline-none focus:border-[#8B1A1A] w-full";
-  return (
-    <div className="space-y-2">
-      {(value || []).map((p, i) => (
-        <div key={i} className="p-3 bg-stone-50 rounded border border-stone-200">
-          <div className="flex items-start gap-2">
-            <div className="flex-1 grid grid-cols-4 gap-2">
-              <input placeholder="CODE (e.g. DIWALI20)" value={p.code || ""} onChange={(e) => update(i, "code", e.target.value.toUpperCase())} className={cls} />
-              <select value={p.kind || "percent"} onChange={(e) => update(i, "kind", e.target.value)} className={cls}>
-                <option value="percent">% off</option>
-                <option value="amount">$ off</option>
-              </select>
-              <input type="number" min="0" step="0.01" placeholder="Value" value={p.value ?? 0} onChange={(e) => update(i, "value", Number(e.target.value))} className={cls} />
-              <input type="number" min="0" placeholder="Max uses (0=∞)" value={p.max_uses ?? 0} onChange={(e) => update(i, "max_uses", Number(e.target.value))} className={cls} />
-            </div>
-            <button type="button" onClick={() => remove(i)} className="p-1.5 text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
-          </div>
-          {p.max_uses > 0 && <div className="text-[11px] text-stone-500 mt-1">Used {p.used || 0} of {p.max_uses}</div>}
-        </div>
-      ))}
-      <button type="button" onClick={add} className="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-[#8B1A1A] rounded text-xs font-medium"><Plus className="w-3.5 h-3.5" /> Add Promo Code</button>
-    </div>
-  );
-}
-
 
 /**
  * Inline "Why isn't this event selling?" diagnostic shown in the event admin form.

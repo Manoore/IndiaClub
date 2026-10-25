@@ -41,6 +41,7 @@ AREA_PREFIXES = [
     ("/donations", ["finance"]),
     ("/exports", ["reports"]),
     ("/reports", ["reports"]),
+    ("/audit-log", ["reports"]),
     ("/stats", ["dashboard"]),
     ("/reminders", ["dashboard"]),
     ("/site-settings", ["content"]),

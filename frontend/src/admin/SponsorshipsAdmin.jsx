@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { apiClient, downloadFile } from "../api/client";
 import { useToast } from "../hooks/use-toast";
-import { Loader2, FileText, Trash2, RefreshCw } from "lucide-react";
+import { Loader2, FileText, Trash2, RefreshCw, Users } from "lucide-react";
 import { PaymentBadge, PaymentSelect } from "./PaymentStatus";
 
 const STATUS_FILTERS = ["all", "pending", "active", "expired", "renewed", "cancelled"];
@@ -11,11 +11,59 @@ const STATUS_CLS = {
 };
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—");
 
+// People named on a sponsorship get the level's event ticket perk (one ticket each per event)
+function NamedPeople({ row, limit, onSaved }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const [err, setErr] = useState("");
+  const people = row.named_people || [];
+  const start = () => { setText(people.map((p) => p.name).join("\n")); setErr(""); setOpen(true); };
+  const save = async () => {
+    try {
+      await apiClient.put(`/admin/sponsorships/${row.id}/named-people`, { people: text.split("\n").map((s) => s.trim()).filter(Boolean) });
+      setOpen(false);
+      onSaved();
+    } catch (e) {
+      setErr(e.response?.data?.detail || e.message);
+    }
+  };
+  if (open) {
+    return (
+      <div className="space-y-1.5 min-w-[12rem]">
+        <textarea rows={Math.max(2, limit)} value={text} onChange={(e) => setText(e.target.value)} placeholder="One name per line"
+          className="w-full px-2 py-1.5 border border-stone-200 rounded text-sm outline-none focus:border-[#8B1A1A]" data-testid={`sp-people-input-${row.id}`} />
+        <div className="text-[11px] text-stone-500">Up to {limit} {limit === 1 ? "person" : "people"}</div>
+        {err && <div className="text-xs text-rose-700" role="alert">{err}</div>}
+        <div className="flex gap-1.5">
+          <button onClick={save} className="px-2.5 py-1 bg-[#8B1A1A] text-amber-50 rounded text-xs" data-testid={`sp-people-save-${row.id}`}>Save</button>
+          <button onClick={() => setOpen(false)} className="px-2.5 py-1 border border-stone-200 rounded text-xs">Cancel</button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div>
+      {people.length === 0 ? <div className="text-xs text-stone-400">None named</div> : (
+        <ul className="text-xs text-stone-700 space-y-0.5">{people.map((p) => <li key={p.id}>{p.name}</li>)}</ul>
+      )}
+      {limit > 0 && (
+        <button onClick={start} className="mt-1 inline-flex items-center gap-1 text-xs text-[#8B1A1A] hover:underline" data-testid={`sp-people-edit-${row.id}`}>
+          <Users className="w-3.5 h-3.5" /> {people.length ? "Edit" : "Add names"} ({people.length}/{limit})
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function SponsorshipsAdmin() {
   const [rows, setRows] = useState(null);
   const [searchParams] = useSearchParams();
   const [filter, setFilter] = useState(STATUS_FILTERS.includes(searchParams.get("status")) ? searchParams.get("status") : "all");
+  const [limits, setLimits] = useState({});
   const { toast } = useToast();
+  useEffect(() => {
+    apiClient.get("/admin/sponsorship-plans").then((r) => setLimits(Object.fromEntries((r.data || []).map((p) => [p.slug, Number(p.named_people || 0)])))).catch(() => setLimits({}));
+  }, []);
 
   const load = async () => {
     setRows(null);
@@ -53,7 +101,7 @@ export default function SponsorshipsAdmin() {
           <h1 className="font-display text-2xl sm:text-3xl text-stone-900">Sponsorships</h1>
           <p className="text-stone-500 mt-1 text-sm">
             Sponsor signups from the website. Mark <strong>Paid</strong> when the check arrives — the sponsor goes live on the
-            website through Dec 31 and gets a sponsor code for sponsor ticket pricing.
+            website through Dec 31 and gets a sponsor code. People named on the sponsorship get its event ticket perk.
           </p>
         </div>
         <button onClick={load} className="inline-flex items-center gap-1.5 px-3 py-2 border border-stone-200 rounded-md text-sm hover:border-[#8B1A1A]">
@@ -86,6 +134,7 @@ export default function SponsorshipsAdmin() {
                 <th className="px-4 py-3">Payment</th>
                 <th className="px-4 py-3">Valid through</th>
                 <th className="px-4 py-3">Code</th>
+                <th className="px-4 py-3">Named people</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
@@ -110,6 +159,7 @@ export default function SponsorshipsAdmin() {
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">{fmtDate(r.end_date)}</td>
                   <td className="px-4 py-3 font-mono text-xs">{r.sponsor_code || "—"}</td>
+                  <td className="px-4 py-3"><NamedPeople row={r} limit={limits[r.plan] || 0} onSaved={load} /></td>
                   <td className="px-4 py-3 text-right whitespace-nowrap">
                     <PaymentSelect value={r.payment_status} onChange={(v) => setPayment(r, v)} testid={`sp-pay-${r.id}`} />
                     <button onClick={() => downloadFile(`/admin/sponsorships/${r.id}/invoice`, `invoice-${r.company}.pdf`)}

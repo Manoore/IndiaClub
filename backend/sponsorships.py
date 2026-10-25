@@ -4,7 +4,7 @@ import base64
 import io
 import secrets
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
@@ -13,6 +13,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 
 from admin_access import admin_guard
+from audit import audit
 from database import db
 from membership_rules import year_end
 from models import gen_id
@@ -45,6 +46,8 @@ DEFAULT_PLANS = [
                   "One-month ad on all event flyers and Samachar", "Ad on the ICGD Facebook page during 1 event",
                   "5% discount on Namaskar ads", "Business card display at 1 ICGD event"]},
 ]
+# Default event ticket perks per level (admins change these on Sponsorship Plans)
+DEFAULT_PERKS = {"platinum": ("free", 0, 4), "gold": ("member", 0, 2), "silver": ("member", 0, 2), "bronze": ("member", 0, 2)}
 # Placeholder prices shipped before the levels were matched to the club's site
 OLD_DEFAULT_PRICES = {"platinum": 5000, "gold": 2500, "silver": 1000, "bronze": 500}
 
@@ -65,6 +68,9 @@ async def seed_sponsorship_plans():
     if await db.sponsorship_plans.count_documents({}) == 0:
         now = datetime.utcnow()
         await db.sponsorship_plans.insert_many([{**p, "id": gen_id(), "active": True, "created_at": now} for p in DEFAULT_PLANS])
+    for slug, (kind, value, people) in DEFAULT_PERKS.items():
+        await db.sponsorship_plans.update_one({"slug": slug, "perk_kind": {"$exists": False}},
+                                              {"$set": {"perk_kind": kind, "perk_value": value, "named_people": people}})
     # Requirements use Platinum as the top tier (previously "Diamond")
     await db.sponsors.update_many({"tier": "Diamond"}, {"$set": {"tier": "Platinum"}})
     # Replace the old placeholder levels with the club's published ones, unless an admin already edited them
@@ -119,7 +125,10 @@ async def validate_code(code: str):
     s = await valid_sponsor(code)
     if not s:
         raise HTTPException(404, "Sponsor code is not valid or the sponsorship has expired")
-    return {"code": s["sponsor_code"], "company": s.get("company"), "tier": s.get("tier")}
+    plan = await db.sponsorship_plans.find_one({"slug": s.get("plan")}) or {}
+    return {"code": s["sponsor_code"], "company": s.get("company"), "tier": s.get("tier"),
+            "people": [{"id": p["id"], "name": p["name"]} for p in s.get("named_people") or []],
+            "perk_kind": plan.get("perk_kind") or "none", "perk_value": plan.get("perk_value") or 0}
 
 
 @public_router.post("/sponsorships/logo", dependencies=[Depends(spam_guard)])
@@ -163,6 +172,7 @@ async def create_sponsorship(body: SponsorshipIn):
         "status": "pending",
         "is_renewal": bool(previous), "previous_id": previous["id"] if previous else None,
         "sponsor_code": (previous or {}).get("sponsor_code"),
+        "named_people": (previous or {}).get("named_people") or [],
         "start_date": None, "end_date": None,
         "created_at": now, "updated_at": now,
     }
@@ -222,6 +232,29 @@ async def admin_set_payment(sid: str, body: PaymentUpdate, request: Request):
         update["status"] = "cancelled"
         await db.sponsors.update_many({"sponsorship_id": sid}, {"$set": {"active": False}})
     await db.sponsorships.update_one({"id": sid}, {"$set": update})
+    return _clean(await db.sponsorships.find_one({"id": sid}))
+
+
+class NamedPeople(BaseModel):
+    people: List[str] = []
+
+
+@admin_router.put("/sponsorships/{sid}/named-people")
+async def admin_set_named_people(sid: str, body: NamedPeople, request: Request):
+    """People named on a sponsorship get its event ticket perk (one ticket each per event)."""
+    s = await db.sponsorships.find_one({"id": sid})
+    if not s:
+        raise HTTPException(404, "Not found")
+    plan = await db.sponsorship_plans.find_one({"slug": s.get("plan")}) or {}
+    names = [n.strip()[:120] for n in body.people if n and n.strip()]
+    limit = int(plan.get("named_people") or 0)
+    if len(names) > limit:
+        raise HTTPException(400, f"{plan.get('name', 'This')} sponsorships can name up to {limit} people")
+    existing = {p["name"].lower(): p["id"] for p in s.get("named_people") or []}
+    people = [{"id": existing.get(n.lower()) or gen_id(), "name": n} for n in names]
+    await db.sponsorships.update_one({"id": sid}, {"$set": {"named_people": people, "updated_at": datetime.utcnow()}})
+    await audit(request.state.admin_user["username"], "sponsorship", sid, "named_people",
+                before={"named_people": [p["name"] for p in s.get("named_people") or []]}, after={"named_people": names})
     return _clean(await db.sponsorships.find_one({"id": sid}))
 
 

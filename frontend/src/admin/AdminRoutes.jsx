@@ -12,6 +12,7 @@ import FamilyApprovalsAdmin from "./FamilyApprovalsAdmin";
 import CheckInAdmin from "./CheckInAdmin";
 import SponsorshipsAdmin from "./SponsorshipsAdmin";
 import ReportsAdmin from "./ReportsAdmin";
+import AuditLogAdmin from "./AuditLogAdmin";
 import AdminUsersAdmin from "./AdminUsersAdmin";
 import MembershipPromotionsAdmin from "./MembershipPromotionsAdmin";
 import {
@@ -46,6 +47,7 @@ export default function AdminRoutes() {
       <Route path="sponsorship-plans" element={<Protected><SponsorshipPlansAdmin /></Protected>} />
       <Route path="businesses" element={<Protected><BusinessesAdmin /></Protected>} />
       <Route path="reports" element={<Protected><ReportsAdmin /></Protected>} />
+      <Route path="audit-log" element={<Protected><AuditLogAdmin /></Protected>} />
       <Route path="users" element={<Protected><AdminUsersAdmin /></Protected>} />
       <Route path="membership-promotions" element={<Protected><MembershipPromotionsAdmin /></Protected>} />
       <Route path="members" element={<Protected><MembersAdmin /></Protected>} />

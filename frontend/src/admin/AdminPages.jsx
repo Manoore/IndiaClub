@@ -3,9 +3,25 @@ import CrudPage from "./CrudPage";
 import { apiClient } from "../api/client";
 import { useToast } from "../hooks/use-toast";
 import { PaymentBadge, PaymentSelect } from "./PaymentStatus";
+import { Copy } from "lucide-react";
+
+const DuplicateEventButton = ({ row, reload }) => {
+  const { toast } = useToast();
+  const dup = async () => {
+    try {
+      const r = await apiClient.post(`/admin/events/${row.id}/duplicate`);
+      toast({ title: "Event copied", description: `${r.data.title} — registration is closed until you open it.` });
+      reload();
+    } catch (e) {
+      toast({ title: "Copy failed", description: e.response?.data?.detail || e.message });
+    }
+  };
+  return <button onClick={dup} className="p-1.5 text-stone-500 hover:text-[#8B1A1A]" title="Duplicate event with its pricing" data-testid={`event-duplicate-${row.id}`}><Copy className="w-4 h-4" /></button>;
+};
 
 export const EventsAdmin = () => (
   <CrudPage title="Events" description="Manage upcoming and past events." endpoint="events"
+    extraActions={(row, reload) => <DuplicateEventButton row={row} reload={reload} />}
     columns={[
       { key: "image_url", label: "Image", render: (r) => r.image_url ? <img src={r.image_url} alt="" className="w-14 h-14 rounded object-cover" /> : <div className="w-14 h-14 bg-stone-100 rounded" /> },
       { key: "title", label: "Title" },
@@ -30,8 +46,18 @@ export const EventsAdmin = () => (
       { key: "description", label: "Short Description", type: "textarea", rows: 2 },
       { key: "long_description", label: "Long Description", type: "textarea", rows: 5 },
       { key: "highlights", label: "Highlights", type: "tags", hint: "One bullet per line" },
-      { key: "ticket_types", label: "Ticket Types", type: "ticket-types", hint: "Each tier supports regular / member / early-bird prices. Buyers automatically get the cheapest applicable price at checkout." },
-      { key: "promo_codes", label: "Promo Codes", type: "promo-codes", hint: "Optional discount codes — buyers enter at checkout. Percent (e.g. 20 = 20% off) or fixed amount (e.g. $10 off)." },
+      { key: "price_periods", label: "Registration Periods", type: "price-periods" },
+      { key: "ticket_types", label: "Ticket Types", type: "ticket-types", hint: "With registration periods, set non-member and member prices for each period. Without periods, use regular / member / early-bird prices." },
+      { key: "capacity", label: "Event capacity", type: "number", default: 0, hint: "Total tickets across all types (0 = no limit)" },
+      { key: "sponsor_perks", label: "Sponsor perks at this event", type: "sponsor-perks" },
+      { key: "promo_codes", label: "Promo Codes", type: "promo-codes" },
+      { key: "donations_enabled", label: "Ask for a donation at checkout", type: "checkbox", default: true, hint: "Show the Support India Club donation choices" },
+      { key: "fee_mode", label: "Card processing fees", type: "select", default: "absorb", placeholder: "ICGD covers card fees",
+        options: [{ label: "ICGD covers card fees", value: "absorb" }, { label: "Offer buyers an optional fee contribution", value: "voluntary" }],
+        hint: "Mandatory surcharges are not offered: they need card-network registration and can't apply to debit or prepaid cards." },
+      { key: "fee_percent", label: "Fee contribution — percent", type: "number", default: 3, hint: "Used only for the optional contribution" },
+      { key: "fee_fixed", label: "Fee contribution — fixed ($)", type: "number", default: 0.3 },
+      { key: "_preview", label: "Price preview", type: "pricing-preview" },
       { key: "registration_open", label: "Registration Open", type: "checkbox", hint: "Allow public registration" },
       { key: "featured", label: "Featured", type: "checkbox", hint: "Show on homepage" },
     ]} />
@@ -357,11 +383,19 @@ export const DonationsAdmin = () => {
   );
 };
 
+const SponsorPerkSummary = ({ plan }) => {
+  const kind = plan.perk_kind || "none";
+  if (kind === "none") return <span className="text-stone-400 text-xs">None</span>;
+  const text = { free: "Free entry", member: "Member price", percent: `${plan.perk_value}% off`, fixed: `$${plan.perk_value} ticket` }[kind];
+  return <span className="text-xs">{text} · {plan.named_people || 0} people</span>;
+};
+
 export const SponsorshipPlansAdmin = () => (
   <CrudPage title="Sponsorship Plans" description="Annual sponsorship levels and prices shown on the Become a Sponsor page." endpoint="sponsorship-plans"
     columns={[
       { key: "name", label: "Level" },
       { key: "price", label: "Price", render: (r) => `$${Number(r.price || 0).toLocaleString()}` },
+      { key: "perk", label: "Ticket perk", render: (r) => <SponsorPerkSummary plan={r} /> },
       { key: "order", label: "Order" },
       { key: "active", label: "Active", render: (r) => r.active ? "✓" : "✕" },
     ]}
@@ -370,6 +404,12 @@ export const SponsorshipPlansAdmin = () => (
       { key: "slug", label: "Slug", type: "text", required: true, placeholder: "platinum" },
       { key: "price", label: "Annual price ($)", type: "number", required: true },
       { key: "benefits", label: "Benefits", type: "tags", hint: "One benefit per line" },
+      { key: "perk_kind", label: "Event ticket perk", type: "select", default: "none", placeholder: "No ticket perk",
+        options: [{ label: "No ticket perk", value: "none" }, { label: "Free entry", value: "free" }, { label: "Member price", value: "member" },
+          { label: "Percent off", value: "percent" }, { label: "Fixed price", value: "fixed" }],
+        hint: "Applies to people named on the sponsorship, at every event unless the event restricts it" },
+      { key: "perk_value", label: "Perk amount", type: "number", default: 0, hint: "Percent off (e.g. 25) or fixed ticket price ($). Ignored for free entry and member price." },
+      { key: "named_people", label: "Named people covered", type: "number", default: 0, hint: "How many people the sponsor can name to get the perk" },
       { key: "order", label: "Display order", type: "number", default: 100 },
       { key: "active", label: "Active", type: "checkbox", default: true },
     ]} />

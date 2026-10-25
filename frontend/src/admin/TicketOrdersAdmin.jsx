@@ -1,11 +1,127 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { apiClient, downloadFile } from "../api/client";
 import { useToast } from "../hooks/use-toast";
-import { CheckCircle2, Trash2, Loader2, RefreshCw, Search, Download } from "lucide-react";
+import { CheckCircle2, Trash2, Loader2, RefreshCw, Search, Download, ChevronDown, ChevronRight, Gift, X } from "lucide-react";
 import { PAYMENT_STATUSES, PaymentBadge, PaymentSelect } from "./PaymentStatus";
 
 const fmtMoney = (n) => `$${Number(n || 0).toFixed(2)}`;
 const fmtDate = (iso) => { try { return new Date(iso).toLocaleString(); } catch { return iso; } };
+
+const CATEGORY_LABEL = { member: "Member", non_member: "Non-member", sponsor: "Sponsor", complimentary: "Complimentary" };
+
+// Itemized order: each ticket with why it got its price, plus membership, donation and fee lines
+function OrderDetails({ order, onChanged }) {
+  const { toast } = useToast();
+  const [editing, setEditing] = useState(null);
+  const [price, setPrice] = useState("");
+  const [reason, setReason] = useState("");
+  const save = async (code) => {
+    try {
+      await apiClient.post(`/admin/ticket-orders/${order.id}/adjust`, { ticket_code: code, price: Number(price), reason });
+      toast({ title: "Price adjusted", description: "Recorded in the change history." });
+      setEditing(null);
+      onChanged();
+    } catch (e) {
+      toast({ title: "Adjustment failed", description: e.response?.data?.detail || e.message });
+    }
+  };
+  const mp = order.membership_purchase;
+  return (
+    <div className="grid gap-4 md:grid-cols-[1fr_16rem] text-sm" data-testid={`order-details-${order.id}`}>
+      <div className="space-y-1">
+        <div className="text-xs font-cinzel tracking-wider text-stone-500">TICKETS{order.period ? ` · ${order.period.name}` : ""}</div>
+        {(order.tickets || []).map((t) => (
+          <div key={t.code} className="flex flex-wrap items-center gap-2 py-1 border-b border-stone-100 last:border-0">
+            <span className="font-medium">{t.attendee_name}</span>
+            <span className="text-xs text-stone-500">{t.ticket_type_name}</span>
+            {t.category && <span className="text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-700">{CATEGORY_LABEL[t.category] || t.category}</span>}
+            {t.reason && <span className="text-xs text-stone-500">{t.reason}</span>}
+            <span className="ml-auto tabular-nums">{fmtMoney(t.price)}{t.adjusted_from != null && <span className="text-xs text-stone-400 line-through ml-1">{fmtMoney(t.adjusted_from)}</span>}</span>
+            {editing === t.code ? (
+              <span className="flex flex-wrap items-center gap-1.5 w-full">
+                <input type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} className="w-24 px-2 py-1 border border-stone-200 rounded text-sm" placeholder="New price" data-testid={`adjust-price-${t.code}`} />
+                <input value={reason} onChange={(e) => setReason(e.target.value)} className="flex-1 min-w-[10rem] px-2 py-1 border border-stone-200 rounded text-sm" placeholder="Reason (required)" data-testid={`adjust-reason-${t.code}`} />
+                <button onClick={() => save(t.code)} disabled={price === "" || reason.trim().length < 3} className="px-2.5 py-1 bg-[#8B1A1A] text-amber-50 rounded text-xs disabled:opacity-50" data-testid={`adjust-save-${t.code}`}>Save</button>
+                <button onClick={() => setEditing(null)} className="px-2.5 py-1 border border-stone-200 rounded text-xs">Cancel</button>
+              </span>
+            ) : (
+              <button onClick={() => { setEditing(t.code); setPrice(String(t.price ?? "")); setReason(""); }} className="text-xs text-[#8B1A1A] hover:underline" data-testid={`adjust-${t.code}`}>Adjust</button>
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="bg-stone-50 border border-stone-200 rounded-lg p-3 space-y-1 self-start">
+        <Row label="Tickets" value={order.subtotal} />
+        {Number(order.discount) > 0 && <Row label={`Discount${order.promo_code ? ` (${order.promo_code})` : ""}`} value={-order.discount} />}
+        {mp && <Row label={`${mp.name} (${mp.kind === "renewal" ? "renewal" : "new"})${mp.applied ? " ✓" : ""}`} value={mp.price} />}
+        {order.donation && <Row label={`Donation${order.donation.anonymous ? " (anonymous)" : ""}`} value={order.donation.amount} />}
+        {Number(order.fee_contribution) > 0 && <Row label="Fee contribution" value={order.fee_contribution} />}
+        <div className="border-t border-stone-200 pt-1"><Row label="Total" value={order.total} bold /></div>
+        {order.complimentary && <div className="text-xs text-stone-500 pt-1">Complimentary: {order.comp_reason} ({order.comp_by})</div>}
+        {mp && !mp.applied && <div className="text-xs text-amber-700 pt-1">Membership activates when this order is marked Paid.</div>}
+      </div>
+    </div>
+  );
+}
+
+const Row = ({ label, value, bold }) => (
+  <div className={`flex justify-between gap-3 ${bold ? "font-medium text-[#8B1A1A]" : "text-stone-700"}`}>
+    <span>{label}</span><span className="tabular-nums">{Number(value) < 0 ? `−${fmtMoney(-value)}` : fmtMoney(value)}</span>
+  </div>
+);
+
+function CompDialog({ events, onClose, onDone }) {
+  const { toast } = useToast();
+  const [f, setF] = useState({ event_id: events[0]?.id || "", ticket_type_id: "", names: "", buyer_name: "", buyer_email: "", reason: "" });
+  const [busy, setBusy] = useState(false);
+  const ev = events.find((e) => e.id === f.event_id);
+  const types = ev?.ticket_types || [];
+  const submit = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const tid = f.ticket_type_id || types[0]?.id;
+      const attendees = f.names.split("\n").map((n) => n.trim()).filter(Boolean).map((name) => ({ ticket_type_id: tid, name }));
+      await apiClient.post(`/admin/events/${f.event_id}/comp-tickets`, { attendees, buyer_name: f.buyer_name, buyer_email: f.buyer_email, reason: f.reason });
+      toast({ title: `${attendees.length} complimentary ticket${attendees.length > 1 ? "s" : ""} issued` });
+      onDone();
+    } catch (err) {
+      toast({ title: "Couldn't issue tickets", description: err.response?.data?.detail || err.message });
+    } finally {
+      setBusy(false);
+    }
+  };
+  const inp = "w-full px-3 py-2 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A] text-sm";
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={onClose}>
+      <form onSubmit={submit} onClick={(e) => e.stopPropagation()} className="bg-white rounded-xl max-w-md w-full p-5 space-y-3" data-testid="comp-dialog">
+        <div className="flex items-center justify-between">
+          <h2 className="font-display text-xl text-[#8B1A1A]">Complimentary tickets</h2>
+          <button type="button" onClick={onClose} className="p-1.5 hover:bg-stone-100 rounded" aria-label="Close"><X className="w-4 h-4" /></button>
+        </div>
+        <p className="text-xs text-stone-500">Issues real $0 tickets with QR codes. They count toward capacity, and the reason is kept on record.</p>
+        <select required value={f.event_id} onChange={(e) => setF({ ...f, event_id: e.target.value, ticket_type_id: "" })} className={inp}>
+          {events.map((e) => <option key={e.id} value={e.id}>{e.title}</option>)}
+        </select>
+        {types.length > 1 && (
+          <select value={f.ticket_type_id} onChange={(e) => setF({ ...f, ticket_type_id: e.target.value })} className={inp}>
+            {types.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        )}
+        <textarea required rows={3} value={f.names} onChange={(e) => setF({ ...f, names: e.target.value })} placeholder="Attendee names, one per line" className={inp} data-testid="comp-names" />
+        <div className="grid grid-cols-2 gap-2">
+          <input required value={f.buyer_name} onChange={(e) => setF({ ...f, buyer_name: e.target.value })} placeholder="Contact name" className={inp} data-testid="comp-buyer-name" />
+          <input required type="email" value={f.buyer_email} onChange={(e) => setF({ ...f, buyer_email: e.target.value })} placeholder="Contact email" className={inp} data-testid="comp-buyer-email" />
+        </div>
+        <input required minLength={3} value={f.reason} onChange={(e) => setF({ ...f, reason: e.target.value })} placeholder="Reason (e.g. Chief guest, volunteer)" className={inp} data-testid="comp-reason" />
+        <button type="submit" disabled={busy || !types.length} className="w-full py-2.5 bg-[#8B1A1A] text-amber-50 rounded-md font-medium disabled:opacity-50 flex items-center justify-center gap-2" data-testid="comp-submit">
+          {busy && <Loader2 className="w-4 h-4 animate-spin" />} Issue tickets
+        </button>
+        {!types.length && <p className="text-xs text-rose-700">This event has no ticket types yet.</p>}
+      </form>
+    </div>
+  );
+}
 
 export default function TicketOrdersAdmin() {
   const [orders, setOrders] = useState([]);
@@ -15,6 +131,8 @@ export default function TicketOrdersAdmin() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
+  const [open, setOpen] = useState(null);
+  const [comp, setComp] = useState(false);
   const { toast } = useToast();
 
   const load = useCallback(async () => {
@@ -75,6 +193,9 @@ export default function TicketOrdersAdmin() {
           <h1 className="font-display text-2xl sm:text-3xl text-stone-900">Ticket Orders</h1>
           <p className="text-stone-500 mt-1 text-sm">All event ticket purchases from the public site.</p>
         </div>
+        <button onClick={() => setComp(true)} className="ml-auto self-center inline-flex items-center gap-1.5 px-3 py-2 border border-[#8B1A1A] text-[#8B1A1A] hover:bg-[#8B1A1A] hover:text-amber-50 rounded-md text-sm" data-testid="comp-open">
+          <Gift className="w-4 h-4" /> Complimentary tickets
+        </button>
         <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-2 text-sm">
           <div className="text-stone-500 text-xs">Confirmed revenue</div>
           <div className="font-display text-xl text-emerald-800" data-testid="total-revenue">{fmtMoney(totalRevenue)}</div>
@@ -118,9 +239,12 @@ export default function TicketOrdersAdmin() {
               </thead>
               <tbody className="divide-y divide-stone-100">
                 {filtered.map((o) => (
-                  <tr key={o.id} className="hover:bg-stone-50">
+                  <React.Fragment key={o.id}>
+                  <tr className="hover:bg-stone-50">
                     <td className="px-4 py-3">
-                      <div className="font-medium">{o.buyer_name}</div>
+                      <button onClick={() => setOpen(open === o.id ? null : o.id)} className="font-medium flex items-center gap-1 text-left hover:text-[#8B1A1A]" aria-expanded={open === o.id} data-testid={`order-toggle-${o.id}`}>
+                        {open === o.id ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}{o.buyer_name}
+                      </button>
                       <div className="text-xs text-stone-500">{o.buyer_email}</div>
                     </td>
                     <td className="px-4 py-3">{o.event_title}</td>
@@ -134,7 +258,14 @@ export default function TicketOrdersAdmin() {
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-3 font-medium">{fmtMoney(o.total)}</td>
+                    <td className="px-4 py-3 font-medium">
+                      {fmtMoney(o.total)}
+                      {(o.membership_purchase || o.donation || Number(o.fee_contribution) > 0) && (
+                        <div className="text-[11px] text-stone-500 font-normal">
+                          {[o.membership_purchase && "membership", o.donation && "donation", Number(o.fee_contribution) > 0 && "fee"].filter(Boolean).join(" + ")} included
+                        </div>
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       <PaymentBadge status={o.payment_status} />
                       {o.sponsor_company && <div className="text-[11px] text-stone-500 mt-1">Sponsor: {o.sponsor_company}</div>}
@@ -155,12 +286,19 @@ export default function TicketOrdersAdmin() {
                       </div>
                     </td>
                   </tr>
+                  {open === o.id && (
+                    <tr className="bg-stone-50/60">
+                      <td colSpan={7} className="px-4 py-4"><OrderDetails order={o} onChanged={load} /></td>
+                    </tr>
+                  )}
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>
           </div>
         )}
       </div>
+      {comp && <CompDialog events={events} onClose={() => setComp(false)} onDone={() => { setComp(false); load(); }} />}
     </div>
   );
 }

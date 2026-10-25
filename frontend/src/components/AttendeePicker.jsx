@@ -20,23 +20,27 @@ const BAND_BADGE = {
 let keySeq = 0;
 const newKey = () => `a${++keySeq}`;
 
-export default function AttendeePicker({ types, family, attendees, setAttendees, priceFor, selfName, isAuthed, eventDate }) {
+export default function AttendeePicker({ types, family, attendees, setAttendees, priceFor, reasonFor, selfName, isAuthed, eventDate, sponsorPeople = [], sponsorLabel = "Sponsor" }) {
   const [guest, setGuest] = useState("");
   const defaultType = types[0]?.id;
   const has = (pred) => attendees.some(pred);
 
   const toggleSelf = () => {
     if (has((a) => a.self)) setAttendees(attendees.filter((a) => !a.self));
-    else setAttendees([{ key: newKey(), self: true, name: selfName, ticket_type_id: defaultType, band: "adult" }, ...attendees]);
+    else setAttendees([{ key: newKey(), self: true, kind: "self", name: selfName, ticket_type_id: defaultType, band: "adult" }, ...attendees]);
   };
   const toggleFamily = (f) => {
     if (has((a) => a.family_member_id === f.id)) setAttendees(attendees.filter((a) => a.family_member_id !== f.id));
-    else setAttendees([...attendees, { key: newKey(), family_member_id: f.id, name: f.name, ticket_type_id: defaultType, band: bandOf(ageAt(f.date_of_birth, eventDate)) }]);
+    else setAttendees([...attendees, { key: newKey(), kind: "family", family_member_id: f.id, name: f.name, ticket_type_id: defaultType, band: bandOf(ageAt(f.date_of_birth, eventDate)) }]);
+  };
+  const toggleSponsor = (p) => {
+    if (has((a) => a.sponsor_person_id === p.id)) setAttendees(attendees.filter((a) => a.sponsor_person_id !== p.id));
+    else setAttendees([...attendees, { key: newKey(), kind: "sponsor", sponsor_person_id: p.id, name: p.name, ticket_type_id: defaultType, band: "adult" }]);
   };
   const addGuest = () => {
     const n = guest.trim();
     if (!n) return;
-    setAttendees([...attendees, { key: newKey(), name: n, ticket_type_id: defaultType, band: "adult" }]);
+    setAttendees([...attendees, { key: newKey(), kind: "guest", name: n, ticket_type_id: defaultType, band: "adult" }]);
     setGuest("");
   };
   const setType = (key, tid) => setAttendees(attendees.map((a) => (a.key === key ? { ...a, ticket_type_id: tid } : a)));
@@ -70,6 +74,17 @@ export default function AttendeePicker({ types, family, attendees, setAttendees,
         </div>
       )}
 
+      {sponsorPeople.length > 0 && (
+        <div data-testid="sponsor-people">
+          <div className="text-xs text-stone-500 mb-1.5">Named on the {sponsorLabel} sponsorship</div>
+          <div className="flex flex-wrap gap-2">
+            {sponsorPeople.map((p) => (
+              <Chip key={p.id} on={has((a) => a.sponsor_person_id === p.id)} onClick={() => toggleSponsor(p)} testid={`attendee-chip-sponsor-${p.id}`}>{p.name}</Chip>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex gap-2">
         <input value={guest} onChange={(e) => setGuest(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addGuest(); } }} placeholder="Guest full name" className="flex-1 px-3 py-2 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A] text-sm" data-testid="guest-name-input" />
         <button type="button" onClick={addGuest} disabled={!guest.trim()} className="px-3 py-2 border border-[#8B1A1A] text-[#8B1A1A] hover:bg-[#8B1A1A] hover:text-amber-50 disabled:opacity-40 rounded-md text-sm flex items-center gap-1.5 transition-colors" data-testid="add-guest-btn">
@@ -86,13 +101,14 @@ export default function AttendeePicker({ types, family, attendees, setAttendees,
                   {a.band === "infant" && <Baby className="w-3.5 h-3.5 text-sky-600" />}{a.name}
                   {BAND_BADGE[a.band] && <span className={`px-1.5 py-0.5 rounded text-[9px] font-cinzel tracking-wider ${BAND_BADGE[a.band].c}`}>{BAND_BADGE[a.band].l}</span>}
                 </div>
+                {reasonFor && reasonFor(a) && <div className="text-[11px] text-stone-500 truncate" data-testid={`attendee-reason-${idx}`}>{reasonFor(a)}</div>}
               </div>
               {types.length > 1 && (
                 <select value={a.ticket_type_id} onChange={(e) => setType(a.key, e.target.value)} className="px-2 py-1 border border-stone-200 rounded text-xs bg-white max-w-[9rem]" data-testid={`attendee-type-${idx}`}>
                   {types.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                 </select>
               )}
-              <div className="w-16 text-right text-sm text-[#8B1A1A] font-display" data-testid={`attendee-price-${idx}`}>${priceFor(a).toFixed(2)}</div>
+              <div className="w-16 text-right text-sm text-[#8B1A1A] font-display" data-testid={`attendee-price-${idx}`}>{priceFor(a) == null ? "…" : `$${priceFor(a).toFixed(2)}`}</div>
               <button type="button" onClick={() => remove(a.key)} className="p-1 text-stone-400 hover:text-rose-600" data-testid={`attendee-remove-${idx}`}><X className="w-4 h-4" /></button>
             </div>
           ))}

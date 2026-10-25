@@ -47,6 +47,9 @@ from sponsorships import (
 from reports import router as reports_router
 from community import public_router as community_public_router, admin_router as community_admin_router
 from spam import spam_guard, check_login_allowed, record_login_failure, clear_login_failures
+from checkout import (public_router as checkout_public_router, admin_router as checkout_admin_router,
+                      apply_order_payment, validate_event_pricing)
+from audit import audit
 
 
 app = FastAPI(title="India Club of Greater Dayton API")
@@ -649,213 +652,6 @@ def _parse_dt(d):
         return None
 
 
-def _effective_ticket_price(t: dict, is_active_member: bool, now: datetime, is_sponsor: bool = False) -> float:
-    """Pick the right price for a ticket given sponsor/member status + early-bird window.
-    Precedence: sponsor price (valid sponsor code) → early-bird (if active) → member price → regular price.
-    """
-    if is_sponsor and t.get("sponsor_price") is not None:
-        return float(t["sponsor_price"])
-    eb_end = _parse_dt(t.get("early_bird_end_date"))
-    eb_price = t.get("early_bird_price")
-    if eb_price is not None and eb_end and now <= eb_end:
-        return float(eb_price)
-    mem_price = t.get("member_price")
-    if is_active_member and mem_price is not None:
-        return float(mem_price)
-    return float(t.get("price") or 0)
-
-
-@api.post("/events/{event_id}/purchase-tickets")
-async def purchase_tickets(event_id: str, body: TicketPurchaseRequest, authorization: Optional[str] = Header(None)):
-    event = await db.events.find_one({"id": event_id})
-    if not event:
-        raise HTTPException(404, "Event not found")
-    types = event.get("ticket_types") or []
-    if not types:
-        raise HTTPException(400, "This event does not have tickets configured")
-
-    # Optional member token (member-only types require this)
-    member = None
-    if authorization and authorization.startswith("Bearer "):
-        from auth import decode_token
-        mid = decode_token(authorization.split(" ", 1)[1].strip(), expected_typ="member")
-        if mid:
-            member = await db.members.find_one({"id": mid})
-    is_active_member = bool(member and paid_member(member.get("membership")))
-    sponsor = None
-    if body.sponsor_code:
-        sponsor = await valid_sponsor(body.sponsor_code)
-        if not sponsor:
-            raise HTTPException(400, "Sponsor code is not valid or the sponsorship has expired")
-
-    types_by_id = {t["id"]: t for t in types}
-    now = datetime.utcnow()
-    event_dt = _parse_dt(event.get("start_date")) or now
-    lines = []  # one entry per attendee/ticket
-    if body.attendees:
-        fam_ids = [a.get("family_member_id") for a in body.attendees if a.get("family_member_id")]
-        fams = {}
-        if fam_ids:
-            if not member:
-                raise HTTPException(401, "Sign in to book tickets for family members")
-            if not family_enabled(member.get("membership")):
-                raise HTTPException(403, "Booking for family members needs a Family or Business membership")
-            fams = {f["id"]: f for f in await db.family_members.find({"id": {"$in": fam_ids}, "member_id": member["id"]}).to_list(100)}
-        seen = set()
-        for a in body.attendees:
-            fid = a.get("family_member_id")
-            age = None
-            if fid:
-                if fid in seen:
-                    raise HTTPException(400, "A family member can only be added once per order")
-                seen.add(fid)
-                f = fams.get(fid)
-                if not f:
-                    raise HTTPException(400, "Family member not found in your family group")
-                if f.get("status") != "approved":
-                    raise HTTPException(400, f"{f['name']} is not verified yet — an admin must approve them first")
-                name = f["name"]
-                age = age_on(f.get("date_of_birth"), event_dt)
-            else:
-                name = (a.get("name") or "").strip()
-                if not name:
-                    raise HTTPException(400, "Each attendee needs a name")
-            lines.append({"ticket_type_id": a.get("ticket_type_id"), "attendee_name": name[:120], "family_member_id": fid, "age": age})
-    else:
-        for item in body.items:
-            qty = int(item.get("quantity") or 0)
-            for _ in range(max(0, qty)):
-                n = len(lines)
-                lines.append({
-                    "ticket_type_id": item.get("ticket_type_id"),
-                    "attendee_name": body.buyer_name if n == 0 else f"{body.buyer_name} – Guest {n}",
-                    "family_member_id": None, "age": None,
-                })
-
-    if not lines:
-        raise HTTPException(400, "Please select at least one ticket")
-    if len(lines) > 30:
-        raise HTTPException(400, "Maximum 30 tickets per order")
-
-    counts = Counter(l["ticket_type_id"] for l in lines)
-    for tid, qty in counts.items():
-        t = types_by_id.get(tid)
-        if not t:
-            raise HTTPException(400, f"Unknown ticket type {tid}")
-        if t.get("members_only") and not is_active_member:
-            raise HTTPException(403, f"Ticket '{t['name']}' is for active members only")
-        ss = _parse_dt(t.get("sale_start"))
-        se = _parse_dt(t.get("sale_end"))
-        if ss and now < ss:
-            raise HTTPException(400, f"Ticket '{t['name']}' is not on sale yet")
-        if se and now > se:
-            raise HTTPException(400, f"Ticket '{t['name']}' sales have ended")
-        total_q = int(t.get("quantity_total") or 0)
-        sold_q = int(t.get("quantity_sold") or 0)
-        if total_q and sold_q + qty > total_q:
-            raise HTTPException(400, f"Only {total_q - sold_q} '{t['name']}' tickets remain")
-
-    agg = {}
-    tickets = []
-    subtotal = 0.0
-    for l in lines:
-        t = types_by_id[l["ticket_type_id"]]
-        band = age_band(l["age"])
-        price = _effective_ticket_price(t, is_active_member, now, is_sponsor=bool(sponsor))
-        label = t["name"]
-        if band == "infant":
-            price, label = 0.0, f"{t['name']} (Under 3)"
-        elif band == "child" and t.get("child_price") is not None:
-            price, label = min(price, float(t["child_price"])), f"{t['name']} (Child)"
-        key = (t["id"], price, label)
-        if key not in agg:
-            agg[key] = {"ticket_type_id": t["id"], "ticket_type_name": label, "unit_price": price, "quantity": 0}
-        agg[key]["quantity"] += 1
-        subtotal += price
-        tickets.append({
-            "code": new_ticket_code(),
-            "ticket_type_id": t["id"],
-            "ticket_type_name": t["name"],
-            "attendee_name": l["attendee_name"],
-            "family_member_id": l["family_member_id"],
-            "age_band": band,
-            "price": price,
-            "checked_in_at": None,
-        })
-    order_items = list(agg.values())
-
-    # Promo code application
-    discount = 0.0
-    promo_applied = None
-    if body.promo_code:
-        code_norm = body.promo_code.strip().upper()
-        promos = event.get("promo_codes") or []
-        for p in promos:
-            if (p.get("code") or "").strip().upper() != code_norm:
-                continue
-            max_uses = int(p.get("max_uses") or 0)
-            used = int(p.get("used") or 0)
-            if max_uses and used >= max_uses:
-                raise HTTPException(400, "Promo code usage limit reached")
-            kind = (p.get("kind") or "percent").lower()
-            value = float(p.get("value") or 0)
-            if kind == "percent":
-                discount = subtotal * (value / 100.0)
-            else:
-                discount = min(value, subtotal)
-            promo_applied = code_norm
-            break
-        if promo_applied is None:
-            raise HTTPException(400, f"Invalid promo code '{body.promo_code}'")
-
-    total = max(0.0, subtotal - discount)
-
-    order = TicketOrder(
-        event_id=event_id,
-        event_title=event.get("title", ""),
-        member_id=member.get("id") if member else None,
-        buyer_name=body.buyer_name,
-        buyer_email=body.buyer_email,
-        buyer_phone=body.buyer_phone,
-        items=[],
-        subtotal=subtotal,
-        total=total,
-        payment_method=body.payment_method,
-        payment_status="awaiting_check" if body.payment_method == "check" else "pending",
-        notes=body.notes or "",
-    ).model_dump()
-    order["items"] = order_items
-    order["tickets"] = tickets
-    if promo_applied:
-        order["promo_code"] = promo_applied
-        order["discount"] = round(discount, 2)
-    if sponsor:
-        order["sponsor_code"] = sponsor["sponsor_code"]
-        order["sponsor_company"] = sponsor.get("company")
-    await db.ticket_orders.insert_one(order)
-
-    # Increment sold counters on the event
-    updated_types = []
-    for t in types:
-        sold_inc = sum(i["quantity"] for i in order_items if i["ticket_type_id"] == t["id"])
-        nt = dict(t)
-        nt["quantity_sold"] = int(t.get("quantity_sold") or 0) + sold_inc
-        updated_types.append(nt)
-    update_doc = {"ticket_types": updated_types}
-    if promo_applied:
-        new_promos = []
-        for p in (event.get("promo_codes") or []):
-            np = dict(p)
-            if (np.get("code") or "").strip().upper() == promo_applied:
-                np["used"] = int(np.get("used") or 0) + 1
-            new_promos.append(np)
-        update_doc["promo_codes"] = new_promos
-    await db.events.update_one({"id": event_id}, {"$set": update_doc})
-
-    order.pop("_id", None)
-    return order
-
-
 # ===================== Admin CRUD =====================
 COLLECTIONS = {
     "events": Event,
@@ -907,32 +703,76 @@ def register_admin_crud(name: str, model_cls, coll: str):
         return _strip(d)
 
     @admin.post(f"/{name}", name=f"admin_create_{name}")
-    async def create(body: dict):
+    async def create(body: dict, request: Request):
         # Validate via model class
         obj = model_cls(**{k: v for k, v in body.items() if v is not None})
         d = obj.model_dump()
+        _validate_admin_write(name, d)
         await db[coll].insert_one(d)
         await _after_admin_write(name)
+        if name in AUDITED:
+            await audit(_admin_name(request), AUDITED[name], d["id"], "create", note=d.get("title") or d.get("name") or "")
         return _strip(d)
 
     @admin.put(f"/{name}/{{id}}", name=f"admin_update_{name}")
-    async def update(id: str, body: dict):
+    async def update(id: str, body: dict, request: Request):
         body.pop("_id", None)
         body.pop("id", None)
-        if name == "membership-plans":
+        if name in ("membership-plans", "sponsorship-plans"):
             # Validate tiers and rule settings the same way as on create
             body = model_cls(**{**{k: v for k, v in body.items() if v is not None}, "id": id}).model_dump()
             body.pop("id", None)
+            body.pop("created_at", None)
+        before = await db[coll].find_one({"id": id})
+        _validate_admin_write(name, {**(before or {}), **body})
         await db[coll].update_one({"id": id}, {"$set": body})
         d = await db[coll].find_one({"id": id})
         await _after_admin_write(name)
+        if name in AUDITED and before:
+            await audit(_admin_name(request), AUDITED[name], id, "update", before=_audit_view(name, before), after=_audit_view(name, d))
         return _strip(d)
 
     @admin.delete(f"/{name}/{{id}}", name=f"admin_delete_{name}")
-    async def delete(id: str):
+    async def delete(id: str, request: Request):
+        before = await db[coll].find_one({"id": id})
         r = await db[coll].delete_one({"id": id})
         await _after_admin_write(name)
+        if name in AUDITED and before:
+            await audit(_admin_name(request), AUDITED[name], id, "delete", note=before.get("title") or before.get("name") or "")
         return {"ok": True, "deleted": r.deleted_count}
+
+
+# Price, discount and fee settings are recorded in the audit trail
+AUDITED = {"events": "event", "membership-plans": "membership_plan", "sponsorship-plans": "sponsorship_plan"}
+EVENT_AUDIT_KEYS = ("ticket_types", "price_periods", "promo_codes", "sponsor_perks", "donations_enabled",
+                    "fee_mode", "fee_percent", "fee_fixed", "capacity", "registration_open")
+
+
+def _audit_view(name: str, d: dict) -> dict:
+    d = {k: v for k, v in (d or {}).items() if k != "_id"}
+    if name == "events":
+        d = {k: d.get(k) for k in EVENT_AUDIT_KEYS}
+        # Sold counts and promo usage change with every order; they aren't admin edits
+        d["ticket_types"] = [{k: v for k, v in t.items() if k != "quantity_sold"} for t in d.get("ticket_types") or []]
+        d["promo_codes"] = [{k: v for k, v in pc.items() if k != "used"} for pc in d.get("promo_codes") or []]
+    return d
+
+
+def _admin_name(request: Request) -> str:
+    return getattr(request.state, "admin_user", {}).get("username", "admin")
+
+
+def _validate_admin_write(name: str, d: dict):
+    if name == "events":
+        try:
+            validate_event_pricing(d)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+    if name == "sponsorship-plans":
+        if (d.get("perk_kind") or "none") not in ("none", "free", "member", "percent", "fixed"):
+            raise HTTPException(400, "Choose a valid ticket perk")
+        if (d.get("perk_kind") == "percent") and not (0 <= float(d.get("perk_value") or 0) <= 100):
+            raise HTTPException(400, "A percentage perk must be between 0 and 100")
 
 
 async def reload_plan_rules():
@@ -1106,10 +946,17 @@ async def admin_list_ticket_orders(event_id: Optional[str] = None, status: Optio
 
 
 @admin.post("/ticket-orders/{order_id}/mark-paid")
-async def admin_mark_order_paid(order_id: str, status: str = "paid"):
+async def admin_mark_order_paid(order_id: str, request: Request, status: str = "paid"):
     if status not in PAYMENT_STATUSES:
         raise HTTPException(400, "Invalid status")
-    await db.ticket_orders.update_one({"id": order_id}, {"$set": {"payment_status": status}})
+    order = await db.ticket_orders.find_one({"id": order_id})
+    if not order:
+        raise HTTPException(404, "Order not found")
+    # Paid orders also activate any membership bought in the same checkout (once)
+    await apply_order_payment(order, status, _admin_name(request))
+    if status != order.get("payment_status"):
+        await audit(_admin_name(request), "ticket_order", order_id, "payment_status",
+                    before={"payment_status": order.get("payment_status")}, after={"payment_status": status})
     return {"ok": True}
 
 
@@ -1187,6 +1034,8 @@ app.include_router(community_public_router)
 app.include_router(community_admin_router)
 app.include_router(membership_public_router)
 app.include_router(membership_admin_router)
+app.include_router(checkout_public_router)
+app.include_router(checkout_admin_router)
 app.include_router(api)
 app.include_router(admin)
 

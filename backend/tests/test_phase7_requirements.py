@@ -305,7 +305,7 @@ class TestSponsorships:
         assert r.status_code == 200, r.text
         o = r.json()
         assert o["total"] == 0 and o["sponsor_company"] == COMPANY
-        assert o["payment_status"] == "awaiting_check"
+        assert o["payment_status"] == "paid"  # nothing to pay
         bad = requests.post(f"{API}/events/{EVT}/purchase-tickets", json={**body, "sponsor_code": "SPN-NOPE00"})
         assert bad.status_code == 400
         requests.delete(f"{API}/admin/ticket-orders/{o['id']}", headers=admin_h)
