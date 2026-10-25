@@ -1064,7 +1064,9 @@ DEFAULT_ORIGINS = [
     "https://indiaclubdayton.org",
     "https://www.indiaclubdayton.org",
 ]
-CORS_ORIGINS = DEFAULT_ORIGINS + [o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()]
+# "*" (allow every site) is ignored on purpose: it would undo this restriction.
+CORS_ORIGINS = DEFAULT_ORIGINS + [o.strip().rstrip("/") for o in os.environ.get("CORS_ORIGINS", "").split(",")
+                                  if o.strip() and o.strip() != "*"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
