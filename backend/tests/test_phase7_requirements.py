@@ -261,7 +261,7 @@ class TestSponsorships:
         })
         assert r.status_code == 200, r.text
         s = r.json()
-        assert s["status"] == "pending" and s["payment_status"] == "awaiting_check" and s["amount"] == 2500
+        assert s["status"] == "pending" and s["payment_status"] == "awaiting_check" and s["amount"] == 1000
         r = requests.post(f"{API}/admin/sponsorships/{s['id']}/payment", headers=admin_h, json={"status": "paid"})
         assert r.status_code == 200, r.text
         return r.json()
@@ -540,3 +540,53 @@ class TestSecurityHardening:
         import jwt as pyjwt
         forged = pyjwt.encode({"sub": "admin", "typ": "admin"}, "icgd-default-secret-change-in-prod-2026", algorithm="HS256")
         assert requests.get(f"{API}/admin/me", headers={"Authorization": f"Bearer {forged}"}).status_code == 401
+
+
+class TestAdminManagedPlans:
+    def test_sponsorship_levels_match_club_site(self):
+        prices = {p["slug"]: p["price"] for p in requests.get(f"{API}/sponsorship-plans").json()}
+        assert prices == {"platinum": 1500, "gold": 1000, "silver": 750, "bronze": 250}
+
+    def test_plans_carry_rule_settings(self, admin_h):
+        plans = {p["slug"]: p for p in requests.get(f"{API}/admin/membership-plans", headers=admin_h).json()}
+        tiers = {t["slug"]: t for t in plans["regular"]["tiers"]}
+        assert tiers["family"]["includes_family"] is True and tiers["individual"]["includes_family"] is False
+        assert plans["free"]["member_pricing"] is False and plans["honorary"]["includes_family"] is True
+        ext = {t["slug"]: t["term_years"] for t in plans["extended"]["tiers"]}
+        assert ext == {"silver": 5, "gold": 10}
+
+    def test_admin_can_turn_on_family_for_a_tier(self, admin_h):
+        plans = {p["slug"]: p for p in requests.get(f"{API}/admin/membership-plans", headers=admin_h).json()}
+        regular = plans["regular"]
+        original = [dict(t) for t in regular["tiers"]]
+        # A member on the Individual tier
+        email = f"ind+{uuid.uuid4().hex[:8]}@example.com"
+        reg = requests.post(f"{API}/members/register", json={"email": email, "password": "test12345", "first_name": "In", "last_name": "Div", "phone": "9375550100"}).json()
+        mh = {"Authorization": f"Bearer {reg['token']}"}
+        r = requests.post(f"{API}/members/me/subscribe", headers=mh, json={"plan": "regular", "tier": "individual", "payment_method": "check",
+                                                                             "address": "1 Main", "city": "Dayton", "state": "OH", "zip": "45402", "phone": "9375550100"})
+        assert r.status_code == 200, r.text
+        requests.post(f"{API}/admin/members/{reg['member']['id']}/mark-paid", headers=admin_h, params={"status": "paid"})
+        requests.post(f"{API}/admin/members/{reg['member']['id']}/approve", headers=admin_h)
+        assert requests.get(f"{API}/members/me", headers=mh).json()["membership"]["status"] == "active"
+        assert requests.get(f"{API}/members/me", headers=mh).json()["family_enabled"] is False
+        try:
+            tiers = [{**t, "includes_family": True} if t["slug"] == "individual" else t for t in original]
+            u = requests.put(f"{API}/admin/membership-plans/{regular['id']}", headers=admin_h, json={**regular, "tiers": tiers})
+            assert u.status_code == 200, u.text
+            assert requests.get(f"{API}/members/me", headers=mh).json()["family_enabled"] is True
+        finally:
+            requests.put(f"{API}/admin/membership-plans/{regular['id']}", headers=admin_h, json={**regular, "tiers": original})
+        assert requests.get(f"{API}/members/me", headers=mh).json()["family_enabled"] is False
+
+    def test_admin_term_years_change_applies_to_quote(self, admin_h):
+        plans = {p["slug"]: p for p in requests.get(f"{API}/admin/membership-plans", headers=admin_h).json()}
+        ext = plans["extended"]
+        original = [dict(t) for t in ext["tiers"]]
+        try:
+            tiers = [{**t, "term_years": 3} if t["slug"] == "silver" else t for t in original]
+            assert requests.put(f"{API}/admin/membership-plans/{ext['id']}", headers=admin_h, json={**ext, "tiers": tiers}).status_code == 200
+            q = requests.get(f"{API}/membership/quote", params={"plan": "extended", "tier": "silver"}).json()
+            assert _parse(q["valid_through"]).year == datetime.utcnow().year + 3
+        finally:
+            requests.put(f"{API}/admin/membership-plans/{ext['id']}", headers=admin_h, json={**ext, "tiers": original})

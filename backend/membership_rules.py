@@ -17,22 +17,62 @@ MULTI_YEAR_TIERS = {"silver": 5, "gold": 10}
 APPLIES_TO = ("new", "renewal", "both")
 
 
-# Memberships that cover a household (My Family, family ticket pricing)
+# Fallbacks for plans/tiers that don't have admin settings yet. Admins manage these per plan and
+# tier (includes_family, member_pricing, term_years) on the Membership Plans screen.
 FAMILY_TIERS = {"family", "business"}
 FAMILY_PLANS = {"business", "honorary", LIFETIME_PLAN}
 
+# Plan settings loaded from the database (see load_plan_rules); keyed by plan slug / (plan, tier)
+_plan_rules = {"plans": {}, "tiers": {}}
+
+
+def load_plan_rules(plans: list) -> None:
+    """Cache the admin-managed settings of every membership plan and tier."""
+    plans_map, tiers_map = {}, {}
+    for p in plans or []:
+        plans_map[p.get("slug")] = p
+        for t in p.get("tiers") or []:
+            tiers_map[(p.get("slug"), t.get("slug"))] = t
+    _plan_rules["plans"], _plan_rules["tiers"] = plans_map, tiers_map
+
+
+def plan_setting(plan: Optional[str], tier: Optional[str], key: str, default):
+    """Tier setting first, then the plan's, then the built-in default."""
+    t = _plan_rules["tiers"].get((plan, tier))
+    if t is not None and t.get(key) is not None:
+        return t[key]
+    p = _plan_rules["plans"].get(plan)
+    if p is not None and p.get(key) is not None:
+        return p[key]
+    return default
+
+
+def default_settings(plan: Optional[str], tier: Optional[str]) -> dict:
+    return {
+        "includes_family": (tier in FAMILY_TIERS) if tier else (plan in FAMILY_PLANS),
+        "member_pricing": plan != FREE_PLAN,
+        "term_years": MULTI_YEAR_TIERS.get(tier, 1) if plan == "extended" else 1,
+    }
+
 
 def paid_member(membership: Optional[dict]) -> bool:
-    """Active paid membership: unlocks member ticket pricing and members-only tickets."""
-    m = membership or {}
-    return m.get("status") == "active" and m.get("plan") != FREE_PLAN
-
-
-def family_enabled(membership: Optional[dict]) -> bool:
+    """Active membership whose plan gives member ticket pricing and members-only tickets."""
     m = membership or {}
     if m.get("status") != "active":
         return False
-    return bool(m.get("lifetime")) or m.get("tier") in FAMILY_TIERS or m.get("plan") in FAMILY_PLANS
+    plan, tier = m.get("plan"), m.get("tier")
+    return bool(plan_setting(plan, tier, "member_pricing", default_settings(plan, tier)["member_pricing"]))
+
+
+def family_enabled(membership: Optional[dict]) -> bool:
+    """Active membership that covers named family members (My Family, family ticket pricing)."""
+    m = membership or {}
+    if m.get("status") != "active":
+        return False
+    if m.get("lifetime"):
+        return True
+    plan, tier = m.get("plan"), m.get("tier")
+    return bool(plan_setting(plan, tier, "includes_family", default_settings(plan, tier)["includes_family"]))
 
 
 def add_months(d: datetime, months: int) -> datetime:
@@ -66,9 +106,11 @@ def end_of_day(d: date) -> datetime:
 
 
 def years_covered(plan: Optional[str], tier: Optional[str]) -> int:
-    if plan == "extended" and tier in MULTI_YEAR_TIERS:
-        return MULTI_YEAR_TIERS[tier]
-    return 1
+    try:
+        years = int(plan_setting(plan, tier, "term_years", default_settings(plan, tier)["term_years"]))
+    except (TypeError, ValueError):
+        years = 1
+    return max(1, years)
 
 
 def promotion_state(p: dict, today: date) -> str:

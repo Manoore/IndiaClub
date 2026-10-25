@@ -12,7 +12,7 @@ const RESOLVED_BASE =
  *  - title, description
  *  - endpoint (e.g. "events")
  *  - columns: [{ key, label, render?(row) }]
- *  - fields: [{ key, label, type: 'text'|'textarea'|'number'|'select'|'image'|'checkbox'|'tags'|'array-of-objects', options?, required, placeholder, default }]
+ *  - fields: [{ key, label, type: 'text'|'textarea'|'number'|'select'|'image'|'checkbox'|'tags'|'array-of-objects'|'plan-tiers', options?, required, placeholder, default }]
  *  - readOnly (for inbox-style)
  *  - extraActions: function(row) returning JSX (for approve/reject etc)
  */
@@ -211,6 +211,8 @@ function EditModal({ isNew, initial, fields, title, onClose, onSave }) {
                 <textarea rows={3} value={(data[f.key] || []).join("\n")} onChange={(e) => updateField(f.key, e.target.value.split("\n").filter(Boolean))} placeholder={"One per line"} className="w-full px-3 py-2 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]" />
               ) : f.type === "array-of-objects" ? (
                 <ArrayOfObjects value={data[f.key] || []} onChange={(v) => updateField(f.key, v)} schema={f.schema} />
+              ) : f.type === "plan-tiers" ? (
+                <PlanTiersEditor value={data[f.key] || []} onChange={(v) => updateField(f.key, v)} />
               ) : f.type === "ticket-types" ? (
                 <TicketTypesEditor value={data[f.key] || []} onChange={(v) => updateField(f.key, v)} />
               ) : f.type === "promo-codes" ? (
@@ -351,6 +353,62 @@ function TicketTypesEditor({ value, onChange }) {
       <button type="button" onClick={add} className="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-[#8B1A1A] rounded text-xs font-medium">
         <Plus className="w-3.5 h-3.5" /> Add Ticket Type
       </button>
+    </div>
+  );
+}
+
+// Membership tiers (e.g. Student / Individual / Family) with their own price and rules
+function PlanTiersEditor({ value, onChange }) {
+  const add = () => onChange([...value, { slug: "", name: "", price: 0, tagline: "", benefits: [], recommended: false, includes_family: false, member_pricing: true, term_years: 1 }]);
+  const update = (i, key, v) => onChange(value.map((t, idx) => (idx === i ? { ...t, [key]: v } : t)));
+  const remove = (i) => onChange(value.filter((_, idx) => idx !== i));
+  const move = (i, d) => {
+    const j = i + d;
+    if (j < 0 || j >= value.length) return;
+    const next = [...value];
+    [next[i], next[j]] = [next[j], next[i]];
+    onChange(next);
+  };
+  const inp = "w-full px-2 py-1.5 border border-stone-200 rounded text-sm outline-none focus:border-[#8B1A1A] bg-white";
+  const check = (t, i, key, label) => (
+    <label className="inline-flex items-center gap-2 text-sm text-stone-700 cursor-pointer">
+      <input type="checkbox" checked={!!t[key]} onChange={(e) => update(i, key, e.target.checked)} className="w-4 h-4 accent-[#8B1A1A]" data-testid={`tier-${i}-${key}`} />
+      {label}
+    </label>
+  );
+  return (
+    <div className="space-y-3" data-testid="plan-tiers-editor">
+      {value.length === 0 && <p className="text-xs text-stone-500">No tiers. The plan's own price and rules apply.</p>}
+      {value.map((t, i) => (
+        <div key={i} className="p-3 bg-stone-50 rounded border border-stone-200 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-cinzel tracking-wider text-[#E07A1F]">TIER {i + 1}</span>
+            <div className="flex items-center gap-1">
+              <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="px-2 py-1 text-xs border border-stone-200 rounded disabled:opacity-40" aria-label="Move up">↑</button>
+              <button type="button" onClick={() => move(i, 1)} disabled={i === value.length - 1} className="px-2 py-1 text-xs border border-stone-200 rounded disabled:opacity-40" aria-label="Move down">↓</button>
+              <button type="button" onClick={() => remove(i)} className="p-1.5 text-red-600 hover:bg-red-50 rounded" aria-label="Remove tier"><Trash2 className="w-4 h-4" /></button>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <input required placeholder="Name (e.g. Family)" value={t.name || ""} onChange={(e) => update(i, "name", e.target.value)} className={inp} data-testid={`tier-${i}-name`} />
+            <input required placeholder="Slug (e.g. family)" value={t.slug || ""} onChange={(e) => update(i, "slug", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} className={inp} data-testid={`tier-${i}-slug`} />
+            <label className="text-xs text-stone-500">Price ($)
+              <input required type="number" min="0" step="0.01" value={t.price ?? 0} onChange={(e) => update(i, "price", e.target.value === "" ? 0 : Number(e.target.value))} className={inp} data-testid={`tier-${i}-price`} />
+            </label>
+            <label className="text-xs text-stone-500">Years per purchase
+              <input type="number" min="1" max="50" value={t.term_years ?? 1} onChange={(e) => update(i, "term_years", Math.max(1, Number(e.target.value) || 1))} className={inp} data-testid={`tier-${i}-term_years`} />
+            </label>
+          </div>
+          <input placeholder="Tagline (optional, e.g. Buy 4 years, get the 5th free)" value={t.tagline || ""} onChange={(e) => update(i, "tagline", e.target.value)} className={inp} />
+          <textarea rows={3} placeholder="Benefits, one per line" value={(t.benefits || []).join("\n")} onChange={(e) => update(i, "benefits", e.target.value.split("\n").filter(Boolean))} className={inp} />
+          <div className="flex flex-wrap gap-x-5 gap-y-1">
+            {check(t, i, "includes_family", "Covers named family members")}
+            {check(t, i, "member_pricing", "Member ticket prices")}
+            {check(t, i, "recommended", "Show as Popular")}
+          </div>
+        </div>
+      ))}
+      <button type="button" onClick={add} className="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-[#8B1A1A] rounded text-xs font-medium" data-testid="plan-tiers-add"><Plus className="w-3.5 h-3.5" /> Add tier</button>
     </div>
   );
 }

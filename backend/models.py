@@ -245,6 +245,10 @@ class MembershipTier(BaseModel):
     benefits: List[str] = []
     recommended: bool = False
     tagline: Optional[str] = None
+    # Admin-managed rules; None falls back to the plan's setting
+    includes_family: Optional[bool] = None  # named family members share the benefits
+    member_pricing: Optional[bool] = None  # member ticket prices and members-only tickets
+    term_years: Optional[int] = None  # years covered per purchase
 
 
 class MembershipPlan(BaseModel):
@@ -259,6 +263,9 @@ class MembershipPlan(BaseModel):
     tiers: List[MembershipTier] = []
     hidden: bool = False  # legacy plans (e.g. lifetime) that can't be bought online
     order: int = 100
+    includes_family: Optional[bool] = None
+    member_pricing: Optional[bool] = None
+    term_years: Optional[int] = None
 
 
 class MemberPerk(BaseModel):

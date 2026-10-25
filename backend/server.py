@@ -33,7 +33,8 @@ from family_tickets import (
     admin_router as family_admin_router, age_on, age_band, new_ticket_code,
 )
 from admin_access import admin_guard, current_admin, ROLES, role_areas, router as admin_users_router
-from membership_rules import LIFETIME_PLAN, FREE_PLAN, add_months, compute_term, family_enabled, paid_member
+from membership_rules import (LIFETIME_PLAN, FREE_PLAN, add_months, compute_term, family_enabled, paid_member,
+                              default_settings, load_plan_rules)
 from membership_service import (
     public_router as membership_public_router, admin_router as membership_admin_router,
     plan_purchase, record_promotion_use, apply_payment_status, log_history, migrate_settings_promotion,
@@ -911,20 +912,36 @@ def register_admin_crud(name: str, model_cls, coll: str):
         obj = model_cls(**{k: v for k, v in body.items() if v is not None})
         d = obj.model_dump()
         await db[coll].insert_one(d)
+        await _after_admin_write(name)
         return _strip(d)
 
     @admin.put(f"/{name}/{{id}}", name=f"admin_update_{name}")
     async def update(id: str, body: dict):
         body.pop("_id", None)
         body.pop("id", None)
+        if name == "membership-plans":
+            # Validate tiers and rule settings the same way as on create
+            body = model_cls(**{**{k: v for k, v in body.items() if v is not None}, "id": id}).model_dump()
+            body.pop("id", None)
         await db[coll].update_one({"id": id}, {"$set": body})
         d = await db[coll].find_one({"id": id})
+        await _after_admin_write(name)
         return _strip(d)
 
     @admin.delete(f"/{name}/{{id}}", name=f"admin_delete_{name}")
     async def delete(id: str):
         r = await db[coll].delete_one({"id": id})
+        await _after_admin_write(name)
         return {"ok": True, "deleted": r.deleted_count}
+
+
+async def reload_plan_rules():
+    load_plan_rules(await db.membership_plans.find().to_list(200))
+
+
+async def _after_admin_write(name: str):
+    if name == "membership-plans":
+        await reload_plan_rules()
 
 
 for name, cls in COLLECTIONS.items():
@@ -1250,6 +1267,25 @@ async def run_migrations():
             order=0,
         ).model_dump())
 
+    # Rule settings (covers family / member pricing / years) become editable per plan and tier
+    for p in await db.membership_plans.find().to_list(200):
+        changes = {}
+        tiers = p.get("tiers") or []
+        new_tiers = []
+        for t in tiers:
+            nt = dict(t)
+            for k, v in default_settings(p.get("slug"), t.get("slug")).items():
+                if nt.get(k) is None:
+                    nt[k] = v
+            new_tiers.append(nt)
+        if new_tiers != tiers:
+            changes["tiers"] = new_tiers
+        for k, v in default_settings(p.get("slug"), None).items():
+            if p.get(k) is None:
+                changes[k] = v
+        if changes:
+            await db.membership_plans.update_one({"id": p["id"]}, {"$set": changes})
+
 
 _bg_tasks = []
 
@@ -1261,6 +1297,7 @@ async def on_startup():
     try:
         await asyncio.wait_for(seed_if_empty(), timeout=90)
         await asyncio.wait_for(run_migrations(), timeout=90)
+        await reload_plan_rules()
     except Exception as e:
         logging.error(
             f"[startup] database setup failed ({type(e).__name__}: {e}). Check MONGO_URL, that the Atlas "

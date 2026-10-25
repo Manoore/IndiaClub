@@ -232,22 +232,47 @@ export const ProgramsAdmin = () => (
     ]} />
 );
 
+const PlanRules = ({ plan }) => {
+  const rows = (plan.tiers || []).length ? plan.tiers : [plan];
+  const tag = (on, label) => on ? <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 text-[11px] whitespace-nowrap">{label}</span> : null;
+  return (
+    <div className="flex flex-col gap-1">
+      {rows.map((t, i) => (
+        <div key={i} className="flex flex-wrap items-center gap-1 text-xs">
+          {(plan.tiers || []).length > 0 && <span className="text-stone-500 mr-1">{t.name}:</span>}
+          {tag(t.includes_family, "Family")}
+          {tag(t.member_pricing, "Member prices")}
+          {Number(t.term_years) > 1 && <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 text-[11px]">{t.term_years} yrs</span>}
+        </div>
+      ))}
+    </div>
+  );
+};
+
 export const MembershipPlansAdmin = () => (
   <CrudPage title="Membership Plans" endpoint="membership-plans"
     columns={[
       { key: "name", label: "Plan" },
       { key: "slug", label: "Slug" },
-      { key: "price", label: "Price", render: (r) => <span>${r.price}</span> },
-      { key: "featured", label: "Featured", render: (r) => r.featured ? "✓" : "✕" },
+      { key: "price", label: "Price", render: (r) => (r.tiers || []).length
+        ? <span>{r.tiers.map((t) => `${t.name} $${t.price}`).join(" · ")}</span>
+        : <span>${r.price}</span> },
+      { key: "rules", label: "Rules", render: (r) => <PlanRules plan={r} /> },
+      { key: "hidden", label: "On site", render: (r) => r.hidden ? "Hidden" : "✓" },
     ]}
     fields={[
       { key: "slug", label: "Slug", type: "text", required: true },
       { key: "name", label: "Name", type: "text", required: true },
-      { key: "price", label: "Price (USD)", type: "number", required: true },
+      { key: "price", label: "Price (USD)", type: "number", required: true, hint: "Used when the plan has no tiers; otherwise shown as the starting price." },
       { key: "period", label: "Period Label", type: "text", placeholder: "per year" },
       { key: "description", label: "Description", type: "textarea", rows: 2 },
       { key: "benefits", label: "Benefits", type: "tags" },
+      { key: "tiers", label: "Tiers", type: "plan-tiers", hint: "Each tier has its own price and rules. Leave empty for a single-price plan." },
+      { key: "includes_family", label: "Covers named family members", type: "checkbox", hint: "Plan default; tiers can override" },
+      { key: "member_pricing", label: "Member ticket prices", type: "checkbox", default: true, hint: "Plan default; tiers can override" },
+      { key: "term_years", label: "Years per purchase", type: "number", default: 1, hint: "Plan default; tiers can override. Lifetime and Free never expire." },
       { key: "featured", label: "Featured", type: "checkbox" },
+      { key: "hidden", label: "Hide from the Membership page", type: "checkbox", hint: "Hidden (can't be bought online)" },
       { key: "order", label: "Order", type: "number", default: 100 },
     ]} />
 );

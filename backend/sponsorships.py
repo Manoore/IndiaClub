@@ -25,16 +25,28 @@ PAYMENT_STATUSES = ("pending", "awaiting_check", "paid", "failed", "refunded")
 # SVG can carry scripts, so public uploads are limited to bitmap formats
 LOGO_TYPES = {"image/png", "image/jpeg", "image/webp", "image/gif"}
 
+# Levels and benefits as published on indiaclubdayton.org (admins can edit them)
 DEFAULT_PLANS = [
-    {"slug": "platinum", "name": "Platinum", "price": 5000, "order": 1,
-     "benefits": ["Headline logo at all events", "Full-page newsletter ad", "VIP table at Diwali Mela", "Featured banner on website"]},
-    {"slug": "gold", "name": "Gold", "price": 2500, "order": 2,
-     "benefits": ["Logo at major events", "Half-page newsletter ad", "Reserved seating at Diwali", "Logo on website"]},
-    {"slug": "silver", "name": "Silver", "price": 1000, "order": 3,
-     "benefits": ["Logo at select events", "Quarter-page newsletter ad", "Logo on website"]},
-    {"slug": "bronze", "name": "Bronze", "price": 500, "order": 4,
-     "benefits": ["Mention at events", "Logo on website"]},
+    {"slug": "platinum", "name": "Platinum", "price": 1500, "order": 1,
+     "benefits": ["Banner ad on the stage backdrop at Diwali & Republic Day events", "All-year ad on our website",
+                  "All-year ad on all event flyers and Samachar", "Ad on the ICGD Facebook page during all events",
+                  "20% discount on Namaskar ads", "Business card display at all ICGD events",
+                  "Free admission to standard ICGD events (RSVP required)"]},
+    {"slug": "gold", "name": "Gold", "price": 1000, "order": 2,
+     "benefits": ["Banner ad outside the auditorium at Diwali & Republic Day events", "Six-month ad on our website",
+                  "Six-month ad on all event flyers and Samachar", "Ad on the ICGD Facebook page during any 3 events",
+                  "15% discount on Namaskar ads", "Business card display at any 3 ICGD events"]},
+    {"slug": "silver", "name": "Silver", "price": 750, "order": 3,
+     "benefits": ["Banner ad outside the auditorium at Diwali & Republic Day events", "Three-month ad on our website",
+                  "Three-month ad on all event flyers and Samachar", "Ad on the ICGD Facebook page during any 2 events",
+                  "10% discount on Namaskar ads", "Business card display at any 2 ICGD events"]},
+    {"slug": "bronze", "name": "Bronze", "price": 250, "order": 4,
+     "benefits": ["Banner ad at one of our outdoor events", "One-month ad on our website",
+                  "One-month ad on all event flyers and Samachar", "Ad on the ICGD Facebook page during 1 event",
+                  "5% discount on Namaskar ads", "Business card display at 1 ICGD event"]},
 ]
+# Placeholder prices shipped before the levels were matched to the club's site
+OLD_DEFAULT_PRICES = {"platinum": 5000, "gold": 2500, "silver": 1000, "bronze": 500}
 
 
 def _clean(d):
@@ -55,6 +67,12 @@ async def seed_sponsorship_plans():
         await db.sponsorship_plans.insert_many([{**p, "id": gen_id(), "active": True, "created_at": now} for p in DEFAULT_PLANS])
     # Requirements use Platinum as the top tier (previously "Diamond")
     await db.sponsors.update_many({"tier": "Diamond"}, {"$set": {"tier": "Platinum"}})
+    # Replace the old placeholder levels with the club's published ones, unless an admin already edited them
+    for p in DEFAULT_PLANS:
+        await db.sponsorship_plans.update_one(
+            {"slug": p["slug"], "price": OLD_DEFAULT_PRICES[p["slug"]]},
+            {"$set": {"price": p["price"], "benefits": p["benefits"]}},
+        )
 
 
 async def valid_sponsor(code: Optional[str]) -> Optional[dict]:
