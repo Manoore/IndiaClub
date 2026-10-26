@@ -20,7 +20,9 @@ const BAND_BADGE = {
 let keySeq = 0;
 const newKey = () => `a${++keySeq}`;
 
-export default function AttendeePicker({ types, family, attendees, setAttendees, priceFor, reasonFor, selfName, isAuthed, eventDate, sponsorPeople = [], sponsorLabel = "Sponsor" }) {
+export default function AttendeePicker({ types, family, attendees, setAttendees, priceFor, reasonFor, selfName, isAuthed, eventDate, sponsorPeople = [], sponsorLabel = "Sponsor", familyEnabled = false, onAddFamily }) {
+  const listed = (family || []).filter((f) => f.status !== "rejected");
+  const verified = listed.filter((f) => f.status === "approved");
   const [guest, setGuest] = useState("");
   const defaultType = types[0]?.id;
   const has = (pred) => attendees.some(pred);
@@ -68,8 +70,15 @@ export default function AttendeePicker({ types, family, attendees, setAttendees,
               )
             ))}
           </div>
-          {family.length === 0 && (
-            <div className="text-xs text-stone-500 mt-1.5">Add your spouse & kids under <Link to="/member/dashboard#family" className="underline text-[#8B1A1A]">My Family</Link> — once verified, kids get child pricing automatically.</div>
+          {familyEnabled && listed.length === 0 && (
+            <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900" role="alert" data-testid="family-add-first">
+              <div className="font-medium">Add your family members first</div>
+              <div className="mt-0.5">Family tickets can only be bought for people in your My Family list. Add them once, then come back to buy their tickets.</div>
+              <button type="button" onClick={onAddFamily} className="mt-2 px-3 py-1.5 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded-md text-xs font-medium" data-testid="family-add-first-btn">Add family members</button>
+            </div>
+          )}
+          {familyEnabled && listed.length > 0 && verified.length === 0 && (
+            <div className="mt-2 text-xs text-amber-800" data-testid="family-awaiting">Your family members are waiting for an admin to verify them. You can buy their tickets once they're verified.</div>
           )}
         </div>
       )}
@@ -86,7 +95,7 @@ export default function AttendeePicker({ types, family, attendees, setAttendees,
       )}
 
       <div className="flex gap-2">
-        <input value={guest} onChange={(e) => setGuest(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addGuest(); } }} placeholder="Guest full name" className="flex-1 px-3 py-2 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A] text-sm" data-testid="guest-name-input" />
+        <input value={guest} onChange={(e) => setGuest(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addGuest(); } }} placeholder={isAuthed ? "Guest full name (non-member price)" : "Attendee full name"} className="flex-1 px-3 py-2 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A] text-sm" data-testid="guest-name-input" />
         <button type="button" onClick={addGuest} disabled={!guest.trim()} className="px-3 py-2 border border-[#8B1A1A] text-[#8B1A1A] hover:bg-[#8B1A1A] hover:text-amber-50 disabled:opacity-40 rounded-md text-sm flex items-center gap-1.5 transition-colors" data-testid="add-guest-btn">
           <UserPlus className="w-4 h-4" /> Add guest
         </button>

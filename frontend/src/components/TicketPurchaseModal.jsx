@@ -261,7 +261,15 @@ export default function TicketPurchaseModal({ event, onClose, onSuccess }) {
                 eventDate={event.start_date}
                 sponsorPeople={sponsor?.people || []}
                 sponsorLabel={sponsor?.tier || "sponsor"}
+                familyEnabled={!!member?.family_enabled}
+                onAddFamily={() => { onClose(); nav("/member/dashboard#family"); }}
               />
+              {quote?.member_tickets?.limit > 0 && (
+                <div className="text-xs text-emerald-800 mt-2" data-testid="member-ticket-allowance">
+                  Your membership includes {quote.member_tickets.limit} member-price ticket{quote.member_tickets.limit === 1 ? "" : "s"} per event
+                  {quote.member_tickets.used > 0 ? ` (${quote.member_tickets.used} already booked)` : ""}. Guests pay the non-member price.
+                </div>
+              )}
               <div className="text-[11px] text-stone-400 mt-2">Members and the family members their membership covers get member prices; guests pay the non-member price. Verified kids aged 3–11 pay the child price; under 3 enter free.</div>
             </div>
           )}

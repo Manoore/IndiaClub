@@ -47,7 +47,7 @@ DEFAULT_PLANS = [
                   "5% discount on Namaskar ads", "Business card display at 1 ICGD event"]},
 ]
 # Default event ticket perks per level (admins change these on Sponsorship Plans)
-DEFAULT_PERKS = {"platinum": ("free", 0, 4), "gold": ("member", 0, 2), "silver": ("member", 0, 2), "bronze": ("member", 0, 2)}
+DEFAULT_PERKS = {"platinum": ("free", 0, 2), "gold": ("member", 0, 2), "silver": ("member", 0, 2), "bronze": ("member", 0, 2)}
 # Placeholder prices shipped before the levels were matched to the club's site
 OLD_DEFAULT_PRICES = {"platinum": 5000, "gold": 2500, "silver": 1000, "bronze": 500}
 
@@ -71,6 +71,8 @@ async def seed_sponsorship_plans():
     for slug, (kind, value, people) in DEFAULT_PERKS.items():
         await db.sponsorship_plans.update_one({"slug": slug, "perk_kind": {"$exists": False}},
                                               {"$set": {"perk_kind": kind, "perk_value": value, "named_people": people}})
+    # Platinum covers 2 people (it briefly defaulted to 4); an admin's own choice is kept
+    await db.sponsorship_plans.update_one({"slug": "platinum", "named_people": 4}, {"$set": {"named_people": 2}})
     # Requirements use Platinum as the top tier (previously "Diamond")
     await db.sponsors.update_many({"tier": "Diamond"}, {"$set": {"tier": "Platinum"}})
     # Replace the old placeholder levels with the club's published ones, unless an admin already edited them

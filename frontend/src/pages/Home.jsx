@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { isEventOver } from "../components/EventsCalendar";
 import { Link } from "react-router-dom";
 import HomeHero from "../components/HomeHero";
 import { Calendar, MapPin, ArrowRight, Quote, Sparkles, Star, Ticket, UserPlus, Handshake, Store, Camera } from "lucide-react";
@@ -33,7 +34,7 @@ export default function Home() {
   useEffect(() => {
     // Featured events for the home page (admin-controlled via "featured" flag on Event)
     apiClient.get("/events?featured=true&limit=6")
-      .then((r) => setEvents(Array.isArray(r.data) ? r.data : []))
+      .then((r) => setEvents(Array.isArray(r.data) ? r.data.filter((e) => !isEventOver(e)) : []))
       .catch(() => setEvents([]));
     apiClient.get("/gallery")
       .then((r) => setGallery(Array.isArray(r.data) ? r.data : []))

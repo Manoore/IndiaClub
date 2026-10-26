@@ -47,12 +47,42 @@ def plan_setting(plan: Optional[str], tier: Optional[str], key: str, default):
     return default
 
 
+HOUSEHOLD_SIZE = 6  # Family-type memberships: the member plus 5 family members
+
+
 def default_settings(plan: Optional[str], tier: Optional[str]) -> dict:
+    family = (tier in FAMILY_TIERS) if tier else (plan in FAMILY_PLANS)
+    member_pricing = plan != FREE_PLAN
+    people = HOUSEHOLD_SIZE if family else 1
     return {
-        "includes_family": (tier in FAMILY_TIERS) if tier else (plan in FAMILY_PLANS),
-        "member_pricing": plan != FREE_PLAN,
+        "includes_family": family,
+        "member_pricing": member_pricing,
         "term_years": MULTI_YEAR_TIERS.get(tier, 1) if plan == "extended" else 1,
+        "family_size": people,  # people the membership covers, including the member
+        "member_tickets": people if member_pricing else 0,  # member-priced tickets per event
     }
+
+
+def _int_setting(membership: Optional[dict], key: str) -> int:
+    m = membership or {}
+    plan, tier = m.get("plan"), m.get("tier")
+    default = default_settings(plan, tier)[key]
+    if m.get("lifetime"):
+        default = HOUSEHOLD_SIZE
+    try:
+        return max(0, int(plan_setting(plan, tier, key, default)))
+    except (TypeError, ValueError):
+        return default
+
+
+def family_size(membership: Optional[dict]) -> int:
+    """People the membership covers, including the member (My Family holds family_size - 1)."""
+    return max(1, _int_setting(membership, "family_size")) if family_enabled(membership) else 1
+
+
+def member_ticket_limit(membership: Optional[dict]) -> int:
+    """Member-priced tickets a membership gets per event (the member plus covered family)."""
+    return _int_setting(membership, "member_tickets") if paid_member(membership) else 0
 
 
 def paid_member(membership: Optional[dict]) -> bool:

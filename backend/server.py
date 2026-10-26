@@ -40,7 +40,7 @@ from family_tickets import (
 )
 from admin_access import admin_guard, current_admin, ROLES, role_areas, router as admin_users_router
 from membership_rules import (LIFETIME_PLAN, FREE_PLAN, add_months, compute_term, family_enabled, paid_member,
-                              default_settings, load_plan_rules)
+                              default_settings, load_plan_rules, family_size, member_ticket_limit)
 from membership_service import (
     public_router as membership_public_router, admin_router as membership_admin_router,
     plan_purchase, record_promotion_use, apply_payment_status, log_history, migrate_settings_promotion,
@@ -115,6 +115,8 @@ def _public_member(m: dict) -> dict:
     d.pop("_id", None)
     d.pop("password_hash", None)
     d["family_enabled"] = family_enabled(d.get("membership"))
+    d["family_size"] = family_size(d.get("membership"))  # people covered, member included
+    d["member_tickets_per_event"] = member_ticket_limit(d.get("membership"))
     return d
 
 

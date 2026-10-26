@@ -393,3 +393,69 @@ class TestAdminControls:
         o = requests.get(f"{API}/events/{eb_event['id']}/checkout-options").json()
         assert o["period"]["name"] == "Early Bird" and o["donations_enabled"] is True
         assert o["donation_presets"] == [10, 25, 50, 100] and o["fee_mode"] == "voluntary"
+
+
+# ===================== Household limits, past events, Platinum 2 =====================
+class TestHouseholdLimits:
+    def test_platinum_covers_two_people(self, admin_h):
+        plat = next(p for p in requests.get(f"{API}/sponsorship-plans").json() if p["slug"] == "platinum")
+        assert plat["named_people"] == 2
+
+    def test_family_list_capped_at_six_people(self, admin_h):
+        h, *_ = _member(admin_h, tier="family")
+        me = requests.get(f"{API}/members/me", headers=h).json()
+        assert me["family_size"] == 6 and me["member_tickets_per_event"] == 6
+        for i in range(5):
+            r = requests.post(f"{API}/members/me/family", headers=h, json={"name": f"Kid {i}", "relation": "child", "date_of_birth": "2015-01-01"})
+            assert r.status_code == 200, r.text
+        r = requests.post(f"{API}/members/me/family", headers=h, json={"name": "Kid 6", "relation": "child", "date_of_birth": "2015-01-01"})
+        assert r.status_code == 400 and "up to 6 people" in r.json()["detail"]
+
+    def test_individual_gets_one_member_ticket(self, admin_h, eb_event):
+        h, *_ = _member(admin_h)
+        assert requests.get(f"{API}/members/me", headers=h).json()["member_tickets_per_event"] == 1
+        q = _quote(eb_event, h, attendees=[SELF, _guest("Friend")])
+        assert [l["price"] for l in q["lines"]] == [10, 25]
+        assert q["member_tickets"]["limit"] == 1
+
+    def test_one_ticket_per_person_per_event(self, admin_h):
+        ev = _event(admin_h)
+        h, *_ = _member(admin_h)
+        assert _buy(ev, h, attendees=[SELF]).status_code == 200
+        r = _buy(ev, h, attendees=[SELF])
+        assert r.status_code == 400 and "already have a ticket" in r.json()["detail"]
+        # Guests can still be added later, at the non-member price
+        q = _quote(ev, h, attendees=[_guest("Friend")])
+        assert q["total"] == 25 and q["member_tickets"]["used"] == 1
+
+    def test_member_ticket_limit_applies_across_orders(self, admin_h):
+        ev = _event(admin_h)
+        h, mid, *_ = _member(admin_h, tier="family")
+        fams = []
+        for i in range(5):
+            f = requests.post(f"{API}/members/me/family", headers=h, json={"name": f"Fam {i}", "relation": "spouse", "date_of_birth": "1980-01-01"}).json()
+            requests.post(f"{API}/admin/family-members/{f['id']}/approve", headers=admin_h, json={"note": ""})
+            fams.append({"ticket_type_id": "gen", "kind": "family", "family_member_id": f["id"]})
+        # Admin lowers the Family allowance to 3 member tickets
+        plans = {p["slug"]: p for p in requests.get(f"{API}/admin/membership-plans", headers=admin_h).json()}
+        regular = plans["regular"]
+        original = [dict(t) for t in regular["tiers"]]
+        try:
+            tiers = [{**t, "member_tickets": 3} if t["slug"] == "family" else t for t in original]
+            assert requests.put(f"{API}/admin/membership-plans/{regular['id']}", headers=admin_h, json={**regular, "tiers": tiers}).status_code == 200
+            assert _buy(ev, h, attendees=[SELF, fams[0]]).status_code == 200
+            q = _quote(ev, h, attendees=fams[1:4])
+            assert [l["price"] for l in q["lines"]] == [10, 25, 25]
+            assert "limit reached" in q["lines"][2]["reason"]
+        finally:
+            requests.put(f"{API}/admin/membership-plans/{regular['id']}", headers=admin_h, json={**regular, "tiers": original})
+
+
+class TestPastEvents:
+    def test_ended_event_stops_selling(self, admin_h):
+        ev = _event(admin_h, start_date=(datetime.now(ET) - timedelta(days=3)).strftime("%Y-%m-%dT%H:%M"),
+                    end_date=(datetime.now(ET) - timedelta(days=2)).strftime("%Y-%m-%dT%H:%M"))
+        r = requests.post(f"{API}/events/{ev['id']}/quote", json=_body(attendees=[_guest("V")]))
+        assert r.status_code == 400 and "ended" in r.json()["detail"]
+        # Still listed publicly (the site shows it under Past Events)
+        assert any(e["id"] == ev["id"] for e in requests.get(f"{API}/events").json())

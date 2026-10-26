@@ -269,6 +269,7 @@ const PlanRules = ({ plan }) => {
           {tag(t.includes_family, "Family")}
           {tag(t.member_pricing, "Member prices")}
           {Number(t.term_years) > 1 && <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 text-[11px]">{t.term_years} yrs</span>}
+          {t.member_pricing && <span className="px-1.5 py-0.5 rounded bg-sky-50 text-sky-800 text-[11px] whitespace-nowrap">{t.member_tickets ?? 1} ticket{Number(t.member_tickets ?? 1) === 1 ? "" : "s"}</span>}
         </div>
       ))}
     </div>
@@ -297,6 +298,8 @@ export const MembershipPlansAdmin = () => (
       { key: "includes_family", label: "Covers named family members", type: "checkbox", hint: "Plan default; tiers can override" },
       { key: "member_pricing", label: "Member ticket prices", type: "checkbox", default: true, hint: "Plan default; tiers can override" },
       { key: "term_years", label: "Years per purchase", type: "number", default: 1, hint: "Plan default; tiers can override. Lifetime and Free never expire." },
+      { key: "family_size", label: "People covered (incl. member)", type: "number", default: 1, hint: "Plan default; tiers can override. My Family holds this many minus one." },
+      { key: "member_tickets", label: "Member-price tickets per event", type: "number", default: 1, hint: "Plan default; tiers can override. Extra tickets are sold at the non-member price." },
       { key: "featured", label: "Featured", type: "checkbox" },
       { key: "hidden", label: "Hide from the Membership page", type: "checkbox", hint: "Hidden (can't be bought online)" },
       { key: "order", label: "Order", type: "number", default: 100 },

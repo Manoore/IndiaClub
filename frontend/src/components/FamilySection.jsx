@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { Users, Plus, Trash2, Edit3, ShieldCheck, Clock, XCircle, Loader2, Check, X } from "lucide-react";
 import { apiClient } from "../api/client";
 import { useToast } from "../hooks/use-toast";
+import { useMemberAuth } from "../api/MemberAuthContext";
 
 const STATUS = {
   approved: { l: "Verified", c: "bg-emerald-50 text-emerald-800 border-emerald-200", I: ShieldCheck },
@@ -64,6 +65,11 @@ function FamilyManager() {
   const [editing, setEditing] = useState(null);
   const [busy, setBusy] = useState(false);
   const { toast } = useToast();
+  const { member } = useMemberAuth();
+  // The membership covers family_size people, the member included
+  const size = Number(member?.family_size || 6);
+  const used = items.filter((f) => f.status !== "rejected").length;
+  const full = used >= size - 1;
 
   const load = useCallback(async () => {
     try { setItems((await apiClient.get("/members/me/family")).data); } finally { setLoading(false); }
@@ -97,10 +103,15 @@ function FamilyManager() {
           <h2 className="font-display text-2xl text-[#8B1A1A]">My Family</h2>
         </div>
         {!adding && (
-          <button onClick={() => setAdding(true)} className="px-3 py-1.5 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded-md text-sm flex items-center gap-1.5" data-testid="family-add-btn">
+          <button onClick={() => setAdding(true)} disabled={full} title={full ? `Your membership covers up to ${size} people` : undefined}
+            className="px-3 py-1.5 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded-md text-sm flex items-center gap-1.5 disabled:bg-stone-300 disabled:text-stone-500 disabled:cursor-not-allowed" data-testid="family-add-btn">
             <Plus className="w-4 h-4" /> Add family member
           </button>
         )}
+      </div>
+      <div className="text-xs text-stone-500 mb-2" data-testid="family-count">
+        {used + 1} of {size} people covered (you + {used} family member{used === 1 ? "" : "s"})
+        {full && <span className="text-amber-800"> · Your membership covers up to {size} people. Remove someone to add another.</span>}
       </div>
       <p className="text-sm text-stone-500 mb-4">Add your spouse, kids and parents once — then book named tickets for everyone in one checkout. Admins verify each person; verified kids aged 3–11 get child pricing and under‑3s go free.</p>
 

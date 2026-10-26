@@ -25,7 +25,7 @@ from audit import audit
 from auth import decode_token
 from database import db
 from family_tickets import age_band, age_on, new_ticket_code
-from membership_rules import FREE_PLAN, LIFETIME_PLAN, family_enabled, paid_member
+from membership_rules import FREE_PLAN, LIFETIME_PLAN, family_enabled, member_ticket_limit, paid_member
 from membership_service import log_history, parse_dt, plan_purchase, promo_snapshot, record_promotion_use
 from models import gen_id
 from sponsorships import valid_sponsor
@@ -120,6 +120,15 @@ def validate_event_pricing(event: dict) -> None:
     for slug, o in (event.get("sponsor_perks") or {}).items():
         if (o or {}).get("mode", "default") not in ("default", "off", "price"):
             raise ValueError(f"Sponsor perk setting for {slug} is invalid")
+
+
+def event_ended(event: dict, now: datetime) -> bool:
+    """Over once its end time passes; with only a start date, at the end of that day (Eastern)."""
+    end = parse_local(event.get("end_date"))
+    if end:
+        return now > end
+    start = parse_local(event.get("start_date"))
+    return bool(start) and now > datetime.combine(start.date(), time.max)
 
 
 def current_period(event: dict, now: datetime):
@@ -351,6 +360,8 @@ async def build_checkout(event: dict, body: CheckoutRequest, member: Optional[di
         raise HTTPException(400, "This event does not have tickets configured")
     types_by_id = {t["id"]: t for t in types}
     now, now_utc = now_et(), datetime.utcnow()
+    if event_ended(event, now) and not admin_override:
+        raise HTTPException(400, "This event has ended")
     period, state = current_period(event, now)
     if state == "not_started" and not admin_override:
         raise HTTPException(400, f"Registration opens {parse_local(period.get('start')):%b %d at %I:%M %p} (Eastern)")
@@ -359,12 +370,14 @@ async def build_checkout(event: dict, body: CheckoutRequest, member: Optional[di
 
     mem = _current((member or {}).get("membership") or {}, now_utc)
     is_member, covers_family = paid_member(mem), family_enabled(mem)
+    ticket_allowance = member_ticket_limit(mem)
     membership_line = None
     if body.membership:
         membership_line = await _membership_line(member, body.membership)
         provisional = {"status": "active", "plan": membership_line["plan"], "tier": membership_line["tier"]}
         is_member = is_member or paid_member(provisional)
         covers_family = covers_family or family_enabled(provisional)
+        ticket_allowance = max(ticket_allowance, member_ticket_limit(provisional))
         buyer_plan, buyer_tier = membership_line["plan"], membership_line["tier"]
     else:
         buyer_plan, buyer_tier = mem.get("plan"), mem.get("tier")
@@ -404,6 +417,19 @@ async def build_checkout(event: dict, body: CheckoutRequest, member: Optional[di
             {"id": {"$in": fam_ids}, "member_id": member["id"]}).to_list(100)}
     sponsor_people = {p["id"]: p for p in (sponsor or {}).get("named_people") or []}
     used_people = await _sponsor_people_used(event["id"], sponsor["id"]) if sponsor else set()
+    # What this member already holds for the event: each person gets one ticket, and member-priced
+    # tickets count against the membership's allowance across all their orders
+    held_self, held_family, member_tickets_used = False, set(), 0
+    if member:
+        async for o in db.ticket_orders.find({"event_id": event["id"], "member_id": member["id"],
+                                              "payment_status": {"$nin": INACTIVE_ORDER}}):
+            for t in o.get("tickets") or []:
+                if t.get("kind") == "self":
+                    held_self = True
+                if t.get("family_member_id"):
+                    held_family.add(t["family_member_id"])
+                if t.get("category") == "member":
+                    member_tickets_used += 1
 
     lines, seen_fam, seen_people, self_count = [], set(), set(), 0
     for a in raw:
@@ -421,6 +447,8 @@ async def build_checkout(event: dict, body: CheckoutRequest, member: Optional[di
             self_count += 1
             if self_count > 1:
                 raise HTTPException(400, "You can only add yourself once")
+            if held_self:
+                raise HTTPException(400, "You already have a ticket for this event")
             line["name"] = (a.get("name") or member_name or body.buyer_name or "Ticket holder").strip()
         elif kind == "family":
             fid = a.get("family_member_id")
@@ -432,6 +460,8 @@ async def build_checkout(event: dict, body: CheckoutRequest, member: Optional[di
                 raise HTTPException(400, "Family member not found in your family group")
             if f.get("status") != "approved":
                 raise HTTPException(400, f"{f['name']} is not verified yet — an admin must approve them first")
+            if fid in held_family:
+                raise HTTPException(400, f"{f['name']} already has a ticket for this event")
             line.update(name=f["name"], family_member_id=fid, age=age_on(f.get("date_of_birth"), event_dt))
         elif kind == "sponsor":
             pid = a.get("sponsor_person_id")
@@ -478,13 +508,21 @@ async def build_checkout(event: dict, body: CheckoutRequest, member: Optional[di
     perk = sponsor_perk(event, sponsor_plan) if sponsor else None
     legacy_sponsor = sponsor is not None and period is None
     tickets_subtotal, member_savings = 0.0, 0.0
+    allowance_left = max(0, ticket_allowance - member_tickets_used)
     for l in lines:
         t = types_by_id[l["ticket_type_id"]]
         nm, mp = period_prices(t, period, now_utc)
         eligible = (l["kind"] == "self" and is_member) or (l["kind"] == "family" and covers_family)
+        over_limit = eligible and allowance_left <= 0
+        if over_limit:
+            eligible = False
+        elif eligible:
+            allowance_left -= 1
         price = mp if eligible else nm
         category = "member" if eligible else "non_member"
         reason = "Member price" if eligible else "Non-member price"
+        if over_limit:
+            reason = f"Member ticket limit reached ({ticket_allowance} per event)"
         if l["kind"] == "family":
             reason = "Family member — member price" if eligible else reason
         if l["kind"] == "sponsor":
@@ -570,6 +608,8 @@ async def build_checkout(event: dict, body: CheckoutRequest, member: Optional[di
         "total": total,
         "notices": notices, "membership_offer": offer,
         "is_member": is_member,
+        "member_tickets": {"limit": ticket_allowance, "used": member_tickets_used,
+                           "this_order": sum(1 for l in lines if l.get("category") == "member")} if member else None,
         "sponsor": {"id": sponsor["id"], "company": sponsor.get("company"), "tier": sponsor.get("tier"),
                     "code": sponsor.get("sponsor_code")} if sponsor else None,
     }

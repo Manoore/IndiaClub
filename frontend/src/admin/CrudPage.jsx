@@ -346,7 +346,7 @@ function TicketTypesEditor({ value, onChange, periods = [] }) {
 
 // Membership tiers (e.g. Student / Individual / Family) with their own price and rules
 function PlanTiersEditor({ value, onChange }) {
-  const add = () => onChange([...value, { slug: "", name: "", price: 0, tagline: "", benefits: [], recommended: false, includes_family: false, member_pricing: true, term_years: 1 }]);
+  const add = () => onChange([...value, { slug: "", name: "", price: 0, tagline: "", benefits: [], recommended: false, includes_family: false, member_pricing: true, term_years: 1, family_size: 1, member_tickets: 1 }]);
   const update = (i, key, v) => onChange(value.map((t, idx) => (idx === i ? { ...t, [key]: v } : t)));
   const remove = (i) => onChange(value.filter((_, idx) => idx !== i));
   const move = (i, d) => {
@@ -384,6 +384,14 @@ function PlanTiersEditor({ value, onChange }) {
             </label>
             <label className="text-xs text-stone-500">Years per purchase
               <input type="number" min="1" max="50" value={t.term_years ?? 1} onChange={(e) => update(i, "term_years", Math.max(1, Number(e.target.value) || 1))} className={inp} data-testid={`tier-${i}-term_years`} />
+            </label>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="text-xs text-stone-500">People covered (incl. member)
+              <input type="number" min="1" max="20" value={t.family_size ?? 1} onChange={(e) => update(i, "family_size", Math.max(1, Number(e.target.value) || 1))} className={inp} data-testid={`tier-${i}-family_size`} />
+            </label>
+            <label className="text-xs text-stone-500">Member-price tickets per event
+              <input type="number" min="0" max="20" value={t.member_tickets ?? 1} onChange={(e) => update(i, "member_tickets", Math.max(0, Number(e.target.value) || 0))} className={inp} data-testid={`tier-${i}-member_tickets`} />
             </label>
           </div>
           <input placeholder="Tagline (optional, e.g. Buy 4 years, get the 5th free)" value={t.tagline || ""} onChange={(e) => update(i, "tagline", e.target.value)} className={inp} />

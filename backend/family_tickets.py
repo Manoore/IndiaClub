@@ -15,7 +15,7 @@ from reportlab.pdfgen import canvas
 from admin_access import admin_guard
 from auth import require_admin, require_member, decode_token
 from database import db
-from membership_rules import family_enabled
+from membership_rules import family_enabled, family_size
 from models import gen_id
 
 INFANT_MAX_AGE = 2  # under 3 → free
@@ -80,6 +80,17 @@ async def _require_family_membership(member_id: str):
     m = await db.members.find_one({"id": member_id})
     if not family_enabled((m or {}).get("membership")):
         raise HTTPException(403, "My Family is part of Family and Business memberships — upgrade your membership to add family members")
+    return m
+
+
+async def _require_family_room(member_id: str):
+    """A Family membership covers a set number of people, the member included."""
+    m = await _require_family_membership(member_id)
+    size = family_size(m.get("membership"))
+    count = await db.family_members.count_documents({"member_id": member_id, "status": {"$ne": "rejected"}})
+    if count >= size - 1:
+        raise HTTPException(400, f"Your membership covers up to {size} people (you plus {size - 1} family members). "
+                                 "Remove someone to add another.")
 
 
 @member_router.get("/family")
@@ -94,7 +105,7 @@ async def list_family(member_id: str = Depends(require_member)):
 
 @member_router.post("/family")
 async def add_family(body: FamilyMemberIn, member_id: str = Depends(require_member)):
-    await _require_family_membership(member_id)
+    await _require_family_room(member_id)
     if body.date_of_birth > date.today():
         raise HTTPException(400, "Date of birth cannot be in the future")
     count = await db.family_members.count_documents({"member_id": member_id})

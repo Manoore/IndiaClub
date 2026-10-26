@@ -258,6 +258,8 @@ class MembershipTier(BaseModel):
     includes_family: Optional[bool] = None  # named family members share the benefits
     member_pricing: Optional[bool] = None  # member ticket prices and members-only tickets
     term_years: Optional[int] = None  # years covered per purchase
+    family_size: Optional[int] = None  # people covered, member included (My Family holds one fewer)
+    member_tickets: Optional[int] = None  # member-priced tickets per event
 
 
 class MembershipPlan(BaseModel):
@@ -275,6 +277,8 @@ class MembershipPlan(BaseModel):
     includes_family: Optional[bool] = None
     member_pricing: Optional[bool] = None
     term_years: Optional[int] = None
+    family_size: Optional[int] = None
+    member_tickets: Optional[int] = None
 
 
 class MemberPerk(BaseModel):

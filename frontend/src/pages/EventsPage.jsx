@@ -6,7 +6,7 @@ import { useToast } from "../hooks/use-toast";
 import Mandala from "../components/Mandala";
 import TicketPurchaseModal from "../components/TicketPurchaseModal";
 import { apiClient } from "../api/client";
-import EventsCalendar, { eventDate } from "../components/EventsCalendar";
+import EventsCalendar, { eventDate, isEventOver } from "../components/EventsCalendar";
 
 // Member / guest / sponsor price summary for the cheapest ticket type
 // The registration period on sale now (display only; the server enforces periods in Eastern time)
@@ -40,9 +40,14 @@ const EventsHub = ({ categories }) => (
   <section className="py-20 bg-cream" data-testid="events-hub">
     <div className="max-w-7xl mx-auto px-6 mb-8 flex flex-wrap items-center justify-between gap-3">
       <p className="text-stone-600">Browse by festival, or see everything that's coming up.</p>
-      <Link to="/events/upcoming" className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded-md text-sm font-medium" data-testid="events-full-calendar">
-        <CalendarDays className="w-4 h-4" /> Full events calendar <ArrowRight className="w-4 h-4" />
-      </Link>
+      <div className="flex flex-wrap gap-2">
+        <Link to="/events/upcoming" className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded-md text-sm font-medium" data-testid="events-full-calendar">
+          <CalendarDays className="w-4 h-4" /> Full events calendar <ArrowRight className="w-4 h-4" />
+        </Link>
+        <Link to="/events/past" className="inline-flex items-center gap-2 px-5 py-2.5 border-2 border-[#8B1A1A] text-[#8B1A1A] hover:bg-[#8B1A1A] hover:text-amber-50 rounded-md text-sm font-medium" data-testid="events-past-link">
+          Past events
+        </Link>
+      </div>
     </div>
     <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 lg:grid-cols-4 gap-5">
       {categories.map((e) => (
@@ -66,7 +71,7 @@ const EventsHub = ({ categories }) => (
   </section>
 );
 
-const EventCard = ({ e, onRegister, onBuyTickets }) => {
+const EventCard = ({ e, onRegister, onBuyTickets, past = false }) => {
   const hasTickets = Array.isArray(e.ticket_types) && e.ticket_types.length > 0;
   // Cheapest price for "From $X" display
   const minPrice = hasTickets
@@ -99,7 +104,10 @@ const EventCard = ({ e, onRegister, onBuyTickets }) => {
           {e.venue && <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {e.venue.split(",")[0]}</span>}
         </div>
         <p className="text-sm text-stone-600 leading-relaxed mb-3 flex-1 line-clamp-3">{e.description}</p>
-        {hasTickets && <div className="text-xs text-stone-600 mb-4" data-testid={`price-summary-${e.slug || e.id}`}>{priceSummary(e)}</div>}
+        {hasTickets && !past && <div className="text-xs text-stone-600 mb-4" data-testid={`price-summary-${e.slug || e.id}`}>{priceSummary(e)}</div>}
+        {past ? (
+          <div className="text-xs font-cinzel tracking-wider text-stone-400" data-testid={`event-ended-${e.slug || e.id}`}>EVENT ENDED</div>
+        ) : (
         <div className="flex items-center justify-between">
           <span className={`text-xs font-cinzel tracking-wider ${(e.registration_open ?? e.registrationOpen) ? "text-green-700" : "text-stone-400"}`}>
             {(e.registration_open ?? e.registrationOpen) ? (hasTickets ? "TICKETS ON SALE" : "REGISTRATION OPEN") : "COMING SOON"}
@@ -116,6 +124,7 @@ const EventCard = ({ e, onRegister, onBuyTickets }) => {
             <button disabled className="px-4 py-2 bg-stone-200 text-stone-500 text-sm rounded-md cursor-not-allowed">Notify Me</button>
           )}
         </div>
+        )}
       </div>
     </div>
   );
@@ -143,23 +152,22 @@ const UpcomingList = ({ filterSlug }) => {
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("All");
   const [view, setView] = useState("list");
-  const [showPast, setShowPast] = useState(false);
+  const [when, setWhen] = useState(filterSlug === "past" ? "past" : "upcoming");
+  useEffect(() => { setWhen(filterSlug === "past" ? "past" : "upcoming"); }, [filterSlug]);
+  const showPast = when === "past";
 
-  const scoped = filterSlug && filterSlug !== "upcoming"
+  const scoped = filterSlug && filterSlug !== "upcoming" && filterSlug !== "past"
     ? merged.filter((e) => (e.category || "").toLowerCase().replace(/[^a-z]/g, "").includes(filterSlug.replace(/[^a-z]/g, "")))
     : merged;
   const cats = useMemo(() => ["All", ...Array.from(new Set(scoped.map((e) => e.category).filter(Boolean)))], [scoped]);
-  const startOfToday = new Date(new Date().setHours(0, 0, 0, 0));
   const list = scoped
     .filter((e) => cat === "All" || e.category === cat)
     .filter((e) => !q.trim() || `${e.title} ${e.description || ""} ${e.venue || ""} ${e.category || ""}`.toLowerCase().includes(q.trim().toLowerCase()))
-    .filter((e) => {
-      if (showPast) return true;
-      const d = eventDate(e);
-      const end = e.end_date ? new Date(e.end_date) : d;
-      return !d || (end || d) >= startOfToday;
-    })
-    .sort((a, b) => (eventDate(a) || new Date(8.64e15)) - (eventDate(b) || new Date(8.64e15)));
+    .filter((e) => (showPast ? isEventOver(e) : !isEventOver(e)))
+    // Upcoming: soonest first. Past: most recent first.
+    .sort((a, b) => showPast
+      ? (eventDate(b) || 0) - (eventDate(a) || 0)
+      : (eventDate(a) || new Date(8.64e15)) - (eventDate(b) || new Date(8.64e15)));
 
   // Group by month for the list view ("JULY 2026")
   const groups = [];
@@ -171,7 +179,7 @@ const UpcomingList = ({ filterSlug }) => {
   });
 
   const selectFromCalendar = (e) => {
-    if (Array.isArray(e.ticket_types) && e.ticket_types.length && (e.registration_open ?? true)) setActiveTicketEvent(e);
+    if (!isEventOver(e) && Array.isArray(e.ticket_types) && e.ticket_types.length && (e.registration_open ?? true)) setActiveTicketEvent(e);
     else { setQ(e.title); setView("list"); }
   };
 
@@ -197,10 +205,11 @@ const UpcomingList = ({ filterSlug }) => {
               className="w-full pl-9 pr-3 py-2.5 border border-stone-200 rounded-md text-sm bg-white outline-none focus:border-[#8B1A1A]" data-testid="events-search" />
           </div>
           <div className="flex items-center gap-2">
-            <label className="inline-flex items-center gap-1.5 text-xs text-stone-600 mr-2">
-              <input type="checkbox" checked={showPast} onChange={(e) => setShowPast(e.target.checked)} className="accent-[#8B1A1A]" data-testid="events-show-past" />
-              Show past events
-            </label>
+            <div className="inline-flex rounded-md border border-stone-200 bg-white overflow-hidden mr-2" role="tablist" aria-label="Upcoming or past events">
+              {[["upcoming", "Upcoming"], ["past", "Past events"]].map(([v, l]) => (
+                <button key={v} role="tab" aria-selected={when === v} onClick={() => setWhen(v)} className={`px-3 py-2 text-sm ${when === v ? "bg-[#E07A1F] text-white" : "text-stone-700"}`} data-testid={`events-when-${v}`}>{l}</button>
+              ))}
+            </div>
             <div className="inline-flex rounded-md border border-stone-200 bg-white overflow-hidden">
               <button onClick={() => setView("list")} className={`px-3 py-2 text-sm flex items-center gap-1.5 ${view === "list" ? "bg-[#8B1A1A] text-amber-50" : "text-stone-700"}`} data-testid="events-view-list">
                 <List className="w-4 h-4" /> List
@@ -231,8 +240,8 @@ const UpcomingList = ({ filterSlug }) => {
         ) : list.length === 0 ? (
           <div className="text-center py-20">
             <Sparkles className="w-12 h-12 text-[#E07A1F] mx-auto mb-4" />
-            <h3 className="font-display text-2xl text-stone-700">{q || cat !== "All" ? "No events match" : "More events coming soon"}</h3>
-            <p className="text-stone-500 mt-2">{q || cat !== "All" ? "Try a different search or category." : "Subscribe to the newsletter to be the first to know."}</p>
+            <h3 className="font-display text-2xl text-stone-700">{q || cat !== "All" ? "No events match" : showPast ? "No past events yet" : "More events coming soon"}</h3>
+            <p className="text-stone-500 mt-2">{q || cat !== "All" ? "Try a different search or category." : showPast ? "Events move here once they're over." : "Subscribe to the newsletter to be the first to know."}</p>
           </div>
         ) : (
           <div className="space-y-10">
@@ -241,7 +250,7 @@ const UpcomingList = ({ filterSlug }) => {
                 <h2 className="font-cinzel text-sm tracking-[0.25em] text-[#E07A1F] mb-4">{g.key.toUpperCase()}</h2>
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {g.items.map((e) => (
-                    <EventCard key={e.id || e.slug} e={e} onRegister={handleRegister} onBuyTickets={handleBuyTickets} />
+                    <EventCard key={e.id || e.slug} e={e} onRegister={handleRegister} onBuyTickets={handleBuyTickets} past={showPast} />
                   ))}
                 </div>
               </div>
@@ -329,7 +338,9 @@ export default function EventsPage() {
   }, []);
 
   const cat = categories.find((c) => c.slug === sub);
-  const header = !sub
+  const header = sub === "past"
+    ? { eyebrow: "LOOKING BACK", title: "Past Events", subtitle: "Celebrations and gatherings the India Club community has shared." }
+    : !sub
     ? { eyebrow: "OUR PROGRAMS", title: "Events & Festivals", subtitle: "Cultural events, festivals, sports and youth programs throughout the year.", image: "https://images.unsplash.com/photo-1592843997881-cab3860b1067?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600" }
     : { eyebrow: cat?.tagline || "EVENTS", title: cat?.name || "Events", subtitle: cat?.description, image: cat?.image_url };
   return (

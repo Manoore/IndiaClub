@@ -11,6 +11,20 @@ export const eventDate = (e) => {
   return isNaN(d) ? null : d;
 };
 
+// Over once the end time passes; with only a start date, at the end of that day. Events without a
+// date (TBA) are never over. The server applies the same rule when selling tickets.
+export const isEventOver = (e, now = new Date()) => {
+  if (e.end_date) {
+    const end = new Date(e.end_date);
+    if (!isNaN(end)) return now > end;
+  }
+  const start = eventDate(e);
+  if (!start) return false;
+  const endOfDay = new Date(start);
+  endOfDay.setHours(23, 59, 59, 999);
+  return now > endOfDay;
+};
+
 const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 
 export default function EventsCalendar({ events, onSelect }) {
