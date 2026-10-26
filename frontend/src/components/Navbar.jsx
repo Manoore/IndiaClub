@@ -4,6 +4,7 @@ import { Menu, X, ChevronDown, Phone, Mail, LogIn, User } from "lucide-react";
 import { NAV } from "../data/mock";
 import { Button } from "./ui/button";
 import { useMemberAuth } from "../api/MemberAuthContext";
+import useMembershipCta from "./useMembershipCta";
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
@@ -11,6 +12,7 @@ export default function Navbar() {
   const [openSubmenu, setOpenSubmenu] = useState(null);
   const location = useLocation();
   const { isAuthed, member } = useMemberAuth();
+  const cta = useMembershipCta("Join Us");
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -89,8 +91,8 @@ export default function Navbar() {
             </ul>
 
             <div className="hidden lg:flex items-center gap-2">
-              <Link to="/membership/regular">
-                <Button className="bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 font-medium">Join Us</Button>
+              <Link to={cta.to}>
+                <Button className="bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 font-medium" data-testid="nav-membership-cta">{cta.label}</Button>
               </Link>
             </div>
 
@@ -127,7 +129,7 @@ export default function Navbar() {
                 </li>
               ))}
               <li>
-                <Link to="/membership/regular" className="block mt-4 text-center bg-[#8B1A1A] text-amber-50 py-2 rounded-md">Join Us</Link>
+                <Link to={cta.to} className="block mt-4 text-center bg-[#8B1A1A] text-amber-50 py-2 rounded-md">{cta.label}</Link>
               </li>
             </ul>
           </div>

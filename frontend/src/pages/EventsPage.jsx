@@ -7,6 +7,7 @@ import Mandala from "../components/Mandala";
 import TicketPurchaseModal from "../components/TicketPurchaseModal";
 import { apiClient } from "../api/client";
 import EventsCalendar, { eventDate, isEventOver } from "../components/EventsCalendar";
+import useMembershipCta from "../components/useMembershipCta";
 
 // Member / guest / sponsor price summary for the cheapest ticket type
 // The registration period on sale now (display only; the server enforces periods in Eastern time)
@@ -273,6 +274,7 @@ const UpcomingList = ({ filterSlug }) => {
 };
 
 const CategoryHero = ({ cat }) => {
+  const cta = useMembershipCta();
   return (
     <section className="py-16 bg-deepcream relative overflow-hidden">
       <Mandala className="absolute -right-32 top-0 w-[420px] h-[420px]" color={cat.color || "#8B1A1A"} opacity={0.08} />
@@ -319,7 +321,7 @@ const CategoryHero = ({ cat }) => {
           </div>
         )}
         <div className="flex items-center gap-3 mt-8">
-          <Link to="/membership/regular" className="px-5 py-2.5 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded-md text-sm font-medium transition">Become a Member</Link>
+          <Link to={cta.to} className="px-5 py-2.5 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded-md text-sm font-medium transition">{cta.label}</Link>
           <Link to="/events/upcoming" className="px-5 py-2.5 border-2 border-[#8B1A1A] text-[#8B1A1A] hover:bg-[#8B1A1A] hover:text-amber-50 rounded-md text-sm font-medium transition">See Upcoming Events</Link>
         </div>
       </div>

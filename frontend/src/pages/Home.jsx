@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { isEventOver } from "../components/EventsCalendar";
+import useMembershipCta from "../components/useMembershipCta";
 import { Link } from "react-router-dom";
 import HomeHero from "../components/HomeHero";
 import { Calendar, MapPin, ArrowRight, Quote, Sparkles, Star, Ticket, UserPlus, Handshake, Store, Camera } from "lucide-react";
@@ -22,6 +23,8 @@ const SectionHeader = ({ eyebrow, title, subtitle, center = false }) => (
 
 export default function Home() {
   const s = useSiteSettings();
+  const cta = useMembershipCta(s.home_hero_cta_primary || "Become a Member");
+  const isMember = cta.state === "member" || cta.state === "pending";
   const [events, setEvents] = useState([]);
   const [gallery, setGallery] = useState([]);
   const [sponsors, setSponsors] = useState([]);
@@ -133,7 +136,9 @@ export default function Home() {
       <section className="pb-16 bg-white" data-testid="home-pathways">
         <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-3 gap-5">
           {[
-            { to: "/membership/regular", icon: UserPlus, eyebrow: "MEMBERSHIP", title: "Join India Club", text: "Member pricing on every event, voting rights and a 1000+ family community.", cta: "Become a member" },
+            isMember
+              ? { to: "/member/dashboard", icon: UserPlus, eyebrow: "MEMBERSHIP", title: "Your membership", text: "See your membership, family, tickets and renewal date on your dashboard.", cta: "Open my dashboard" }
+              : { to: cta.to, icon: UserPlus, eyebrow: "MEMBERSHIP", title: cta.state === "expired" ? "Renew your membership" : cta.state === "free" ? "Upgrade your membership" : "Join India Club", text: "Member pricing on every event, voting rights and a 1000+ family community.", cta: cta.label },
             { to: "/sponsorship/become-sponsor", icon: Handshake, eyebrow: "SPONSOR", title: "Support the community", text: "Annual Platinum, Gold, Silver and Bronze sponsorships for local businesses.", cta: "Become a sponsor" },
             { to: "/classified/business-directory", icon: Store, eyebrow: "COMMUNITY", title: "Classifieds & directory", text: "Find community businesses, services, housing and more.", cta: "Explore community", extra: { to: "/classified/all-ads", label: "Classifieds" } },
           ].map((t) => {
@@ -374,7 +379,7 @@ export default function Home() {
           <h2 className="font-display text-4xl md:text-5xl mb-5" data-testid="home-cta-title">{s.home_why_join_title}</h2>
           <p className="text-amber-50/80 font-serif text-lg leading-relaxed mb-8" data-testid="home-cta-text">{s.home_why_join_text}</p>
           <div className="flex flex-wrap gap-3 justify-center">
-            <Link to="/membership/regular" className="px-7 py-3.5 bg-[#E07A1F] hover:bg-[#c66c1a] text-white rounded-md font-medium transition">{s.home_hero_cta_primary}</Link>
+            <Link to={cta.to} className="px-7 py-3.5 bg-[#E07A1F] hover:bg-[#c66c1a] text-white rounded-md font-medium transition">{cta.label}</Link>
             <Link to="/sponsorship/donate" className="px-7 py-3.5 bg-white/10 backdrop-blur border border-amber-100/30 hover:bg-white/20 text-amber-50 rounded-md font-medium transition">Donate</Link>
           </div>
         </div>
