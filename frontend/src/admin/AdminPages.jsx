@@ -3,6 +3,7 @@ import CrudPage from "./CrudPage";
 import { apiClient } from "../api/client";
 import { useToast } from "../hooks/use-toast";
 import { PaymentBadge, PaymentSelect } from "./PaymentStatus";
+import StripeActions from "./StripeActions";
 import { Copy } from "lucide-react";
 
 const DuplicateEventButton = ({ row, reload }) => {
@@ -381,7 +382,12 @@ export const DonationsAdmin = () => {
         { key: "message", label: "Message" },
         { key: "created_at", label: "Date", render: (r) => r.created_at ? new Date(r.created_at).toLocaleDateString() : "" },
       ]}
-      extraActions={(row, reload) => <PaymentSelect value={row.payment_status} onChange={(v) => setStatus(row, v, reload)} testid={`donation-status-${row.id}`} />}
+      extraActions={(row, reload) => (
+        <div className="flex flex-col items-end gap-1">
+          <PaymentSelect value={row.payment_status} onChange={(v) => setStatus(row, v, reload)} testid={`donation-status-${row.id}`} />
+          {!row.order_id && <StripeActions kind="donation" refId={row.id} stripe={row.stripe} status={row.payment_status} amount={row.amount} onChanged={reload} compact />}
+        </div>
+      )}
       fields={[]} />
   );
 };

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Loader2, X, ArrowUpCircle, ArrowDownCircle } from "lucide-react";
 import { apiClient } from "../api/client";
+import PaymentMethodPicker, { startCardPayment } from "./PaymentMethodPicker";
 import { useToast } from "../hooks/use-toast";
 import { fmtLongDate } from "./MembershipTermNote";
 
@@ -14,7 +15,7 @@ export default function ChangeTierDialog({ membership, plan, initialTier, onClos
     initialTier && initialTier !== membership.tier ? initialTier : (others.find((t) => t.slug === "family") || others[0] || {}).slug
   );
   const [quote, setQuote] = useState(null);
-  const [method, setMethod] = useState("check");
+  const [method, setMethod] = useState("stripe");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -26,7 +27,12 @@ export default function ChangeTierDialog({ membership, plan, initialTier, onClos
   const confirm = async () => {
     setBusy(true);
     try {
-      await apiClient.post("/members/me/change-tier", { tier, payment_method: method });
+      const r = await apiClient.post("/members/me/change-tier", { tier, payment_method: method });
+      const up = (r.data?.membership?.upgrades || []).slice(-1)[0];
+      if (method === "stripe" && quote?.kind === "upgrade" && up && up.amount > 0 && up.payment_status !== "paid") {
+        await startCardPayment("upgrade", `${r.data.id}:${up.id}`);
+        return;
+      }
       const name = tiers.find((t) => t.slug === tier)?.name || tier;
       toast({
         title: quote?.kind === "downgrade" ? `Switch to ${name} scheduled` : `You're now a ${name} member`,
@@ -86,13 +92,7 @@ export default function ChangeTierDialog({ membership, plan, initialTier, onClos
         {quote?.kind === "upgrade" && quote.amount > 0 && (
           <div>
             <div className="text-xs text-stone-500 mb-1.5">How will you pay the difference?</div>
-            <div className="grid grid-cols-3 gap-2">
-              {["check", "paypal", "other"].map((m) => (
-                <button key={m} type="button" onClick={() => setMethod(m)}
-                  className={`py-2 rounded-md text-sm border capitalize ${method === m ? "bg-[#8B1A1A] text-amber-50 border-[#8B1A1A]" : "border-stone-200 hover:border-[#8B1A1A]"}`}
-                  data-testid={`change-tier-pay-${m}`}>{m}</button>
-              ))}
-            </div>
+            <PaymentMethodPicker value={method} onChange={setMethod} options={["stripe", "check"]} testidPrefix="change-tier-pay" />
           </div>
         )}
 

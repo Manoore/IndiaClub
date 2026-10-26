@@ -4,6 +4,7 @@ import { apiClient } from "../api/client";
 import { useToast } from "../hooks/use-toast";
 import { CheckCircle2, XCircle, Trash2, Loader2, Search, Infinity as InfinityIcon } from "lucide-react";
 import { PaymentSelect } from "./PaymentStatus";
+import StripeActions from "./StripeActions";
 
 const STATUS_PILL = {
   none: "bg-stone-100 text-stone-600",
@@ -228,6 +229,10 @@ export default function MembersAdmin() {
                           onChange={(v) => setPayment(m, v)}
                           testid={`member-pay-${m.id}`}
                         />
+                      ) : null}
+                      {m.membership?.plan && !m.membership?.lifetime && m.membership?.plan !== "free" ? (
+                        <StripeActions kind="membership" refId={m.id} stripe={m.membership?.stripe}
+                          status={m.membership?.payment_status} onChanged={load} />
                       ) : <span className="text-stone-400 text-xs">—</span>}
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -395,7 +400,11 @@ const UpgradeCharges = ({ member: m, onChanged }) => {
         {ups.map((u) => (
           <li key={u.id} className="flex items-center justify-between gap-2">
             <span className="capitalize">{u.from_tier} → {u.to_tier} · <strong>${u.amount}</strong> <span className="text-xs text-stone-500">({u.payment_method}, {fmt(u.created_at)})</span></span>
-            <PaymentSelect value={u.payment_status} onChange={(v) => setStatus(u, v)} testid={`upgrade-pay-${u.id}`} />
+            <span className="flex flex-col items-end gap-1">
+              <PaymentSelect value={u.payment_status} onChange={(v) => setStatus(u, v)} testid={`upgrade-pay-${u.id}`} />
+              <StripeActions kind="upgrade" refId={`${m.id}:${u.id}`} stripe={u.stripe} status={u.payment_status} amount={u.amount}
+                onChanged={async () => onChanged((await apiClient.get(`/admin/members/${m.id}`)).data)} compact />
+            </span>
           </li>
         ))}
       </ul>

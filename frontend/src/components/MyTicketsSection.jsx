@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { Ticket, Download, Loader2, CheckCircle2 } from "lucide-react";
 import { apiClient, downloadFile } from "../api/client";
+import { startCardPayment } from "./PaymentMethodPicker";
 import { useToast } from "../hooks/use-toast";
 
-const STATUS_C = { pending: "bg-amber-100 text-amber-800", paid: "bg-emerald-100 text-emerald-800", refunded: "bg-rose-100 text-rose-800" };
+const STATUS_C = { pending: "bg-amber-100 text-amber-800", paid: "bg-emerald-100 text-emerald-800", refunded: "bg-rose-100 text-rose-800", cancelled: "bg-stone-100 text-stone-600" };
 
 export const DownloadTicketsButton = ({ order, className = "", label = "Download tickets (PDF)", testid }) => {
   const [busy, setBusy] = useState(false);
@@ -46,7 +47,13 @@ export default function MyTicketsSection() {
                   <div className="font-medium text-stone-900">{o.event_title}</div>
                   <div className="text-xs text-stone-500 mt-0.5">{new Date(o.created_at).toLocaleDateString()} · ${Number(o.total).toFixed(2)} · <span className={`px-1.5 py-0.5 rounded uppercase text-[10px] ${STATUS_C[o.payment_status] || ""}`}>{o.payment_status}</span></div>
                 </div>
-                {(o.tickets || []).length > 0 && o.payment_status !== "refunded" && (
+                {o.payment_status === "pending" && Number(o.total) > 0 && (
+                  <button type="button" onClick={() => startCardPayment("order", o.id).catch(() => {})}
+                    className="px-3 py-1.5 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded-md text-xs font-medium" data-testid={`pay-order-${o.id}`}>
+                    Pay ${Number(o.total).toFixed(2)} by card
+                  </button>
+                )}
+                {(o.tickets || []).length > 0 && !["refunded", "cancelled"].includes(o.payment_status) && (
                   <DownloadTicketsButton order={o} className="px-3 py-1.5 border border-[#8B1A1A] text-[#8B1A1A] hover:bg-[#8B1A1A] hover:text-amber-50 rounded-md text-sm transition-colors" label="PDF tickets" />
                 )}
               </div>

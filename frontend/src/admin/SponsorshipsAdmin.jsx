@@ -4,6 +4,7 @@ import { apiClient, downloadFile } from "../api/client";
 import { useToast } from "../hooks/use-toast";
 import { Loader2, FileText, Trash2, RefreshCw, Users } from "lucide-react";
 import { PaymentBadge, PaymentSelect } from "./PaymentStatus";
+import StripeActions from "./StripeActions";
 
 const STATUS_FILTERS = ["all", "pending", "active", "expired", "renewed", "cancelled"];
 const STATUS_CLS = {
@@ -155,7 +156,8 @@ export default function SponsorshipsAdmin() {
                   <td className={`px-4 py-3 text-xs font-cinzel tracking-wider ${STATUS_CLS[r.status] || ""}`}>{(r.status || "").toUpperCase()}</td>
                   <td className="px-4 py-3">
                     <div className="mb-1"><PaymentBadge status={r.payment_status} /></div>
-                    <div className="text-[11px] text-stone-500 capitalize">{r.payment_method === "check" ? "By check" : "Other"}</div>
+                    <div className="text-[11px] text-stone-500 capitalize">{r.payment_method === "check" ? "By check" : r.payment_method === "stripe" ? "" : "Other"}</div>
+                    <StripeActions kind="sponsorship" refId={r.id} stripe={r.stripe} status={r.payment_status} amount={r.amount} onChanged={load} />
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">{fmtDate(r.end_date)}</td>
                   <td className="px-4 py-3 font-mono text-xs">{r.sponsor_code || "—"}</td>

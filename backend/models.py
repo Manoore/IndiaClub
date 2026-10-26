@@ -161,8 +161,10 @@ class Donation(BaseModel):
     id: str = Field(default_factory=gen_id)
     name: str
     email: EmailStr
-    amount: float
+    amount: float = Field(gt=0, le=50000)
     message: Optional[str] = None
+    payment_method: str = "check"  # stripe (card) | check | other
+    anonymous: bool = False  # leave off the public donor list
     payment_status: str = "pending"  # pending | awaiting_check | paid | failed | refunded
     created_at: datetime = Field(default_factory=datetime.utcnow)
 

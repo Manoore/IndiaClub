@@ -112,7 +112,7 @@ class SponsorshipIn(BaseModel):
     plan: str
     logo_url: Optional[str] = ""
     message: Optional[str] = ""
-    payment_method: str = "check"  # check | other  (online payments arrive with Stripe/PayPal)
+    payment_method: str = "check"  # stripe (card) | check | other
     renewal: bool = False
 
 
@@ -153,7 +153,7 @@ async def create_sponsorship(body: SponsorshipIn):
     plan = await db.sponsorship_plans.find_one({"slug": body.plan, "active": True})
     if not plan:
         raise HTTPException(400, "Please choose a sponsorship level")
-    if body.payment_method not in ("check", "other"):
+    if body.payment_method not in ("stripe", "check", "other"):
         raise HTTPException(400, "Invalid payment method")
     previous = None
     if body.renewal:
@@ -225,12 +225,19 @@ async def admin_set_payment(sid: str, body: PaymentUpdate, request: Request):
     s = await db.sponsorships.find_one({"id": sid})
     if not s:
         raise HTTPException(404, "Not found")
+    return await apply_sponsorship_payment(s, body.status, request.state.admin_user["username"], body.note or "")
+
+
+async def apply_sponsorship_payment(s: dict, status: str, actor: str, note: str = "") -> dict:
+    """Record a sponsorship payment status; paid activates it (once), failed/refunded cancels it."""
+    sid = s["id"]
     now = datetime.utcnow()
-    username = request.state.admin_user["username"]
-    update = {"payment_status": body.status, "payment_note": body.note or "", "updated_at": now}
-    if body.status == "paid" and s.get("status") != "active":
-        update.update(await _activate(s, username, now))
-    elif body.status in ("failed", "refunded"):
+    update = {"payment_status": status, "updated_at": now}
+    if note:
+        update["payment_note"] = note
+    if status == "paid" and s.get("status") != "active":
+        update.update(await _activate(s, actor, now))
+    elif status in ("failed", "refunded"):
         update["status"] = "cancelled"
         await db.sponsors.update_many({"sponsorship_id": sid}, {"$set": {"active": False}})
     await db.sponsorships.update_one({"id": sid}, {"$set": update})

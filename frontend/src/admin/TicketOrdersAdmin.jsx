@@ -3,6 +3,7 @@ import { apiClient, downloadFile } from "../api/client";
 import { useToast } from "../hooks/use-toast";
 import { CheckCircle2, Trash2, Loader2, RefreshCw, Search, Download, ChevronDown, ChevronRight, Gift, X } from "lucide-react";
 import { PAYMENT_STATUSES, PaymentBadge, PaymentSelect } from "./PaymentStatus";
+import StripeActions from "./StripeActions";
 
 const fmtMoney = (n) => `$${Number(n || 0).toFixed(2)}`;
 const fmtDate = (iso) => { try { return new Date(iso).toLocaleString(); } catch { return iso; } };
@@ -59,6 +60,7 @@ function OrderDetails({ order, onChanged }) {
         <div className="border-t border-stone-200 pt-1"><Row label="Total" value={order.total} bold /></div>
         {order.complimentary && <div className="text-xs text-stone-500 pt-1">Complimentary: {order.comp_reason} ({order.comp_by})</div>}
         {mp && !mp.applied && <div className="text-xs text-amber-700 pt-1">Membership activates when this order is marked Paid.</div>}
+        <div className="pt-2"><StripeActions kind="order" refId={order.id} stripe={order.stripe} status={order.payment_status} amount={order.total} hasDonation={!!order.donation} onChanged={onChanged} /></div>
       </div>
     </div>
   );

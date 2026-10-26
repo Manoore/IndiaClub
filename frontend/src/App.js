@@ -21,6 +21,7 @@ import GalleryPage from "./pages/GalleryPage";
 import ContactPage from "./pages/ContactPage";
 import LoginPage from "./pages/LoginPage";
 import MemberDashboardPage from "./pages/MemberDashboardPage";
+import PaymentReturnPage from "./pages/PaymentReturnPage";
 import AdminRoutes from "./admin/AdminRoutes";
 import SiteMeta from "./components/SiteMeta";
 
@@ -75,6 +76,7 @@ function AppRoutes() {
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/member/dashboard" element={<MemberDashboardPage />} />
+        <Route path="/payment/return" element={<PaymentReturnPage />} />
       </Routes>
     </PublicShell>
   );

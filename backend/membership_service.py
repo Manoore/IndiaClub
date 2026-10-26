@@ -135,7 +135,7 @@ async def apply_payment_status(member: dict, status: str, actor: str) -> dict:
 # ===================== Member: change membership type =====================
 class TierChange(BaseModel):
     tier: str
-    payment_method: str = "check"  # paypal | check | other (used for upgrade charges)
+    payment_method: str = "check"  # stripe (card) | check | paypal | other (used for upgrade charges)
 
 
 def _tier_price(plan: dict, slug: Optional[str]) -> Optional[float]:
@@ -184,7 +184,7 @@ async def change_tier(body: TierChange, authorization: Optional[str] = Header(No
     mid = decode_token(authorization.split(" ", 1)[1].strip(), expected_typ="member") if authorization and authorization.startswith("Bearer ") else None
     if not mid:
         raise HTTPException(401, "Missing token")
-    if body.payment_method not in ("paypal", "check", "other"):
+    if body.payment_method not in ("stripe", "paypal", "check", "other"):
         raise HTTPException(400, "Invalid payment method")
     m, mem, plan = await _load_change(mid, body.tier)
     now = datetime.utcnow()

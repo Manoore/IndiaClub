@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { X, Loader2, Ticket, Lock, Plus, Minus, CheckCircle2, Calendar, Video, MapPin, Tag, Users, Hash, Heart, BadgeCheck, AlertCircle } from "lucide-react";
 import AttendeePicker from "./AttendeePicker";
 import { DownloadTicketsButton } from "./MyTicketsSection";
+import PaymentMethodPicker, { startCardPayment } from "./PaymentMethodPicker";
 import { apiClient } from "../api/client";
 import { useToast } from "../hooks/use-toast";
 import { useMemberAuth } from "../api/MemberAuthContext";
@@ -54,7 +55,7 @@ export default function TicketPurchaseModal({ event, onClose, onSuccess }) {
     buyer_name: member ? `${member.first_name} ${member.last_name}`.trim() : "",
     buyer_email: member?.email || "",
     buyer_phone: member?.phone || "",
-    payment_method: "paypal",
+    payment_method: "stripe",
     notes: "",
   });
   const [busy, setBusy] = useState(false);
@@ -179,6 +180,11 @@ export default function TicketPurchaseModal({ event, onClose, onSuccess }) {
     setBusy(true);
     try {
       const r = await apiClient.post(`/events/${event.id}/purchase-tickets`, payload());
+      if (buyer.payment_method === "stripe" && r.data.total > 0) {
+        // Tickets are held while the buyer pays on Stripe's page (released if they don't)
+        await startCardPayment("order", r.data.id);
+        return;
+      }
       setSuccess(r.data);
       if (r.data.membership_purchase && refresh) refresh();
       if (onSuccess) onSuccess(r.data);
@@ -432,11 +438,7 @@ export default function TicketPurchaseModal({ event, onClose, onSuccess }) {
           {totalTickets > 0 && (!quote || quote.total > 0) && (
             <div className="pt-3 border-t border-stone-100">
               <div className="text-xs font-cinzel tracking-wider text-stone-500 mb-2">PAYMENT</div>
-              <div className="grid grid-cols-3 gap-2">
-                {[{ v: "paypal", l: "PayPal" }, { v: "check", l: "Check" }, { v: "cash", l: "Cash at door" }].map((opt) => (
-                  <button key={opt.v} type="button" onClick={() => setBuyer({ ...buyer, payment_method: opt.v })} className={`py-2 rounded-md text-sm border transition ${buyer.payment_method === opt.v ? "bg-[#8B1A1A] text-amber-50 border-[#8B1A1A]" : "bg-white text-stone-700 border-stone-200 hover:border-[#8B1A1A]"}`} data-testid={`pay-${opt.v}`}>{opt.l}</button>
-                ))}
-              </div>
+              <PaymentMethodPicker value={buyer.payment_method} onChange={(v) => setBuyer({ ...buyer, payment_method: v })} options={["stripe", "check", "cash"]} testidPrefix="pay" />
               {options?.fee_mode === "voluntary" && quote?.suggested_fee > 0 && (
                 <label className="mt-3 flex items-start gap-2 text-sm text-stone-700">
                   <input type="checkbox" checked={coverFees} onChange={(e) => setCoverFees(e.target.checked)} className="w-4 h-4 mt-0.5 accent-[#8B1A1A]" data-testid="cover-fees" />
@@ -479,7 +481,7 @@ export default function TicketPurchaseModal({ event, onClose, onSuccess }) {
 
           <button type="submit" disabled={busy || totalTickets === 0 || !quote || salesClosed} className="w-full py-3 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded-md font-medium transition disabled:opacity-50 flex items-center justify-center gap-2" data-testid="ticket-submit">
             {busy && <Loader2 className="w-4 h-4 animate-spin" />}
-            {totalTickets === 0 ? "Select tickets to continue" : quote && quote.total === 0 ? `Confirm ${totalTickets} ticket${totalTickets > 1 ? "s" : ""}` : `Reserve ${totalTickets} ticket${totalTickets > 1 ? "s" : ""}${quote ? ` · ${money(quote.total)}` : ""}`}
+            {totalTickets === 0 ? "Select tickets to continue" : quote && quote.total === 0 ? `Confirm ${totalTickets} ticket${totalTickets > 1 ? "s" : ""}` : buyer.payment_method === "stripe" ? `Pay ${quote ? money(quote.total) : ""} by card` : `Reserve ${totalTickets} ticket${totalTickets > 1 ? "s" : ""}${quote ? ` · ${money(quote.total)}` : ""}`}
           </button>
         </form>
       </div>
@@ -566,7 +568,7 @@ function SuccessView({ event, order, onClose }) {
           {order.payment_status !== "paid" && (
             <div className="bg-stone-50 border border-stone-200 rounded-lg p-3 text-xs text-stone-600 mb-5 text-left">
               <strong>Payment:</strong>{" "}
-              {order.payment_method === "paypal" && "Send payment via PayPal to contact@indiaclubdayton.org. Include your email in the memo."}
+
               {order.payment_method === "check" && "Mail your check payable to 'India Club of Greater Dayton'. Tickets are confirmed when it arrives."}
               {order.payment_method === "cash" && "Bring exact cash to the event entrance and show this confirmation."}
               {order.membership_purchase && " Your membership is activated as soon as your payment is confirmed."}

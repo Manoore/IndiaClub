@@ -4,6 +4,7 @@ import PageHeader from "../components/PageHeader";
 import { Check, Sparkles, X, Loader2 } from "lucide-react";
 import { GoogleLogin } from "@react-oauth/google";
 import { useToast } from "../hooks/use-toast";
+import PaymentMethodPicker, { startCardPayment } from "../components/PaymentMethodPicker";
 import { useMemberAuth } from "../api/MemberAuthContext";
 import { apiClient } from "../api/client";
 import MembershipTermNote, { fmtLongDate } from "../components/MembershipTermNote";
@@ -225,7 +226,7 @@ const SubscribeForm = ({ plan, onSuccess, onClose, member: memberProp, guest, en
     degree_program: "",
     family_count: 1,
     donation_amount: 0,
-    payment_method: "paypal",
+    payment_method: "stripe",
   });
   const [busy, setBusy] = useState(false);
   const [quote, setQuote] = useState(null);
@@ -268,6 +269,12 @@ const SubscribeForm = ({ plan, onSuccess, onClose, member: memberProp, guest, en
         body.degree_program = f.degree_program;
       }
       const r = await apiClient.post("/members/me/subscribe", body);
+      if (f.payment_method === "stripe" && total > 0) {
+        // Card: go straight to Stripe's secure page; the dashboard shows the result when they return
+        toast({ title: "Taking you to secure card payment…" });
+        await startCardPayment("membership", r.data.id);
+        return;
+      }
       const end = r.data?.membership?.end_date;
       toast({
         title: "Welcome to India Club! 🎉",
@@ -439,26 +446,8 @@ const SubscribeForm = ({ plan, onSuccess, onClose, member: memberProp, guest, en
 
       <div>
         <label className="text-xs text-stone-500 block mb-1">Payment method</label>
-        <div className="grid grid-cols-3 gap-2">
-          {["paypal", "check", "other"].map((m) => (
-            <button
-              type="button"
-              key={m}
-              onClick={() => setF({ ...f, payment_method: m })}
-              className={`py-2.5 rounded-md text-sm font-medium border transition ${
-                f.payment_method === m
-                  ? "bg-[#8B1A1A] text-amber-50 border-[#8B1A1A]"
-                  : "bg-white text-stone-700 border-stone-200 hover:border-[#8B1A1A]"
-              }`}
-              data-testid={`sub-pay-${m}`}
-            >
-              {m.toUpperCase()}
-            </button>
-          ))}
-        </div>
-        <p className="text-xs text-stone-500 mt-1.5">
-          You'll receive payment instructions after submitting.
-        </p>
+        <PaymentMethodPicker value={f.payment_method} onChange={(v) => setF({ ...f, payment_method: v })} options={["stripe", "check"]} testidPrefix="sub-pay" />
+        {f.payment_method !== "stripe" && <p className="text-xs text-stone-500 mt-1.5">You'll see payment instructions on your dashboard after submitting.</p>}
       </div>
 
       <MembershipTermNote quote={quote} />

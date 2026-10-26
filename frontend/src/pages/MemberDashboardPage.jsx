@@ -25,6 +25,7 @@ import FamilySection from "../components/FamilySection";
 import MyTicketsSection from "../components/MyTicketsSection";
 import MembershipTermNote, { fmtLongDate } from "../components/MembershipTermNote";
 import ChangeTierDialog from "../components/ChangeTierDialog";
+import { startCardPayment } from "../components/PaymentMethodPicker";
 
 const STATUS_META = {
   none: {
@@ -54,7 +55,28 @@ const STATUS_META = {
   },
 };
 
+// Card payment for something already on the account (opens Stripe's secure page)
+const PayNow = ({ kind, refId, label }) => {
+  const [busy, setBusy] = useState(false);
+  const { toast } = useToast();
+  return (
+    <button type="button" disabled={busy} onClick={async () => {
+      setBusy(true);
+      try { await startCardPayment(kind, refId); } catch (e) {
+        toast({ title: "Couldn't start card payment", description: e.response?.data?.detail || "Please try again." });
+        setBusy(false);
+      }
+    }} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded-md text-sm font-medium disabled:opacity-60" data-testid={`pay-now-${kind}`}>
+      {busy ? "Opening secure payment…" : label}
+    </button>
+  );
+};
+
 const PAYMENT_INSTRUCTIONS = {
+  stripe: {
+    title: "Pay by card",
+    body: "Use the Pay now button above to pay securely on Stripe's page. Your membership is confirmed automatically once paid.",
+  },
   paypal: {
     title: "Pay via PayPal",
     body: "Send your payment to ICGD's PayPal account at contact@indiaclubdayton.org. Include your full name in the memo. Once received, we'll activate your membership.",
@@ -304,7 +326,7 @@ const PAY_LABELS = {
 };
 
 // "What did I sign up for": plan + tier names and fee, looked up from the published plans
-const SubscriptionSummary = ({ membership: m, plans }) => {
+const SubscriptionSummary = ({ membership: m, plans , memberId }) => {
   const plan = plans.find((p) => p.slug === m.plan);
   const tier = (plan?.tiers || []).find((t) => t.slug === m.tier);
   const planName = m.lifetime ? "Lifetime (legacy)" : plan?.name || (m.plan || "").replace(/^\w/, (c) => c.toUpperCase());
@@ -332,7 +354,9 @@ const SubscriptionSummary = ({ membership: m, plans }) => {
       )}
       {(m.upgrades || []).filter((u) => u.amount > 0 && ["pending", "awaiting_check"].includes(u.payment_status)).map((u) => (
         <div key={u.id} className="mt-2 text-sm text-sky-900 bg-sky-50 border border-sky-200 rounded-md px-3 py-2" data-testid="upgrade-due-note">
-          Upgrade balance due: <strong>${u.amount}</strong> ({u.payment_method}). The Treasurer will confirm it once received.
+          Upgrade balance due: <strong>${u.amount}</strong>.{" "}
+          {memberId && <PayNow kind="upgrade" refId={`${memberId}:${u.id}`} label={`Pay $${u.amount} by card`} />}
+          {u.payment_method !== "stripe" && " Or pay by check; the Treasurer confirms it once received."}
         </div>
       ))}
       {isFree && (
@@ -346,8 +370,13 @@ const SubscriptionSummary = ({ membership: m, plans }) => {
           <span>Fee: <strong>${Number(fee).toLocaleString()}</strong></span>
           {donation > 0 && <span>Donation: <strong>${donation.toLocaleString()}</strong></span>}
           <span>Total: <strong>${(Number(fee) + donation).toLocaleString()}</strong></span>
-          {m.payment_method && <span>Paying by: <strong className="capitalize">{m.payment_method}</strong></span>}
+          {m.payment_method && <span>Paying by: <strong className="capitalize">{m.payment_method === "stripe" ? "card" : m.payment_method}</strong></span>}
           {m.family_count > 1 && <span>Family members: <strong>{m.family_count}</strong></span>}
+        </div>
+      )}
+      {!m.lifetime && !isFree && memberId && ["pending", "awaiting_check", "failed"].includes(m.payment_status) && Number(fee) + donation > 0 && (
+        <div className="mt-3" data-testid="membership-pay-now">
+          <PayNow kind="membership" refId={memberId} label={`Pay $${(Number(fee) + donation).toLocaleString()} now by card`} />
         </div>
       )}
     </div>
@@ -462,7 +491,7 @@ export default function MemberDashboardPage() {
 
             {ms === "pending" && (
               <div className="space-y-4">
-                <SubscriptionSummary membership={member.membership} plans={plans} />
+                <SubscriptionSummary membership={member.membership} plans={plans} memberId={member.id} />
                 <div className="grid sm:grid-cols-2 gap-4">
                   <Info label="Family Count" value={member.membership.family_count} />
                   <Info label="Donation" value={`$${member.membership.donation_amount || 0}`} />
@@ -495,7 +524,7 @@ export default function MemberDashboardPage() {
 
             {ms === "active" && (
               <div className="space-y-4">
-                <SubscriptionSummary membership={member.membership} plans={plans} />
+                <SubscriptionSummary membership={member.membership} plans={plans} memberId={member.id} />
                 {!member.membership.lifetime && (plans.find((p) => p.slug === member.membership.plan)?.tiers || []).length > 1 && (
                   <button onClick={() => setChangeTier("")} className="text-sm font-medium text-[#8B1A1A] hover:text-[#E07A1F] underline-offset-2 hover:underline" data-testid="change-tier-btn">
                     Change membership type

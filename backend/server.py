@@ -56,6 +56,8 @@ from spam import spam_guard, check_login_allowed, record_login_failure, clear_lo
 from checkout import (public_router as checkout_public_router, admin_router as checkout_admin_router,
                       apply_order_payment, validate_event_pricing)
 from audit import audit
+from payments import (public_router as payments_public_router, admin_router as payments_admin_router,
+                      reconcile_loop)
 
 
 app = FastAPI(title="India Club of Greater Dayton API")
@@ -266,7 +268,7 @@ async def member_subscribe(body: MemberSubscribeRequest, member_id: str = Depend
     is_free = body.plan == FREE_PLAN
     if is_free:
         body.payment_method = "none"
-    elif body.payment_method not in ("paypal", "check", "other"):
+    elif body.payment_method not in ("stripe", "paypal", "check", "other"):
         raise HTTPException(400, "Invalid payment method")
 
     profile_update = {}
@@ -552,8 +554,14 @@ async def contact(body: ContactMessage):
 
 @api.post("/donations", dependencies=[Depends(spam_guard)])
 async def donate(body: Donation):
-    await db.donations.insert_one(body.model_dump())
-    return {"ok": True, "id": body.id}
+    if body.payment_method not in ("stripe", "check", "other"):
+        raise HTTPException(400, "Invalid payment method")
+    d = body.model_dump()
+    # Never trust a status or id from the browser; card donations are confirmed by Stripe
+    d.update(id=gen_id(), created_at=datetime.utcnow(),
+             payment_status="awaiting_check" if body.payment_method == "check" else "pending")
+    await db.donations.insert_one(d)
+    return {"ok": True, "id": d["id"]}
 
 
 @api.post("/membership-applications", dependencies=[Depends(spam_guard)])
@@ -1055,6 +1063,8 @@ app.include_router(community_public_router)
 app.include_router(community_admin_router)
 app.include_router(membership_public_router)
 app.include_router(membership_admin_router)
+app.include_router(payments_public_router)
+app.include_router(payments_admin_router)
 app.include_router(checkout_public_router)
 app.include_router(checkout_admin_router)
 app.include_router(api)
@@ -1177,6 +1187,7 @@ async def on_startup():
         )
     if os.environ.get("DISABLE_BACKGROUND_JOBS") != "1":
         _bg_tasks.append(asyncio.create_task(_expiry_loop()))
+        _bg_tasks.append(asyncio.create_task(reconcile_loop()))
     logging.info("ICGD API started + seed verified")
 
 

@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
 import { Heart, DollarSign, Building2, Users, ArrowRight, Check, Loader2, CheckCircle2, Upload } from "lucide-react";
 import { useToast } from "../hooks/use-toast";
+import PaymentMethodPicker, { startCardPayment } from "../components/PaymentMethodPicker";
 import { apiClient, absoluteUrl } from "../api/client";
 import Honeypot, { HONEYPOT_FIELD } from "../components/Honeypot";
 
@@ -34,7 +35,7 @@ const Hub = () => (
   </section>
 );
 
-const EMPTY_SPONSOR = { company: "", contact_name: "", email: "", phone: "", website: "", message: "", logo_url: "", payment_method: "check", renewal: false };
+const EMPTY_SPONSOR = { company: "", contact_name: "", email: "", phone: "", website: "", message: "", logo_url: "", payment_method: "stripe", renewal: false };
 
 const BecomeSponsor = () => {
   const [plans, setPlans] = useState(null);
@@ -73,6 +74,10 @@ const BecomeSponsor = () => {
     setSubmitting(true);
     try {
       const r = await apiClient.post("/sponsorships", { ...form, plan: plan.slug, [HONEYPOT_FIELD]: hp });
+      if (form.payment_method === "stripe") {
+        await startCardPayment("sponsorship", r.data.id);
+        return;
+      }
       setSubmitted(r.data);
     } catch (err) {
       toast({ title: "Couldn't submit", description: err?.response?.data?.detail || "Please try again.", variant: "destructive" });
@@ -156,14 +161,7 @@ const BecomeSponsor = () => {
             <textarea rows={3} placeholder="Anything we should know? (optional)" value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} className={cls} data-testid="sponsor-input-message" />
             <div>
               <div className="text-xs text-stone-500 mb-1.5">How will you pay?</div>
-              <div className="grid grid-cols-2 gap-2">
-                {[["check", "Pay by check"], ["other", "Other (we'll contact you)"]].map(([v, label]) => (
-                  <button type="button" key={v} onClick={() => setForm({ ...form, payment_method: v })}
-                    className={`py-2.5 rounded-md text-sm font-medium border ${form.payment_method === v ? "bg-[#8B1A1A] text-amber-50 border-[#8B1A1A]" : "bg-white text-stone-700 border-stone-200 hover:border-[#8B1A1A]"}`}
-                    data-testid={`sponsor-pay-${v}`}>{label}</button>
-                ))}
-              </div>
-              <p className="text-xs text-stone-500 mt-1.5">Online card payment is coming soon.</p>
+              <PaymentMethodPicker value={form.payment_method} onChange={(v) => setForm({ ...form, payment_method: v })} options={["stripe", "check", "other"]} testidPrefix="sponsor-pay" />
             </div>
             <button disabled={submitting || uploading} type="submit" className="w-full py-3.5 bg-[#8B1A1A] hover:bg-[#6f1414] disabled:opacity-70 text-amber-50 rounded-md font-medium flex items-center justify-center gap-2" data-testid="sponsor-submit">
               {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -238,7 +236,7 @@ const SponsorDirectory = () => {
 const Donate = () => {
   const [amount, setAmount] = useState(100);
   const [custom, setCustom] = useState("");
-  const [form, setForm] = useState({ name: "", email: "", message: "" });
+  const [form, setForm] = useState({ name: "", email: "", message: "", payment_method: "stripe", anonymous: false });
   const [hp, setHp] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -254,13 +252,19 @@ const Donate = () => {
     }
     setSubmitting(true);
     try {
-      await apiClient.post("/donations", {
+      const r = await apiClient.post("/donations", {
         name: form.name,
         email: form.email,
         amount: finalAmt,
         message: form.message || null,
+        payment_method: form.payment_method,
+        anonymous: form.anonymous,
         [HONEYPOT_FIELD]: hp,
       });
+      if (form.payment_method === "stripe") {
+        await startCardPayment("donation", r.data.id);
+        return;
+      }
       setSubmitted(true);
       toast({ title: "Thank you for your generosity!", description: `Your $${finalAmt} pledge is recorded. We'll email payment instructions to ${form.email}.` });
     } catch (err) {
@@ -318,6 +322,10 @@ const Donate = () => {
             <input required placeholder="Your name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full px-4 py-3 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]" data-testid="donate-input-name" />
             <input required type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full px-4 py-3 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]" data-testid="donate-input-email" />
             <textarea rows={3} placeholder="Optional message (dedication, in honor of, etc.)" value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} className="w-full px-4 py-3 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]" data-testid="donate-input-message" />
+            <label className="flex items-center gap-2 text-sm text-stone-600">
+              <input type="checkbox" checked={form.anonymous} onChange={(e) => setForm({ ...form, anonymous: e.target.checked })} className="w-4 h-4 accent-[#8B1A1A]" data-testid="donate-anonymous" /> Don't list my name publicly as a donor
+            </label>
+            <PaymentMethodPicker value={form.payment_method} onChange={(v) => setForm({ ...form, payment_method: v })} options={["stripe", "check"]} testidPrefix="donate-pay" />
           </div>
           <button disabled={submitting} type="submit" className="w-full mt-4 py-3.5 bg-[#E07A1F] hover:bg-[#c66c1a] disabled:opacity-70 text-white rounded-md font-medium flex items-center justify-center gap-2" data-testid="donate-submit">
             {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
