@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { Menu, X, ChevronDown, Phone, Mail, LogIn, User } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Menu, X, ChevronDown, Phone, Mail, LogIn, LogOut, User, Heart } from "lucide-react";
 import { NAV } from "../data/mock";
 import { Button } from "./ui/button";
 import { useMemberAuth } from "../api/MemberAuthContext";
@@ -11,7 +11,8 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [openSubmenu, setOpenSubmenu] = useState(null);
   const location = useLocation();
-  const { isAuthed, member } = useMemberAuth();
+  const { isAuthed, member, logout } = useMemberAuth();
+  const navigate = useNavigate();
   const cta = useMembershipCta("Join Us");
 
   useEffect(() => {
@@ -96,10 +97,21 @@ export default function Navbar() {
               </Link>
             </div>
 
-            {/* Mobile toggle */}
-            <button onClick={() => setOpen(!open)} className="lg:hidden p-2 text-[#8B1A1A]">
-              {open ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
+            {/* Phones and tablets: sign-in / account stays visible next to the menu button */}
+            <div className="lg:hidden flex items-center gap-1">
+              {isAuthed ? (
+                <Link to="/member/dashboard" className="flex items-center gap-1.5 px-2.5 py-2 rounded-md text-sm font-medium text-[#8B1A1A] hover:bg-amber-50" data-testid="mobile-account-link" aria-label="My account">
+                  <User className="w-5 h-5" /> <span className="max-w-[7rem] truncate">{member?.first_name || "Account"}</span>
+                </Link>
+              ) : (
+                <Link to="/login" className="flex items-center gap-1.5 px-2.5 py-2 rounded-md text-sm font-medium text-[#8B1A1A] hover:bg-amber-50" data-testid="mobile-login-link">
+                  <LogIn className="w-5 h-5" /> Log in
+                </Link>
+              )}
+              <button onClick={() => setOpen(!open)} className="p-2 text-[#8B1A1A]" aria-label={open ? "Close menu" : "Open menu"} aria-expanded={open} data-testid="mobile-menu-toggle">
+                {open ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -107,6 +119,22 @@ export default function Navbar() {
         {open && (
           <div className="lg:hidden border-t border-stone-200 bg-white max-h-[80vh] overflow-y-auto">
             <ul className="px-6 py-4 space-y-1">
+              <li className="pb-3 mb-2 border-b border-stone-100" data-testid="mobile-menu-account">
+                {isAuthed ? (
+                  <div className="flex items-center justify-between gap-2">
+                    <Link to="/member/dashboard" className="flex items-center gap-2 py-2 font-medium text-[#8B1A1A]">
+                      <User className="w-4 h-4" /> My Dashboard{member?.first_name ? ` · ${member.first_name}` : ""}
+                    </Link>
+                    <button onClick={() => { logout(); setOpen(false); navigate("/"); }} className="flex items-center gap-1.5 py-2 text-sm text-stone-600 hover:text-[#8B1A1A]" data-testid="mobile-logout">
+                      <LogOut className="w-4 h-4" /> Sign out
+                    </button>
+                  </div>
+                ) : (
+                  <Link to="/login" className="flex items-center gap-2 py-2 font-medium text-[#8B1A1A]" data-testid="mobile-menu-login">
+                    <LogIn className="w-4 h-4" /> Member Login / Register
+                  </Link>
+                )}
+              </li>
               {NAV.map((item) => (
                 <li key={item.label}>
                   <div className="flex items-center justify-between">
@@ -128,6 +156,11 @@ export default function Navbar() {
                   )}
                 </li>
               ))}
+              <li className="pt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-stone-600">
+                <Link to="/sponsorship/donate" className="flex items-center gap-1 py-1.5 hover:text-[#8B1A1A]"><Heart className="w-3.5 h-3.5" /> Donate</Link>
+                <Link to="/sponsorship/become-sponsor" className="py-1.5 hover:text-[#8B1A1A]">Advertise With Us</Link>
+                <span className="py-1.5 flex items-center gap-1"><Phone className="w-3.5 h-3.5" /> (937) 314-8870</span>
+              </li>
               <li>
                 <Link to={cta.to} className="block mt-4 text-center bg-[#8B1A1A] text-amber-50 py-2 rounded-md">{cta.label}</Link>
               </li>
