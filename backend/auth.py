@@ -1,6 +1,7 @@
 import os
 import jwt
 from datetime import datetime, timedelta
+import bcrypt as _bcrypt
 from passlib.hash import bcrypt_sha256
 from fastapi import HTTPException, Header
 from typing import Optional
@@ -13,8 +14,18 @@ def hash_password(pw: str) -> str:
     return bcrypt_sha256.hash(pw)
 
 
+def is_legacy_hash(hashed: str) -> bool:
+    """Plain bcrypt hashes brought over from the old Joomla site ($2y$...)."""
+    return (hashed or "").startswith(("$2y$", "$2a$", "$2b$"))
+
+
 def verify_password(pw: str, hashed: str) -> bool:
     try:
+        if is_legacy_hash(hashed):
+            pw_bytes = pw.encode("utf-8")
+            if len(pw_bytes) > 72:
+                return False
+            return _bcrypt.checkpw(pw_bytes, ("$2b$" + hashed[4:]).encode("utf-8"))
         return bcrypt_sha256.verify(pw, hashed)
     except Exception:
         return False

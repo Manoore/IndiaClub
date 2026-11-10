@@ -125,7 +125,7 @@ function FamilyManager() {
         <div className="divide-y divide-stone-100">
           {items.map((f) => {
             const s = STATUS[f.status] || STATUS.pending;
-            if (editing === f.id) return <div key={f.id} className="py-3"><FamilyForm initial={{ name: f.name, relation: f.relation, date_of_birth: f.date_of_birth }} onSubmit={(v) => save(v, f.id)} onCancel={() => setEditing(null)} busy={busy} testPrefix={`family-edit-${f.id}`} /></div>;
+            if (editing === f.id) return <div key={f.id} className="py-3"><FamilyForm initial={{ name: f.name, relation: f.relation, date_of_birth: f.date_of_birth || "" }} onSubmit={(v) => save(v, f.id)} onCancel={() => setEditing(null)} busy={busy} testPrefix={`family-edit-${f.id}`} /></div>;
             return (
               <div key={f.id} className="py-3 flex items-center gap-3 flex-wrap" data-testid={`family-row-${f.id}`}>
                 <div className="w-9 h-9 rounded-full bg-amber-100 text-[#8B1A1A] flex items-center justify-center font-display">{f.name.charAt(0).toUpperCase()}</div>

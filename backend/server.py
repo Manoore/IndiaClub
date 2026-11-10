@@ -21,7 +21,7 @@ if not os.environ.get("JWT_SECRET"):
         "server restarts. Add JWT_SECRET (a long random value) in the hosting environment.")
 
 from database import db
-from auth import verify_password, hash_password, create_token, require_admin, require_member
+from auth import verify_password, hash_password, is_legacy_hash, create_token, require_admin, require_member
 from models import (
     LoginRequest, ChangePasswordRequest, Event, News, ExecMember, GalleryImage, Sponsor, Donor,
     Classified, Subscriber, ContactMessage, Donation, MembershipApplication, SponsorshipInquiry,
@@ -154,6 +154,8 @@ async def member_login(body: MemberLoginRequest, request: Request):
         record_login_failure(request, email)
         raise HTTPException(401, "Invalid email or password")
     clear_login_failures(request, email)
+    if is_legacy_hash(m["password_hash"]):  # old-site password: store it in the current format
+        await db.members.update_one({"id": m["id"]}, {"$set": {"password_hash": hash_password(body.password)}})
     return {"token": create_token(m["id"], typ="member"), "member": _public_member(m)}
 
 
