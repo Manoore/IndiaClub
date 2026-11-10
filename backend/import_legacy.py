@@ -520,6 +520,8 @@ async def write(db, out: dict, imp: Importer, apply: bool) -> collections.Counte
         await db.migration_flags.update_one({"id": "legacy_samples_v1"}, {"$set": {"id": "legacy_samples_v1"}}, upsert=True)
 
     # Members: match by email. Existing accounts keep login/profile; take the old membership if it ends later.
+    print("
+Checking the new site's database ...", flush=True)
     remap = {}
     # One query each up front instead of thousands of round trips to Atlas
     existing_members = {x["email"]: x async for x in db.members.find(
@@ -563,6 +565,7 @@ async def write(db, out: dict, imp: Importer, apply: bool) -> collections.Counte
             if x.get("member_id"):
                 x["member_id"] = remap.get(x["member_id"], x["member_id"])
 
+    print("  members checked", flush=True)
     # Events: a new-site event on the same day with the same title takes the old one's orders
     event_remap = {}
     for e in out["events"]:
@@ -600,6 +603,7 @@ async def write(db, out: dict, imp: Importer, apply: bool) -> collections.Counte
                  "subscribers", "gallery"):
         done = {x["legacy_source"] async for x in db[coll].find(
             {"legacy_source": {"$exists": True}}, {"legacy_source": 1, "_id": 0})}
+        print(f"  {coll} ...", flush=True)
         batch = []
         for x in out[coll]:
             if coll == "events" and x["id"] in event_remap:
@@ -652,6 +656,8 @@ async def main():
         sys.exit(f"\nNo usable MONGO_URL. Put this one line in {env_file} (Notepad), then run again:\n"
                  "  MONGO_URL=<the value from Render, starting with mongodb+srv://>\n"
                  f"(What was found starts with: {url[:12]!r})")
+    if "sockettimeoutms" not in url.lower():  # a stalled query errors after 2 minutes instead of hanging forever
+        url += ("&" if "?" in url else ("?" if url.count("/") > 2 else "/?")) + "socketTimeoutMS=120000"
     os.environ["MONGO_URL"] = url
     os.environ["DB_NAME"] = clean(file_vals.get("DB_NAME")) or os.environ.get("DB_NAME") or "icgd_production"
     print(f"Database: {os.environ['DB_NAME']} on {url.split('@')[-1].split('/')[0]}")
