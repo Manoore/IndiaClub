@@ -521,12 +521,15 @@ async def write(db, out: dict, imp: Importer, apply: bool) -> collections.Counte
 
     # Members: match by email. Existing accounts keep login/profile; take the old membership if it ends later.
     remap = {}
+    # One query each up front instead of thousands of round trips to Atlas
+    existing_members = {x["email"]: x async for x in db.members.find(
+        {"email": {"$in": [m["email"] for m in out["members"]]}})}
+    new_members = []
     for m in out["members"]:
-        existing = await db.members.find_one({"email": m["email"]})
+        existing = existing_members.get(m["email"])
         if not existing:
             stats["members new"] += 1
-            if apply:
-                await db.members.insert_one(m)
+            new_members.append(m)
             continue
         remap[m["id"]] = existing["id"]
         old_mem, cur = m["membership"], existing.get("membership") or {}
@@ -547,6 +550,10 @@ async def write(db, out: dict, imp: Importer, apply: bool) -> collections.Counte
                 if not existing.get(k) and m.get(k):
                     upd[k] = m[k]
             await db.members.update_one({"id": existing["id"]}, {"$set": upd})
+
+    if apply and new_members:
+        for i in range(0, len(new_members), 500):
+            await db.members.insert_many(new_members[i:i + 500], ordered=False)
 
     for coll in ("family_members", "membership_history"):
         for x in out[coll]:
@@ -588,20 +595,26 @@ async def write(db, out: dict, imp: Importer, apply: bool) -> collections.Counte
             await db.events.update_one({"id": target["id"]}, {"$push": {"ticket_types": {"$each": extra}},
                                                                "$set": {"legacy_merged_from": e["legacy_source"]}})
 
+    on_list = {x["email"] async for x in db.subscribers.find({}, {"email": 1, "_id": 0}) if x.get("email")}
     for coll in ("events", "family_members", "membership_history", "ticket_orders", "donations", "sponsorships",
                  "subscribers", "gallery"):
+        done = {x["legacy_source"] async for x in db[coll].find(
+            {"legacy_source": {"$exists": True}}, {"legacy_source": 1, "_id": 0})}
+        batch = []
         for x in out[coll]:
             if coll == "events" and x["id"] in event_remap:
                 continue
-            if await db[coll].find_one({"legacy_source": x["legacy_source"]}, {"_id": 1}):
+            if x["legacy_source"] in done:
                 stats[f"{coll} already imported"] += 1
                 continue
-            if coll == "subscribers" and await db.subscribers.find_one({"email": x["email"]}, {"_id": 1}):
+            if coll == "subscribers" and x["email"] in on_list:
                 stats["subscribers already on list"] += 1
                 continue
             stats[f"{coll} new"] += 1
-            if apply:
-                await db[coll].insert_one(x)
+            batch.append(x)
+        if apply:
+            for i in range(0, len(batch), 500):
+                await db[coll].insert_many(batch[i:i + 500], ordered=False)
     if apply:
         await db.migration_flags.update_one({"id": "legacy_import_v1"}, {"$set": {"id": "legacy_import_v1", "at": datetime.utcnow()}}, upsert=True)
     return stats
@@ -615,7 +628,6 @@ async def main():
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     import os
     from pathlib import Path
-    from dotenv import dotenv_values
 
     def clean(v):
         v = (v or "").strip().strip('"\'“”').strip()
@@ -623,7 +635,18 @@ async def main():
 
     # backend/.env (git-ignored) wins over the shell, where & and curly quotes break the link
     env_file = Path(__file__).with_name(".env")
-    file_vals = dotenv_values(env_file) if env_file.exists() else {}
+    file_vals = {}
+    if env_file.exists():
+        raw = env_file.read_bytes()
+        text = raw.decode("utf-16") if raw[:2] in (b"\xff\xfe", b"\xfe\xff") else raw.decode("utf-8-sig", "replace")
+        for line in text.splitlines():
+            line = line.strip()
+            if line.lower().startswith("set "):
+                line = line[4:].strip()
+            line = line.strip("\"'“”")
+            if "=" in line:
+                k, v = line.split("=", 1)
+                file_vals[k.strip().upper()] = v
     url = clean(file_vals.get("MONGO_URL")) or clean(os.environ.get("MONGO_URL"))
     if not url.startswith(("mongodb://", "mongodb+srv://")):
         sys.exit(f"\nNo usable MONGO_URL. Put this one line in {env_file} (Notepad), then run again:\n"
