@@ -614,13 +614,24 @@ async def main():
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     import os
-    if not os.environ.get("MONGO_URL", "").strip().startswith("mongodb"):
-        # Asked here (hidden, nothing echoed or saved) so the shell can't mangle & or quotes in the link
-        import getpass
-        os.environ["MONGO_URL"] = getpass.getpass("\nPaste MONGO_URL from Render (hidden), then press Enter: ").strip().strip('"“”')
-    if not os.environ.get("DB_NAME"):
-        os.environ["DB_NAME"] = input("DB_NAME from Render: ").strip()
-    print(f"Database: {os.environ['DB_NAME']}")
+    from pathlib import Path
+    from dotenv import dotenv_values
+
+    def clean(v):
+        v = (v or "").strip().strip('"\'“”').strip()
+        return v.split("=", 1)[1].strip() if v.upper().startswith("MONGO_URL=") else v
+
+    # backend/.env (git-ignored) wins over the shell, where & and curly quotes break the link
+    env_file = Path(__file__).with_name(".env")
+    file_vals = dotenv_values(env_file) if env_file.exists() else {}
+    url = clean(file_vals.get("MONGO_URL")) or clean(os.environ.get("MONGO_URL"))
+    if not url.startswith(("mongodb://", "mongodb+srv://")):
+        sys.exit(f"\nNo usable MONGO_URL. Put this one line in {env_file} (Notepad), then run again:\n"
+                 "  MONGO_URL=<the value from Render, starting with mongodb+srv://>\n"
+                 f"(What was found starts with: {url[:12]!r})")
+    os.environ["MONGO_URL"] = url
+    os.environ["DB_NAME"] = clean(file_vals.get("DB_NAME")) or os.environ.get("DB_NAME") or "icgd_production"
+    print(f"Database: {os.environ['DB_NAME']} on {url.split('@')[-1].split('/')[0]}")
     print(f"Reading {args.dump} ...")
     data = read_dump(args.dump)
     imp = Importer(data, datetime.utcnow())
