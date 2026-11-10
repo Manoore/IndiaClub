@@ -9,6 +9,9 @@ import { apiClient } from "../api/client";
 import EventsCalendar, { eventDate, isEventOver } from "../components/EventsCalendar";
 import useMembershipCta from "../components/useMembershipCta";
 
+// Shown when an event has no flyer or its picture link no longer works
+const EVENT_FALLBACK = "https://images.unsplash.com/photo-1605302977140-6572a4421aef?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600";
+
 // Member / guest / sponsor price summary for the cheapest ticket type
 // The registration period on sale now (display only; the server enforces periods in Eastern time)
 const currentPeriod = (e) => {
@@ -85,7 +88,7 @@ const EventCard = ({ e, onRegister, onBuyTickets, past = false }) => {
   return (
     <div className="card-hover bg-white border border-stone-200 rounded-xl overflow-hidden flex flex-col">
       <div className="relative h-52 overflow-hidden">
-        <img src={e.image_url || e.image} alt={e.title} className="w-full h-full object-cover hover:scale-105 transition duration-700" />
+        <img src={e.image_url || e.image || EVENT_FALLBACK} alt={e.title} onError={(ev) => { if (ev.currentTarget.src !== EVENT_FALLBACK) ev.currentTarget.src = EVENT_FALLBACK; }} className="w-full h-full object-cover hover:scale-105 transition duration-700" />
         <div className="absolute top-3 left-3 bg-white rounded-md px-2.5 py-1 text-[#8B1A1A] text-xs font-semibold">{e.category}</div>
         <div className="absolute top-3 right-3 bg-[#1a0e0a]/85 backdrop-blur text-amber-100 rounded-md px-2.5 py-1.5 text-center">
           <div className="font-display text-lg leading-none">{day}</div>

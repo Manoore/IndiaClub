@@ -386,7 +386,7 @@ class Importer:
                 "time": f"{_fmt_time(start)} – {_fmt_time(end)}" if end else _fmt_time(start),
                 "venue": venue, "description": _text(e["short_description"])[:300],
                 "long_description": _text((e["short_description"] or "") + "\n" + (e["description"] or "")),
-                "image_url": _first_image(e.get("thumb") and f'<img src="media/com_eventbooking/images/{e["thumb"]}">',
+                "image_url": _first_image(e.get("thumb") and f'<img src="media/com_eventbooking/images/thumbs/{e["thumb"]}">',
                                           e["short_description"], e["description"]) or None,
                 "highlights": [], "registration_open": False, "featured": False, "color": "#8B1A1A",
                 "event_format": "in_person", "start_date": start.strftime("%Y-%m-%dT%H:%M"),
@@ -609,12 +609,14 @@ async def write(db, out: dict, imp: Importer, apply: bool) -> collections.Counte
         done = {x["legacy_source"] async for x in db[coll].find(
             {"legacy_source": {"$exists": True}}, {"legacy_source": 1, "_id": 0})}
         print(f"  {coll} ...", flush=True)
-        batch = []
+        batch, fixes = [], []
         for x in out[coll]:
             if coll == "events" and x["id"] in event_remap:
                 continue
             if x["legacy_source"] in done:
                 stats[f"{coll} already imported"] += 1
+                if coll == "events" and x.get("image_url"):
+                    fixes.append(x)
                 continue
             if coll == "subscribers" and x["email"] in on_list:
                 stats["subscribers already on list"] += 1
@@ -624,6 +626,13 @@ async def write(db, out: dict, imp: Importer, apply: bool) -> collections.Counte
         if apply:
             for i in range(0, len(batch), 500):
                 await db[coll].insert_many(batch[i:i + 500], ordered=False)
+        # Flyers of events imported earlier: replace a missing or old-site link, never an image an admin chose
+        for x in fixes:
+            cur = await db.events.find_one({"legacy_source": x["legacy_source"]}, {"image_url": 1})
+            if cur and cur.get("image_url") != x["image_url"] and (not cur.get("image_url") or cur["image_url"].startswith(OLD)):
+                stats["events flyer link fixed"] += 1
+                if apply:
+                    await db.events.update_one({"_id": cur["_id"]}, {"$set": {"image_url": x["image_url"]}})
     if apply:
         await db.migration_flags.update_one({"id": "legacy_import_v1"}, {"$set": {"id": "legacy_import_v1", "at": datetime.utcnow()}}, upsert=True)
     return stats
