@@ -613,13 +613,6 @@ async def main():
     ap.add_argument("--write", action="store_true", help="import for real (default is a dry run)")
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(message)s")
-    print(f"Reading {args.dump} ...")
-    data = read_dump(args.dump)
-    imp = Importer(data, datetime.utcnow())
-    out = imp.build()
-    print("\nFrom the old site:")
-    for k, v in sorted(imp.report.items()):
-        print(f"  {k}: {v}")
     import os
     if not os.environ.get("MONGO_URL", "").strip().startswith("mongodb"):
         # Asked here (hidden, nothing echoed or saved) so the shell can't mangle & or quotes in the link
@@ -628,6 +621,13 @@ async def main():
     if not os.environ.get("DB_NAME"):
         os.environ["DB_NAME"] = input("DB_NAME from Render: ").strip()
     print(f"Database: {os.environ['DB_NAME']}")
+    print(f"Reading {args.dump} ...")
+    data = read_dump(args.dump)
+    imp = Importer(data, datetime.utcnow())
+    out = imp.build()
+    print("\nFrom the old site:")
+    for k, v in sorted(imp.report.items()):
+        print(f"  {k}: {v}")
     from database import db
     stats = await write(db, out, imp, apply=args.write)
     print("\n" + ("Written:" if args.write else "Dry run (nothing written). Would do:"))
