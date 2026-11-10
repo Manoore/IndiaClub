@@ -520,8 +520,7 @@ async def write(db, out: dict, imp: Importer, apply: bool) -> collections.Counte
         await db.migration_flags.update_one({"id": "legacy_samples_v1"}, {"$set": {"id": "legacy_samples_v1"}}, upsert=True)
 
     # Members: match by email. Existing accounts keep login/profile; take the old membership if it ends later.
-    print("
-Checking the new site's database ...", flush=True)
+    print("\nChecking the new site's database ...", flush=True)
     remap = {}
     # One query each up front instead of thousands of round trips to Atlas
     existing_members = {x["email"]: x async for x in db.members.find(
