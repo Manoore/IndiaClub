@@ -521,6 +521,12 @@ async def write(db, out: dict, imp: Importer, apply: bool) -> collections.Counte
 
     # Members: match by email. Existing accounts keep login/profile; take the old membership if it ends later.
     print("\nChecking the new site's database ...", flush=True)
+    have = {c: await db[c].count_documents({}) for c in ("members", "events", "admin_users")}
+    print(f"  it already holds {have['members']} members, {have['events']} events, {have['admin_users']} admin users", flush=True)
+    if not have["events"] or not have["admin_users"]:
+        print("  WARNING: this looks like an empty database, not the live site's. Check DB_NAME in Render.", flush=True)
+        if apply:
+            sys.exit("Stopped: refusing to write into what looks like the wrong database.")
     remap = {}
     # One query each up front instead of thousands of round trips to Atlas
     existing_members = {x["email"]: x async for x in db.members.find(
@@ -658,7 +664,7 @@ async def main():
     if "sockettimeoutms" not in url.lower():  # a stalled query errors after 2 minutes instead of hanging forever
         url += ("&" if "?" in url else ("?" if url.count("/") > 2 else "/?")) + "socketTimeoutMS=120000"
     os.environ["MONGO_URL"] = url
-    os.environ["DB_NAME"] = clean(file_vals.get("DB_NAME")) or os.environ.get("DB_NAME") or "icgd_production"
+    os.environ["DB_NAME"] = clean(file_vals.get("DB_NAME")) or os.environ.get("DB_NAME") or "icgd"
     print(f"Database: {os.environ['DB_NAME']} on {url.split('@')[-1].split('/')[0]}")
     print(f"Reading {args.dump} ...")
     data = read_dump(args.dump)
