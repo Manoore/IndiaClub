@@ -1,6 +1,6 @@
 import React from "react";
 import CrudPage from "./CrudPage";
-import { apiClient } from "../api/client";
+import { apiClient, thumbUrl, fullOnError } from "../api/client";
 import { useToast } from "../hooks/use-toast";
 import { PaymentBadge, PaymentSelect } from "./PaymentStatus";
 import StripeActions from "./StripeActions";
@@ -24,7 +24,7 @@ export const EventsAdmin = () => (
   <CrudPage title="Events" description="Manage upcoming and past events." endpoint="events"
     extraActions={(row, reload) => <DuplicateEventButton row={row} reload={reload} />}
     columns={[
-      { key: "image_url", label: "Image", render: (r) => r.image_url ? <img src={r.image_url} alt="" className="w-14 h-14 rounded object-cover" /> : <div className="w-14 h-14 bg-stone-100 rounded" /> },
+      { key: "image_url", label: "Image", render: (r) => r.image_url ? <img src={r.image_url} loading="lazy" decoding="async" alt="" className="w-14 h-14 rounded object-cover" /> : <div className="w-14 h-14 bg-stone-100 rounded" /> },
       { key: "title", label: "Title" },
       { key: "category", label: "Category" },
       { key: "date", label: "Date" },
@@ -83,7 +83,7 @@ export const NewsAdmin = () => (
 export const ExecTeamAdmin = () => (
   <CrudPage title="Executive Team" endpoint="exec-team"
     columns={[
-      { key: "image_url", label: "Photo", render: (r) => <img src={r.image_url} alt="" className="w-12 h-12 rounded-full object-cover" /> },
+      { key: "image_url", label: "Photo", render: (r) => <img src={r.image_url} loading="lazy" decoding="async" alt="" className="w-12 h-12 rounded-full object-cover" /> },
       { key: "name", label: "Name" },
       { key: "role", label: "Role" },
       { key: "order", label: "Order" },
@@ -102,7 +102,7 @@ export const ExecTeamAdmin = () => (
 export const GalleryAdmin = () => (
   <CrudPage title="Gallery" endpoint="gallery"
     columns={[
-      { key: "image_url", label: "Image", render: (r) => <img src={r.image_url} alt="" className="w-16 h-16 rounded object-cover" /> },
+      { key: "image_url", label: "Image", render: (r) => <img src={thumbUrl(r.image_url, "m")} onError={fullOnError(r.image_url)} loading="lazy" decoding="async" alt="" className="w-16 h-16 rounded object-cover" /> },
       { key: "title", label: "Title" },
       { key: "album", label: "Album" },
     ]}
@@ -116,7 +116,7 @@ export const GalleryAdmin = () => (
 export const SponsorsAdmin = () => (
   <CrudPage title="Sponsors" endpoint="sponsors"
     columns={[
-      { key: "logo_url", label: "Logo", render: (r) => r.logo_url ? <img src={r.logo_url} alt="" className="w-14 h-14 rounded object-contain bg-white border" /> : <div className="w-14 h-14 bg-stone-100 rounded" /> },
+      { key: "logo_url", label: "Logo", render: (r) => r.logo_url ? <img src={r.logo_url} loading="lazy" decoding="async" alt="" className="w-14 h-14 rounded object-contain bg-white border" /> : <div className="w-14 h-14 bg-stone-100 rounded" /> },
       { key: "name", label: "Name" },
       { key: "tier", label: "Tier" },
       { key: "expires_at", label: "Expires", render: (r) => r.expires_at ? new Date(r.expires_at).toLocaleDateString() : <span className="text-stone-400 text-xs">manual</span> },
@@ -242,7 +242,7 @@ export const TaxReturnsAdmin = () => (
 export const ProgramsAdmin = () => (
   <CrudPage title="Programs" endpoint="programs"
     columns={[
-      { key: "image_url", label: "Image", render: (r) => r.image_url ? <img src={r.image_url} alt="" className="w-14 h-14 rounded object-cover" /> : <div className="w-14 h-14 bg-stone-100 rounded" /> },
+      { key: "image_url", label: "Image", render: (r) => r.image_url ? <img src={r.image_url} loading="lazy" decoding="async" alt="" className="w-14 h-14 rounded object-cover" /> : <div className="w-14 h-14 bg-stone-100 rounded" /> },
       { key: "name", label: "Name" },
       { key: "slug", label: "Slug" },
       { key: "impact", label: "Impact" },
@@ -310,7 +310,7 @@ export const MembershipPlansAdmin = () => (
 export const PerksAdmin = () => (
   <CrudPage title="Member Perks" description="Benefits shown on the member dashboard." endpoint="perks"
     columns={[
-      { key: "image_url", label: "Img", render: (r) => r.image_url ? <img src={r.image_url} alt="" className="w-12 h-12 rounded object-cover" /> : <div className="w-12 h-12 bg-amber-50 border border-amber-100 rounded flex items-center justify-center text-xs text-stone-500">{r.icon || "Gift"}</div> },
+      { key: "image_url", label: "Img", render: (r) => r.image_url ? <img src={r.image_url} loading="lazy" decoding="async" alt="" className="w-12 h-12 rounded object-cover" /> : <div className="w-12 h-12 bg-amber-50 border border-amber-100 rounded flex items-center justify-center text-xs text-stone-500">{r.icon || "Gift"}</div> },
       { key: "title", label: "Title" },
       { key: "category", label: "Category" },
       { key: "badge", label: "Badge", render: (r) => r.badge ? <span className="px-2 py-0.5 bg-amber-100 text-amber-900 rounded text-[10px] font-cinzel tracking-wider">{r.badge}</span> : "" },
@@ -436,7 +436,7 @@ export const BusinessesAdmin = () => {
   return (
     <CrudPage title="Business Directory" description="Member-submitted community businesses. Approve to publish." endpoint="businesses"
       columns={[
-        { key: "logo_url", label: "Logo", render: (r) => r.logo_url ? <img src={r.logo_url} alt="" className="w-12 h-12 rounded object-contain bg-white border" /> : <div className="w-12 h-12 bg-stone-100 rounded" /> },
+        { key: "logo_url", label: "Logo", render: (r) => r.logo_url ? <img src={r.logo_url} loading="lazy" decoding="async" alt="" className="w-12 h-12 rounded object-contain bg-white border" /> : <div className="w-12 h-12 bg-stone-100 rounded" /> },
         { key: "name", label: "Business" },
         { key: "category", label: "Category" },
         { key: "phone", label: "Phone" },
@@ -493,7 +493,7 @@ export const EventRegistrationsAdmin = () => (
 export const HeroSlidesAdmin = () => (
   <CrudPage title="Hero Slides" description="Rotating banner images at the top of the homepage." endpoint="hero-slides"
     columns={[
-      { key: "image_url", label: "Image", render: (r) => r.image_url ? <img src={r.image_url} alt="" className="w-20 h-12 rounded object-cover" /> : <div className="w-20 h-12 bg-stone-100 rounded" /> },
+      { key: "image_url", label: "Image", render: (r) => r.image_url ? <img src={r.image_url} loading="lazy" decoding="async" alt="" className="w-20 h-12 rounded object-cover" /> : <div className="w-20 h-12 bg-stone-100 rounded" /> },
       { key: "headline", label: "Headline" },
       { key: "subhead", label: "Subhead" },
       { key: "order", label: "Order" },
@@ -513,7 +513,7 @@ export const HeroSlidesAdmin = () => (
 export const FeatureHighlightsAdmin = () => (
   <CrudPage title="Feature Highlights" description="The 4 promo tiles on the homepage (Become a Member, Sponsor, etc.)." endpoint="feature-highlights"
     columns={[
-      { key: "image_url", label: "Image", render: (r) => r.image_url ? <img src={r.image_url} alt="" className="w-14 h-14 rounded object-cover" /> : <div className="w-14 h-14 bg-stone-100 rounded" /> },
+      { key: "image_url", label: "Image", render: (r) => r.image_url ? <img src={r.image_url} loading="lazy" decoding="async" alt="" className="w-14 h-14 rounded object-cover" /> : <div className="w-14 h-14 bg-stone-100 rounded" /> },
       { key: "title", label: "Title" },
       { key: "cta", label: "CTA" },
       { key: "link", label: "Link" },
@@ -572,7 +572,7 @@ export const SiteStatsAdmin = () => (
 export const EventCategoriesAdmin = () => (
   <CrudPage title="Event Categories" description="The signature program cards on the homepage and the category landing pages." endpoint="event-categories"
     columns={[
-      { key: "image_url", label: "Image", render: (r) => r.image_url ? <img src={r.image_url} alt="" className="w-14 h-14 rounded object-cover" /> : <div className="w-14 h-14 bg-stone-100 rounded" /> },
+      { key: "image_url", label: "Image", render: (r) => r.image_url ? <img src={r.image_url} loading="lazy" decoding="async" alt="" className="w-14 h-14 rounded object-cover" /> : <div className="w-14 h-14 bg-stone-100 rounded" /> },
       { key: "name", label: "Name" },
       { key: "slug", label: "Slug" },
       { key: "tagline", label: "Tagline" },

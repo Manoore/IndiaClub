@@ -33,6 +33,17 @@ export const API = `${BASE}/api`;
 // Uploaded files come back as "/api/files/<id>" — make them absolute so they load from any host
 export const absoluteUrl = (p) => (p && p.startsWith("/") ? `${BASE}${p}` : p);
 
+// Photos brought over from the old site have ready-made thumbnails next to them:
+// s ≈ 50px, m ≈ 100px, l ≈ 640px. Anything else is returned unchanged.
+const OLD_GALLERY = "indiaclubdayton.org/images/phocagallery/";
+export const thumbUrl = (url, size = "m") => {
+  if (!url || !url.includes(OLD_GALLERY) || url.includes("/thumbs/")) return url;
+  const i = url.lastIndexOf("/");
+  return `${url.slice(0, i)}/thumbs/phoca_thumb_${size}_${url.slice(i + 1)}`;
+};
+// onError handler: fall back to the full image if a thumbnail is missing
+export const fullOnError = (full) => (ev) => { if (full && ev.currentTarget.src !== full) ev.currentTarget.src = full; };
+
 export const apiClient = axios.create({ baseURL: API });
 
 // Attach the right token based on the URL

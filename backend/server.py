@@ -725,7 +725,7 @@ COLL_NAMES = {
 def register_admin_crud(name: str, model_cls, coll: str):
     @admin.get(f"/{name}", name=f"admin_list_{name}")
     async def list_all():
-        return _strip(await db[coll].find().sort("created_at", -1).to_list(1000))
+        return _strip(await db[coll].find().sort("created_at", -1).to_list(5000))
 
     @admin.get(f"/{name}/{{id}}", name=f"admin_get_{name}")
     async def get_one(id: str):
@@ -865,7 +865,7 @@ async def admin_list_members(status: Optional[str] = None):
     f = {}
     if status and status != "all":
         f["membership.status"] = status
-    items = await db.members.find(f).sort("created_at", -1).to_list(2000)
+    items = await db.members.find(f).sort("created_at", -1).to_list(5000)
     return [_public_member(m) for m in items]
 
 
