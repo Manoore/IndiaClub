@@ -3,11 +3,14 @@ import PageHeader from "../components/PageHeader";
 import { apiClient } from "../api/client";
 import { X, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 
+const PAGE = 60; // photos per "Show more"
+
 export default function GalleryPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [active, setActive] = useState(null);
   const [album, setAlbum] = useState("All");
+  const [shown, setShown] = useState(PAGE);
 
   useEffect(() => {
     apiClient.get("/gallery")
@@ -22,6 +25,7 @@ export default function GalleryPage() {
   }, [items]);
 
   const filtered = useMemo(() => album === "All" ? items : items.filter((g) => (g.album || "General") === album), [items, album]);
+  useEffect(() => setShown(PAGE), [album]);
   const next = () => setActive((i) => (i + 1) % filtered.length);
   const prev = () => setActive((i) => (i - 1 + filtered.length) % filtered.length);
 
@@ -53,13 +57,20 @@ export default function GalleryPage() {
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3" data-testid="gallery-grid">
-              {filtered.map((g, i) => (
+              {filtered.slice(0, shown).map((g, i) => (
                 <button key={g.id || i} onClick={() => setActive(i)} className="relative aspect-square overflow-hidden rounded-lg group" data-testid={`gallery-item-${i}`}>
                   <img src={g.image_url} alt={g.title} loading="lazy" className="w-full h-full object-cover group-hover:scale-110 transition duration-500" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/0 to-transparent opacity-0 group-hover:opacity-100 transition" />
                   <div className="absolute bottom-2 left-2 right-2 text-left text-white text-xs font-display opacity-0 group-hover:opacity-100 transition">{g.title}</div>
                 </button>
               ))}
+            </div>
+          )}
+          {!loading && filtered.length > shown && (
+            <div className="text-center mt-8">
+              <button onClick={() => setShown((n) => n + PAGE)} className="px-6 py-2.5 border-2 border-[#8B1A1A] text-[#8B1A1A] hover:bg-[#8B1A1A] hover:text-amber-50 rounded-md text-sm font-medium transition" data-testid="gallery-more">
+                Show more photos ({filtered.length - shown} more)
+              </button>
             </div>
           )}
         </div>

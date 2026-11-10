@@ -494,7 +494,7 @@ async def list_exec():
 
 @api.get("/gallery")
 async def list_gallery():
-    return _strip(await db.gallery.find().sort("created_at", -1).to_list(500))
+    return _strip(await db.gallery.find().sort("created_at", -1).to_list(5000))
 
 
 @api.get("/sponsors")
