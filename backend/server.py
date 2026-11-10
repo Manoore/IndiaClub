@@ -46,6 +46,7 @@ from membership_service import (
     plan_purchase, record_promotion_use, apply_payment_status, log_history, migrate_settings_promotion,
     promo_snapshot, parse_dt,
 )
+from legacy_samples import seed_legacy_samples
 from sponsorships import (
     public_router as sponsorships_public_router, admin_router as sponsorships_admin_router,
     seed_sponsorship_plans, valid_sponsor, expire_sponsorships,
@@ -1167,6 +1168,9 @@ async def run_migrations():
                 changes[k] = v
         if changes:
             await db.membership_plans.update_one({"id": p["id"]}, {"$set": changes})
+
+    # One sample record from each part of the old Joomla site
+    await seed_legacy_samples()
 
 
 _bg_tasks = []
