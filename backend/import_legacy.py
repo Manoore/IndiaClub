@@ -620,6 +620,14 @@ async def main():
     print("\nFrom the old site:")
     for k, v in sorted(imp.report.items()):
         print(f"  {k}: {v}")
+    import os
+    if not os.environ.get("MONGO_URL", "").strip().startswith("mongodb"):
+        # Asked here (hidden, nothing echoed or saved) so the shell can't mangle & or quotes in the link
+        import getpass
+        os.environ["MONGO_URL"] = getpass.getpass("\nPaste MONGO_URL from Render (hidden), then press Enter: ").strip().strip('"“”')
+    if not os.environ.get("DB_NAME"):
+        os.environ["DB_NAME"] = input("DB_NAME from Render: ").strip()
+    print(f"Database: {os.environ['DB_NAME']}")
     from database import db
     stats = await write(db, out, imp, apply=args.write)
     print("\n" + ("Written:" if args.write else "Dry run (nothing written). Would do:"))
