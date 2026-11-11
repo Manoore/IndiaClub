@@ -8,6 +8,7 @@ import Mandala from "../components/Mandala";
 import { useSiteSettings } from "../api/SiteSettingsContext";
 import { apiClient } from "../api/client";
 import TicketPurchaseModal from "../components/TicketPurchaseModal";
+import HomeMagazine from "../components/HomeMagazine";
 
 const SectionHeader = ({ eyebrow, title, subtitle, center = false }) => (
   <div className={`mb-10 ${center ? "text-center mx-auto max-w-3xl" : ""}`}>
@@ -283,6 +284,8 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <HomeMagazine />
 
       {/* Latest Classifieds */}
       <section className="py-20 bg-cream">

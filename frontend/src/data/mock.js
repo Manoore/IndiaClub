@@ -71,6 +71,7 @@ export const NAV = [
     ],
   },
   { label: "Gallery", to: "/gallery" },
+  { label: "Magazine", to: "/magazine" },
 ];
 
 // Static placeholder until a real visitor analytics integration is added.

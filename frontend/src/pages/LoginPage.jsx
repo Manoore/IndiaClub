@@ -7,7 +7,8 @@ import { LogIn, UserPlus, Loader2 } from "lucide-react";
 import { useMemberAuth } from "../api/MemberAuthContext";
 
 export default function LoginPage() {
-  const [tab, setTab] = useState("login");
+  // ?mode=signup opens on "Create account" (used by the magazine's "Create free account" links)
+  const [tab, setTab] = useState(() => (new URLSearchParams(window.location.search).get("mode") === "signup" ? "register" : "login"));
   const [form, setForm] = useState({
     email: "",
     password: "",

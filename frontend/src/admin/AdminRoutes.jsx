@@ -6,6 +6,7 @@ import Dashboard from "./Dashboard";
 import AdminLogin from "./AdminLogin";
 import AdminSettings from "./AdminSettings";
 import MembersAdmin from "./MembersAdmin";
+import { MagazineIssuesAdmin, MagazineArticlesAdmin } from "./MagazineAdmin";
 import SiteContentAdmin from "./SiteContentAdmin";
 import TicketOrdersAdmin from "./TicketOrdersAdmin";
 import FamilyApprovalsAdmin from "./FamilyApprovalsAdmin";
@@ -46,6 +47,8 @@ export default function AdminRoutes() {
       <Route path="sponsorships" element={<Protected><SponsorshipsAdmin /></Protected>} />
       <Route path="sponsorship-plans" element={<Protected><SponsorshipPlansAdmin /></Protected>} />
       <Route path="businesses" element={<Protected><BusinessesAdmin /></Protected>} />
+      <Route path="magazine-issues" element={<Protected><MagazineIssuesAdmin /></Protected>} />
+      <Route path="magazine-articles" element={<Protected><MagazineArticlesAdmin /></Protected>} />
       <Route path="reports" element={<Protected><ReportsAdmin /></Protected>} />
       <Route path="audit-log" element={<Protected><AuditLogAdmin /></Protected>} />
       <Route path="users" element={<Protected><AdminUsersAdmin /></Protected>} />

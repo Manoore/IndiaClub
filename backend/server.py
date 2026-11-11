@@ -23,6 +23,7 @@ if not os.environ.get("JWT_SECRET"):
 from database import db
 from auth import verify_password, hash_password, is_legacy_hash, create_token, require_admin, require_member
 from models import (
+    MagazineIssue, MagazineArticle,
     LoginRequest, ChangePasswordRequest, Event, News, ExecMember, GalleryImage, Sponsor, Donor,
     Classified, Subscriber, ContactMessage, Donation, MembershipApplication, SponsorshipInquiry,
     EventRegistration, PastPresident, Awardee, TaxReturn, Program, MembershipPlan, gen_id,
@@ -53,6 +54,7 @@ from sponsorships import (
 )
 from reports import router as reports_router
 from community import public_router as community_public_router, admin_router as community_admin_router, ensure_slugs
+from magazine import public_router as magazine_router, ensure_magazine_slugs
 from spam import spam_guard, check_login_allowed, record_login_failure, clear_login_failures
 from checkout import (public_router as checkout_public_router, admin_router as checkout_admin_router,
                       apply_order_payment, validate_event_pricing)
@@ -434,8 +436,10 @@ async def _store_upload(file: UploadFile) -> dict:
     if not (ctype in ("image/png", "image/jpeg", "image/webp", "image/gif") or ctype == "application/pdf"):
         raise HTTPException(400, "Upload a PNG, JPG, WebP or GIF image, or a PDF")
     raw = await file.read()
-    if len(raw) > 5 * 1024 * 1024:
-        raise HTTPException(400, "File too large (5MB max)")
+    # A magazine PDF can be bigger than a photo; 10 MB keeps it inside one database record
+    limit_mb = 10 if ctype == "application/pdf" else 5
+    if len(raw) > limit_mb * 1024 * 1024:
+        raise HTTPException(400, f"File too large ({limit_mb} MB max)" + (". Compress the PDF, or paste a link to it instead." if limit_mb == 10 else ""))
     fid = gen_id()
     await db.files.insert_one({
         "id": fid, "filename": file.filename or "file",
@@ -735,6 +739,8 @@ COLLECTIONS = {
     "constitution": ConstitutionSection,
     "sponsorship-plans": SponsorshipPlan,
     "businesses": Business,
+    "magazine-issues": MagazineIssue,
+    "magazine-articles": MagazineArticle,
 }
 COLL_NAMES = {
     "events": "events", "news": "news", "exec-team": "exec_team", "gallery": "gallery",
@@ -746,6 +752,7 @@ COLL_NAMES = {
     "event-categories": "event_categories", "difi-awards": "difi_awards",
     "constitution": "constitution_sections",
     "sponsorship-plans": "sponsorship_plans", "businesses": "businesses",
+    "magazine-issues": "magazine_issues", "magazine-articles": "magazine_articles",
 }
 
 # Generic admin CRUD endpoints
@@ -857,6 +864,8 @@ async def _after_admin_write(name: str):
         await reload_plan_rules()
     if name == "businesses":
         await ensure_slugs()
+    if name in ("magazine-issues", "magazine-articles"):
+        await ensure_magazine_slugs()
 
 
 for name, cls in COLLECTIONS.items():
@@ -1106,6 +1115,7 @@ app.include_router(sponsorships_public_router)
 app.include_router(sponsorships_admin_router)
 app.include_router(reports_router)
 app.include_router(community_public_router)
+app.include_router(magazine_router)
 app.include_router(community_admin_router)
 app.include_router(membership_public_router)
 app.include_router(membership_admin_router)
@@ -1217,6 +1227,7 @@ async def run_migrations():
     # One sample record from each part of the old Joomla site
     await seed_legacy_samples()
     await ensure_slugs()
+    await ensure_magazine_slugs()
 
 
 _bg_tasks = []

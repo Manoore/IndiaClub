@@ -202,6 +202,8 @@ function EditModal({ isNew, initial, fields, title, onClose, onSave }) {
                 <PricingPreview data={data} />
               ) : f.type === "promo-codes" ? (
                 <PromoCodesEditor value={data[f.key] || []} onChange={(v) => updateField(f.key, v)} />
+              ) : f.type === "date" ? (
+                <input type="date" value={data[f.key] ? String(data[f.key]).slice(0, 10) : ""} onChange={(e) => updateField(f.key, e.target.value || null)} className="w-full px-3 py-2 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]" />
               ) : f.type === "datetime" ? (
                 <input type="datetime-local" value={data[f.key] ? String(data[f.key]).slice(0, 16) : ""} onChange={(e) => updateField(f.key, e.target.value || null)} className="w-full px-3 py-2 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A]" />
               ) : f.type === "diagnostic" ? (

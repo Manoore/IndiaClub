@@ -654,6 +654,39 @@ class SponsorshipPlan(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+# ---------- Vibrant Dayton magazine ----------
+class MagazineIssue(BaseModel):
+    id: str = Field(default_factory=gen_id)
+    title: str  # e.g. "Diwali 2026"
+    slug: Optional[str] = None
+    issue_date: Optional[str] = None  # YYYY-MM-DD, used for ordering
+    cover_url: Optional[str] = None
+    intro: Optional[str] = ""
+    pdf_url: Optional[str] = None  # uploaded PDF; only signed-in members can open it
+    external_url: Optional[str] = ""  # or a link to read it elsewhere (Issuu, Canva, Google Drive)
+    status: str = "draft"  # draft | published
+    featured: bool = False
+    published_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class MagazineArticle(BaseModel):
+    id: str = Field(default_factory=gen_id)
+    title: str
+    slug: Optional[str] = None
+    issue_id: Optional[str] = None
+    author: Optional[str] = ""
+    category: str = "Community"
+    summary: Optional[str] = ""
+    body: Optional[str] = ""  # blank line between paragraphs; "## " starts a heading, "- " a bullet
+    cover_url: Optional[str] = None
+    business_slug: Optional[str] = ""  # Business Spotlight: link to a directory listing
+    order: int = 100
+    status: str = "draft"  # draft | published
+    published_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 # ---------- Community business directory ----------
 class Business(BaseModel):
     id: str = Field(default_factory=gen_id)

@@ -4,7 +4,7 @@ import { useAdminAuth } from "../api/AdminAuthContext";
 import {
   LogOut, LayoutDashboard, Calendar, Newspaper, Users, Image, Building2, Heart, FileText,
   Award, Trophy, Inbox, ClipboardList, DollarSign, Tag, GraduationCap, Settings, Menu, X, Gift, Edit3, Ticket,
-  Sparkles, Quote, BarChart3, UsersRound, ScanLine, Handshake, Store, FileSpreadsheet, ShieldCheck, History,
+  Sparkles, Quote, BarChart3, UsersRound, ScanLine, Handshake, Store, FileSpreadsheet, ShieldCheck, History, BookOpen, PenLine,
 } from "lucide-react";
 
 const NAV_GROUPS = [
@@ -41,6 +41,8 @@ const NAV_GROUPS = [
       { to: "/admin/ticket-orders", area: "tickets", label: "Ticket Orders", icon: Ticket },
       { to: "/admin/check-in", area: "checkin", label: "Event Check-in", icon: ScanLine },
       { to: "/admin/news", area: "content", label: "News", icon: Newspaper },
+      { to: "/admin/magazine-issues", area: "content", label: "Magazine Issues", icon: BookOpen },
+      { to: "/admin/magazine-articles", area: "content", label: "Magazine Articles", icon: PenLine },
       { to: "/admin/exec-team", area: "content", label: "Executive Team", icon: Users },
       { to: "/admin/gallery", area: "content", label: "Gallery", icon: Image },
       { to: "/admin/programs", area: "content", label: "Programs", icon: GraduationCap },
