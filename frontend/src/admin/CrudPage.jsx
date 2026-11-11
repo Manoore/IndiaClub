@@ -152,14 +152,14 @@ function EditModal({ isNew, initial, fields, title, onClose, onSave }) {
   const submit = (e) => { e.preventDefault(); onSave(data); };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[92vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-stone-200 p-5 flex items-center justify-between z-10">
           <div>
             <div className="font-cinzel text-xs tracking-[0.22em] text-[#E07A1F]">{isNew ? "NEW" : "EDIT"}</div>
             <h3 className="font-display text-2xl text-[#8B1A1A]">{title}</h3>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-stone-100 rounded-md"><X className="w-5 h-5" /></button>
+          <button type="button" onClick={onClose} aria-label="Close" className="p-2 hover:bg-stone-100 rounded-md"><X className="w-5 h-5" /></button>
         </div>
         <form onSubmit={submit} className="p-5 space-y-3">
           {fields.map((f) => (
@@ -173,6 +173,9 @@ function EditModal({ isNew, initial, fields, title, onClose, onSave }) {
                 <select value={data[f.key] || ""} onChange={(e) => updateField(f.key, e.target.value)} className="w-full px-3 py-2 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A] bg-white">
                   <option value="">{f.placeholder || "Select"}</option>
                   {(f.options || []).map((o) => <option key={typeof o === "string" ? o : o.value} value={typeof o === "string" ? o : o.value}>{typeof o === "string" ? o : o.label}</option>)}
+                  {data[f.key] && !(f.options || []).some((o) => (typeof o === "string" ? o : o.value) === data[f.key]) && (
+                    <option value={data[f.key]}>{data[f.key]}</option>
+                  )}
                 </select>
               ) : f.type === "checkbox" ? (
                 <label className="inline-flex items-center gap-2 cursor-pointer">

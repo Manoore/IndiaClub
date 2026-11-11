@@ -61,7 +61,34 @@ from payments import (public_router as payments_public_router, admin_router as p
                       reconcile_loop)
 
 
+from pydantic import ValidationError
+
 app = FastAPI(title="India Club of Greater Dayton API")
+
+
+def _friendly_validation(exc) -> str:
+    """'Event capacity: enter a whole number' style message from a pydantic error."""
+    msgs = []
+    for err in exc.errors()[:3]:
+        field = " → ".join(str(p) for p in err.get("loc", ()) if p not in ("body",)).replace("_", " ") or "A field"
+        kind = err.get("type", "")
+        if kind.startswith("int"):
+            hint = "enter a whole number"
+        elif kind.startswith(("float", "decimal")):
+            hint = "enter a number"
+        elif kind.startswith(("datetime", "date")):
+            hint = "enter a valid date and time"
+        elif kind == "missing":
+            hint = "this is required"
+        else:
+            hint = err.get("msg", "invalid value")
+        msgs.append(f"{field[:1].upper()}{field[1:]}: {hint}")
+    return "; ".join(msgs) or "Some values are invalid"
+
+
+@app.exception_handler(ValidationError)
+async def _validation_error(request: Request, exc: ValidationError):
+    return JSONResponse(status_code=400, content={"detail": _friendly_validation(exc)})
 api = APIRouter(prefix="/api")
 admin = APIRouter(prefix="/api/admin", dependencies=[Depends(admin_guard)])
 
@@ -737,7 +764,7 @@ def register_admin_crud(name: str, model_cls, coll: str):
     @admin.post(f"/{name}", name=f"admin_create_{name}")
     async def create(body: dict, request: Request):
         # Validate via model class
-        obj = model_cls(**{k: v for k, v in body.items() if v is not None})
+        obj = model_cls(**{k: v for k, v in body.items() if v is not None and v != ""})
         d = obj.model_dump()
         _validate_admin_write(name, d)
         await db[coll].insert_one(d)
@@ -756,6 +783,20 @@ def register_admin_crud(name: str, model_cls, coll: str):
             body.pop("id", None)
             body.pop("created_at", None)
         before = await db[coll].find_one({"id": id})
+        if model_cls is not None and name not in ("membership-plans", "sponsorship-plans"):
+            # Blank number boxes mean "use the default" rather than storing text where a number belongs
+            defaults = model_cls.model_fields
+            for k, v in list(body.items()):
+                if v == "" and k in defaults and defaults[k].annotation in (int, float):
+                    body[k] = defaults[k].default
+            merged = {k: v for k, v in {**(before or {}), **body}.items() if k != "_id" and v is not None and v != ""}
+            try:
+                model_cls(**{**merged, "id": id})
+            except ValidationError as exc:
+                # Only report problems in what was just submitted; older stored values don't block an edit
+                mine = [e for e in exc.errors() if e.get("loc") and e["loc"][0] in body]
+                if mine:
+                    raise HTTPException(400, _friendly_validation(type("E", (), {"errors": lambda self: mine})()))
         _validate_admin_write(name, {**(before or {}), **body})
         await db[coll].update_one({"id": id}, {"$set": body})
         d = await db[coll].find_one({"id": id})
