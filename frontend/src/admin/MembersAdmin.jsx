@@ -1,8 +1,8 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { apiClient } from "../api/client";
 import { useToast } from "../hooks/use-toast";
-import { CheckCircle2, XCircle, Trash2, Loader2, Search, Infinity as InfinityIcon } from "lucide-react";
+import { CheckCircle2, XCircle, Trash2, Loader2, Search, Download, ArrowUp, ArrowDown, ArrowUpDown, Infinity as InfinityIcon } from "lucide-react";
 import { PaymentSelect } from "./PaymentStatus";
 import StripeActions from "./StripeActions";
 
@@ -15,6 +15,49 @@ const STATUS_PILL = {
 };
 
 const FILTERS = ["all", "pending", "active", "none", "rejected", "expired"];
+
+const PAGE = 100; // rows shown at a time
+
+const payStatus = (m) => m.membership?.payment_status || (m.membership?.payment_received ? "paid" : "");
+const planLabel = (m) => (m.membership?.lifetime ? "lifetime" : m.membership?.plan || "");
+const fullName = (m) => `${m.first_name || ""} ${m.last_name || ""}`.trim();
+const endTime = (m) => (m.membership?.lifetime ? Infinity : m.membership?.end_date ? new Date(m.membership.end_date).getTime() : -Infinity);
+const SORTS = {
+  name: (m) => fullName(m).toLowerCase(),
+  plan: (m) => `${planLabel(m)} ${m.membership?.tier || ""}`,
+  status: (m) => m.membership?.status || "none",
+  end: endTime,
+  joined: (m) => new Date(m.joined_at || m.created_at || 0).getTime(),
+};
+
+// One CSV cell: quoted, and protected so spreadsheet apps never run it as a formula
+const csvCell = (v) => {
+  let t = v == null ? "" : String(v);
+  if (/^[=@\t\r]/.test(t) || /^[+-][^0-9]/.test(t)) t = `'${t}`;
+  return `"${t.replace(/"/g, '""')}"`;
+};
+const day = (iso) => (iso ? String(iso).slice(0, 10) : "");
+
+function downloadCsv(rows) {
+  const head = ["First name", "Last name", "Email", "Phone", "Alt phone", "Address", "City", "State", "ZIP", "Plan", "Tier",
+    "Status", "Lifetime", "Start date", "Valid through", "Payment status", "Payment method", "Family size", "Member since", "Source"];
+  const body = rows.map((m) => {
+    const ms = m.membership || {};
+    return [m.first_name, m.last_name, m.email, m.phone, m.phone_alt, [m.address, m.address2].filter(Boolean).join(", "),
+      m.city, m.state, m.zip, ms.plan, ms.tier, ms.status || "none", ms.lifetime ? "Yes" : "No", day(ms.start_date),
+      ms.lifetime ? "Lifetime" : day(ms.end_date), payStatus(m), ms.payment_method, ms.family_count,
+      day(m.joined_at || m.created_at), m.legacy_source ? "Old site" : "New site"];
+  });
+  const csv = "﻿" + [head, ...body].map((r) => r.map(csvCell).join(",")).join("\r\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `members-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
 
 const fmt = (iso) => {
   if (!iso) return "—";
@@ -33,6 +76,13 @@ export default function MembersAdmin() {
   const [busy, setBusy] = useState(null);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(null);
+  const [plan, setPlan] = useState("all");
+  const [tier, setTier] = useState("all");
+  const [pay, setPay] = useState("all");
+  const [source, setSource] = useState("all");
+  const [expires, setExpires] = useState("all");
+  const [sort, setSort] = useState({ key: "joined", dir: "desc" });
+  const [shown, setShown] = useState(PAGE);
   const { toast } = useToast();
 
   const load = useCallback(async () => {
@@ -121,21 +171,68 @@ export default function MembersAdmin() {
     }
   };
 
-  const filtered = items.filter((m) => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return `${m.first_name || ""} ${m.last_name || ""} ${m.email || ""} ${m.phone || ""}`
-      .toLowerCase()
-      .includes(q);
-  });
+  // Choices come from the data itself, so new plans and tiers show up without code changes
+  const planOptions = useMemo(() => [...new Set(items.map(planLabel).filter(Boolean))].sort(), [items]);
+  const tierOptions = useMemo(() => [...new Set(items.map((m) => m.membership?.tier).filter(Boolean))].sort(), [items]);
+  const payOptions = useMemo(() => [...new Set(items.map(payStatus).filter(Boolean))].sort(), [items]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const now = Date.now();
+    const out = items.filter((m) => {
+      if (q && !`${fullName(m)} ${m.email || ""} ${m.phone || ""} ${m.city || ""}`.toLowerCase().includes(q)) return false;
+      if (plan !== "all" && planLabel(m) !== plan) return false;
+      if (tier !== "all" && (m.membership?.tier || "") !== tier) return false;
+      if (pay !== "all" && payStatus(m) !== pay) return false;
+      if (source === "old" && !m.legacy_source) return false;
+      if (source === "new" && m.legacy_source) return false;
+      if (expires !== "all") {
+        const end = endTime(m);
+        if (!Number.isFinite(end)) return false;
+        if (expires === "past" ? end >= now : end < now || end > now + Number(expires) * 86400000) return false;
+      }
+      return true;
+    });
+    const get = SORTS[sort.key];
+    const dir = sort.dir === "asc" ? 1 : -1;
+    return out.sort((a, b) => {
+      const x = get(a);
+      const y = get(b);
+      return (x < y ? -1 : x > y ? 1 : 0) * dir;
+    });
+  }, [items, search, plan, tier, pay, source, expires, sort]);
+
+  useEffect(() => setShown(PAGE), [filter, search, plan, tier, pay, source, expires, sort]);
+  const anyFilter = search || plan !== "all" || tier !== "all" || pay !== "all" || source !== "all" || expires !== "all";
+  const clearFilters = () => { setSearch(""); setPlan("all"); setTier("all"); setPay("all"); setSource("all"); setExpires("all"); };
+  const sortBy = (key) => setSort((s) => (s.key === key
+    ? { key, dir: s.dir === "asc" ? "desc" : "asc" }
+    : { key, dir: ["name", "plan", "status"].includes(key) ? "asc" : "desc" }));
+  const sortHead = (k, label) => (
+    <th className="px-4 py-3">
+      <button onClick={() => sortBy(k)} className="inline-flex items-center gap-1 uppercase tracking-wider hover:text-stone-900" data-testid={`sort-${k}`}>
+        {label}
+        {sort.key !== k ? <ArrowUpDown className="w-3 h-3 opacity-40" /> : sort.dir === "asc" ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+      </button>
+    </th>
+  );
+  const sel = "px-2.5 py-1.5 rounded border border-stone-200 text-xs bg-white capitalize outline-none focus:border-[#8B1A1A]";
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="font-display text-2xl sm:text-3xl text-stone-900">Members</h1>
           <p className="text-stone-500 mt-1 text-sm">Registered users and their membership status.</p>
         </div>
+        <button
+          onClick={() => downloadCsv(filtered)}
+          disabled={loading || filtered.length === 0}
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-sm font-medium bg-[#8B1A1A] text-amber-50 hover:bg-[#6f1414] disabled:opacity-50"
+          data-testid="members-export"
+        >
+          <Download className="w-4 h-4" /> Export CSV ({filtered.length})
+        </button>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -165,6 +262,39 @@ export default function MembersAdmin() {
         </div>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2 mb-4" data-testid="members-filters">
+        <select value={plan} onChange={(e) => setPlan(e.target.value)} className={sel} data-testid="filter-plan">
+          <option value="all">All plans</option>
+          {planOptions.map((p) => <option key={p} value={p}>{p}</option>)}
+        </select>
+        <select value={tier} onChange={(e) => setTier(e.target.value)} className={sel} data-testid="filter-tier">
+          <option value="all">All tiers</option>
+          {tierOptions.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
+        <select value={pay} onChange={(e) => setPay(e.target.value)} className={sel} data-testid="filter-payment">
+          <option value="all">Any payment</option>
+          {payOptions.map((p) => <option key={p} value={p}>{p.replace("_", " ")}</option>)}
+        </select>
+        <select value={expires} onChange={(e) => setExpires(e.target.value)} className={sel} data-testid="filter-expires">
+          <option value="all">Any expiry</option>
+          <option value="30">Expires in 30 days</option>
+          <option value="60">Expires in 60 days</option>
+          <option value="90">Expires in 90 days</option>
+          <option value="past">Already expired</option>
+        </select>
+        <select value={source} onChange={(e) => setSource(e.target.value)} className={sel} data-testid="filter-source">
+          <option value="all">Old + new site</option>
+          <option value="old">From old site</option>
+          <option value="new">Joined on new site</option>
+        </select>
+        {anyFilter && (
+          <button onClick={clearFilters} className="text-xs text-[#8B1A1A] hover:underline px-1" data-testid="filters-clear">Clear filters</button>
+        )}
+        <span className="text-xs text-stone-500 sm:ml-auto" data-testid="members-count">
+          {loading ? "" : `${filtered.length} of ${items.length} members`}
+        </span>
+      </div>
+
       <div className="bg-white border border-stone-200 rounded-xl overflow-hidden">
         {loading ? (
           <div className="p-12 text-center">
@@ -174,19 +304,20 @@ export default function MembersAdmin() {
           <div className="p-12 text-center text-stone-500">No members in this view.</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[640px]">
+            <table className="w-full text-sm min-w-[760px]">
             <thead className="bg-stone-50 text-left text-xs uppercase tracking-wider text-stone-500">
               <tr>
-                <th className="px-4 py-3">Member</th>
-                <th className="px-4 py-3">Plan / Tier</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Valid through</th>
+                {sortHead("name", "Member")}
+                {sortHead("plan", "Plan / Tier")}
+                {sortHead("status", "Status")}
+                {sortHead("end", "Valid through")}
+                {sortHead("joined", "Member since")}
                 <th className="px-4 py-3">Payment</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100">
-              {filtered.map((m) => {
+              {filtered.slice(0, shown).map((m) => {
                 const ms = m.membership?.status || "none";
                 return (
                   <tr key={m.id} className="hover:bg-stone-50">
@@ -221,6 +352,10 @@ export default function MembersAdmin() {
                       {m.membership?.lifetime ? (
                         <span className="inline-flex items-center gap-1 text-xs font-medium text-[#8B1A1A]"><InfinityIcon className="w-3.5 h-3.5" /> Lifetime</span>
                       ) : m.membership?.plan === "free" ? <span className="text-xs text-stone-500">Free · no expiry</span> : fmt(m.membership?.end_date)}
+                    </td>
+                    <td className="px-4 py-3 text-stone-600 whitespace-nowrap">
+                      {fmt(m.joined_at || m.created_at)}
+                      {m.legacy_source && <div className="text-[10px] uppercase tracking-wider text-stone-400">Old site</div>}
                     </td>
                     <td className="px-4 py-3">
                       {m.membership?.plan && !m.membership?.lifetime && m.membership?.plan !== "free" ? (
@@ -282,6 +417,13 @@ export default function MembersAdmin() {
               })}
             </tbody>
           </table>
+          {filtered.length > shown && (
+            <div className="p-4 text-center border-t border-stone-100">
+              <button onClick={() => setShown((n) => n + PAGE)} className="px-4 py-2 border border-stone-300 hover:border-[#8B1A1A] rounded-md text-sm" data-testid="members-more">
+                Show more ({filtered.length - shown} more)
+              </button>
+            </div>
+          )}
           </div>
         )}
       </div>
