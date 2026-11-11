@@ -140,7 +140,7 @@ export default function Home() {
               ? { to: "/member/dashboard", icon: UserPlus, eyebrow: "MEMBERSHIP", title: "Your membership", text: "See your membership, family, tickets and renewal date on your dashboard.", cta: "Open my dashboard" }
               : { to: cta.to, icon: UserPlus, eyebrow: "MEMBERSHIP", title: cta.state === "expired" ? "Renew your membership" : cta.state === "free" ? "Upgrade your membership" : "Join India Club", text: "Member pricing on every event, voting rights and a 1000+ family community.", cta: cta.label },
             { to: "/sponsorship/become-sponsor", icon: Handshake, eyebrow: "SPONSOR", title: "Support the community", text: "Annual Platinum, Gold, Silver and Bronze sponsorships for local businesses.", cta: "Become a sponsor" },
-            { to: "/classified/business-directory", icon: Store, eyebrow: "COMMUNITY", title: "Classifieds & directory", text: "Find community businesses, services, housing and more.", cta: "Explore community", extra: { to: "/classified/all-ads", label: "Classifieds" } },
+            { to: "/business-directory", icon: Store, eyebrow: "COMMUNITY", title: "Classifieds & directory", text: "Find community businesses, services, housing and more.", cta: "Explore community", extra: { to: "/classified/all-ads", label: "Classifieds" } },
           ].map((t) => {
             const Icon = t.icon;
             return (

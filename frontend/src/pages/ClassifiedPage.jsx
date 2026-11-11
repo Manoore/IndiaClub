@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, Navigate } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
-import { Search, MapPin, Calendar, Phone, Loader2, Clock, CheckCircle2, Globe, Mail, Store, LogIn } from "lucide-react";
+import { Search, MapPin, Calendar, Phone, Loader2, Clock, CheckCircle2, LogIn } from "lucide-react";
 import { useToast } from "../hooks/use-toast";
-import { apiClient, absoluteUrl } from "../api/client";
+import { apiClient } from "../api/client";
 import { useMemberAuth } from "../api/MemberAuthContext";
 import { useSiteSettings } from "../api/SiteSettingsContext";
 import Honeypot, { HONEYPOT_FIELD } from "../components/Honeypot";
@@ -232,127 +232,6 @@ const PostAd = () => {
   );
 };
 
-const EMPTY_BIZ = { name: "", category: "Other", description: "", phone: "", email: "", website: "", address: "", logo_url: "" };
-
-const BusinessDirectory = () => {
-  const { isAuthed } = useMemberAuth();
-  const { toast } = useToast();
-  const [items, setItems] = useState(null);
-  const [categories, setCategories] = useState([]);
-  const [cat, setCat] = useState("All");
-  const [q, setQ] = useState("");
-  const [mine, setMine] = useState([]);
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState(EMPTY_BIZ);
-  const [hp, setHp] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    apiClient.get("/businesses").then((r) => setItems(r.data)).catch(() => setItems([]));
-    apiClient.get("/businesses/categories").then((r) => setCategories(r.data)).catch(() => setCategories([]));
-  }, []);
-  useEffect(() => {
-    if (isAuthed) apiClient.get("/members/me/businesses").then((r) => setMine(r.data)).catch(() => setMine([]));
-  }, [isAuthed]);
-
-  const filtered = (items || []).filter((b) =>
-    (cat === "All" || b.category === cat) &&
-    (!q.trim() || `${b.name} ${b.description || ""} ${b.category}`.toLowerCase().includes(q.trim().toLowerCase())));
-
-  const submit = async (e) => {
-    e.preventDefault();
-    setBusy(true);
-    try {
-      await apiClient.post("/businesses", { ...form, [HONEYPOT_FIELD]: hp });
-      toast({ title: "Thanks! Your listing is under review", description: "It appears in the directory once an admin approves it." });
-      setForm(EMPTY_BIZ);
-      setShowForm(false);
-      setMine((await apiClient.get("/members/me/businesses")).data);
-    } catch (err) {
-      toast({ title: "Couldn't submit", description: err?.response?.data?.detail || "Please try again.", variant: "destructive" });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const cls = "w-full px-4 py-2.5 border border-stone-200 rounded-md outline-none focus:border-[#8B1A1A] text-sm";
-  return (
-    <section className="py-16 bg-cream">
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="flex flex-col md:flex-row md:items-center gap-3 mb-6">
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search businesses" className="w-full pl-9 pr-4 py-2.5 border border-stone-200 rounded-md bg-white outline-none focus:border-[#8B1A1A]" data-testid="biz-search" />
-          </div>
-          <select value={cat} onChange={(e) => setCat(e.target.value)} className="py-2.5 px-3 border border-stone-200 rounded-md bg-white" data-testid="biz-category">
-            {["All", ...categories].map((c) => <option key={c}>{c}</option>)}
-          </select>
-          {isAuthed ? (
-            <button onClick={() => setShowForm((v) => !v)} className="px-5 py-2.5 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded-md text-sm font-medium" data-testid="biz-add">
-              {showForm ? "Close form" : "List your business"}
-            </button>
-          ) : (
-            <Link to="/login" className="px-5 py-2.5 border-2 border-[#8B1A1A] text-[#8B1A1A] rounded-md text-sm font-medium text-center">Members: list your business</Link>
-          )}
-        </div>
-
-        {mine.some((b) => b.status !== "approved") && (
-          <div className="mb-6 text-sm bg-sky-50 border border-sky-200 text-sky-900 rounded-lg p-3" data-testid="biz-mine">
-            Your listings: {mine.map((b) => `${b.name} (${b.status})`).join(", ")}
-          </div>
-        )}
-
-        {showForm && (
-          <form onSubmit={submit} className="relative bg-white p-6 rounded-2xl border border-amber-100 mb-8 grid md:grid-cols-2 gap-3" data-testid="biz-form">
-            <Honeypot value={hp} onChange={setHp} />
-            <input required placeholder="Business name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={cls} data-testid="biz-name" />
-            <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className={cls} data-testid="biz-form-category">
-              {categories.map((c) => <option key={c}>{c}</option>)}
-            </select>
-            <textarea rows={3} placeholder="What does your business offer?" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className={`${cls} md:col-span-2`} />
-            <input placeholder="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={cls} />
-            <input type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={cls} />
-            <input placeholder="Website" value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} className={cls} />
-            <input placeholder="Address / area served" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className={cls} />
-            <div className="md:col-span-2 flex justify-end">
-              <button disabled={busy} className="px-6 py-2.5 bg-[#8B1A1A] text-amber-50 rounded-md text-sm font-medium disabled:opacity-60" data-testid="biz-submit">{busy ? "Submitting…" : "Submit for review"}</button>
-            </div>
-          </form>
-        )}
-
-        {!items ? (
-          <div className="flex justify-center py-20"><Loader2 className="w-7 h-7 text-[#8B1A1A] animate-spin" /></div>
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-16 text-stone-500 border border-dashed border-stone-300 rounded-xl" data-testid="biz-empty">
-            {items.length === 0 ? "No businesses listed yet — members can add theirs." : "No businesses match your search."}
-          </div>
-        ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5" data-testid="biz-list">
-            {filtered.map((b) => (
-              <div key={b.id} className="bg-white rounded-xl border border-stone-200 p-5 flex gap-4 card-hover">
-                {b.logo_url ? <img src={absoluteUrl(b.logo_url)} alt="" className="w-16 h-16 object-contain rounded bg-white border" /> : (
-                  <div className="w-16 h-16 rounded bg-amber-50 flex items-center justify-center"><Store className="w-7 h-7 text-[#8B1A1A]" /></div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs text-[#E07A1F] font-medium">{b.category}</div>
-                  <h3 className="font-display text-lg text-stone-900">{b.name}</h3>
-                  {b.description && <p className="text-sm text-stone-600 line-clamp-3 mt-1">{b.description}</p>}
-                  <div className="mt-2 space-y-0.5 text-xs text-stone-600">
-                    {b.phone && <div className="flex items-center gap-1.5"><Phone className="w-3 h-3" /> <a href={`tel:${b.phone}`} className="hover:text-[#8B1A1A]">{b.phone}</a></div>}
-                    {b.email && <div className="flex items-center gap-1.5"><Mail className="w-3 h-3" /> <a href={`mailto:${b.email}`} className="hover:text-[#8B1A1A] break-all">{b.email}</a></div>}
-                    {b.website && <div className="flex items-center gap-1.5"><Globe className="w-3 h-3" /> <a href={b.website.startsWith("http") ? b.website : `https://${b.website}`} target="_blank" rel="noopener noreferrer" className="hover:text-[#8B1A1A] break-all">{b.website.replace(/^https?:\/\//, "")}</a></div>}
-                    {b.address && <div className="flex items-center gap-1.5"><MapPin className="w-3 h-3" /> {b.address}</div>}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </section>
-  );
-};
-
 export default function ClassifiedPage() {
   const { sub } = useParams();
   // Used by CategoriesView and LocationsView for per-category/location counts
@@ -369,7 +248,7 @@ export default function ClassifiedPage() {
     locations: { eyebrow: "BROWSE", title: "All Locations" },
     "all-ads": { eyebrow: "BAZAAR", title: "All Advertisements" },
     "post-ad": { eyebrow: "POST AN AD", title: "Post a Classified" },
-    "business-directory": { eyebrow: "COMMUNITY", title: "Business Directory", subtitle: "Businesses run by members of our community." },
+    "business-directory": { eyebrow: "COMMUNITY", title: "Business Directory" },
   }[sub || "undefined"];
 
   const render = () => {
@@ -378,7 +257,7 @@ export default function ClassifiedPage() {
       case "locations": return <LocationsView items={items} />;
       case "all-ads": return <List />;
       case "post-ad": return <PostAd />;
-      case "business-directory": return <BusinessDirectory />;
+      case "business-directory": return <Navigate to="/business-directory" replace />;
       default: return <List />;
     }
   };

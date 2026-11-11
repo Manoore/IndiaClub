@@ -17,6 +17,8 @@ import MembershipPage from "./pages/MembershipPage";
 import ProgramsPage from "./pages/ProgramsPage";
 import SponsorshipPage from "./pages/SponsorshipPage";
 import ClassifiedPage from "./pages/ClassifiedPage";
+import BusinessDirectoryPage from "./pages/BusinessDirectoryPage";
+import BusinessPage from "./pages/BusinessPage";
 import GalleryPage from "./pages/GalleryPage";
 import ContactPage from "./pages/ContactPage";
 import LoginPage from "./pages/LoginPage";
@@ -72,6 +74,8 @@ function AppRoutes() {
         <Route path="/sponsorship/:sub" element={<SponsorshipPage />} />
         <Route path="/classified" element={<ClassifiedPage />} />
         <Route path="/classified/:sub" element={<ClassifiedPage />} />
+        <Route path="/business-directory" element={<BusinessDirectoryPage />} />
+        <Route path="/business/:slug" element={<BusinessPage />} />
         <Route path="/gallery" element={<GalleryPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/login" element={<LoginPage />} />

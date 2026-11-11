@@ -668,4 +668,19 @@ class Business(BaseModel):
     member_id: Optional[str] = None
     status: str = "pending"  # pending | approved | rejected
     order: int = 100
+    # Showcase page (/business/<slug>)
+    slug: Optional[str] = None
+    tagline: Optional[str] = ""
+    about: Optional[str] = ""  # the owner's story, shown on the business page
+    services: List[str] = []
+    cover_url: Optional[str] = None
+    photos: List[str] = []  # up to 6
+    hours: Optional[str] = ""
+    member_offer: Optional[str] = ""  # special offer for ICGD members
+    facebook: Optional[str] = ""
+    instagram: Optional[str] = ""
+    linkedin: Optional[str] = ""
+    youtube: Optional[str] = ""
+    featured: bool = False
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = None

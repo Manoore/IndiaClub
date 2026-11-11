@@ -434,12 +434,13 @@ export const BusinessesAdmin = () => {
     reload();
   };
   return (
-    <CrudPage title="Business Directory" description="Member-submitted community businesses. Approve to publish." endpoint="businesses"
+    <CrudPage title="Business Directory" description="Business members' showcase pages. Approve a new listing to publish it; owners' later edits go live straight away and appear in Change History." endpoint="businesses"
       columns={[
         { key: "logo_url", label: "Logo", render: (r) => r.logo_url ? <img src={r.logo_url} loading="lazy" decoding="async" alt="" className="w-12 h-12 rounded object-contain bg-white border" /> : <div className="w-12 h-12 bg-stone-100 rounded" /> },
         { key: "name", label: "Business" },
         { key: "category", label: "Category" },
-        { key: "phone", label: "Phone" },
+        { key: "featured", label: "Featured", render: (r) => (r.featured ? <span className="text-xs font-medium text-[#8B1A1A]">★ Featured</span> : <span className="text-xs text-stone-400">—</span>) },
+        { key: "member_id", label: "Listed by", render: (r) => <span className="text-xs text-stone-500">{r.member_id ? "Business member" : "Admin"}</span> },
         { key: "status", label: "Status", render: (r) => (
           <span className={`text-xs font-cinzel tracking-wider ${r.status === "approved" ? "text-green-700" : r.status === "rejected" ? "text-red-600" : "text-amber-700"}`}>{(r.status || "").toUpperCase()}</span>
         ) },
@@ -449,16 +450,29 @@ export const BusinessesAdmin = () => {
           <button onClick={() => review(row, "approve", reload)} className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium mr-1 hover:bg-green-200">Approve</button>
           <button onClick={() => review(row, "reject", reload)} className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium mr-1 hover:bg-red-200">Reject</button>
         </>
+      ) : row.slug ? (
+        <a href={`/business/${row.slug}`} target="_blank" rel="noopener noreferrer" className="px-2 py-1 border border-stone-200 rounded text-xs mr-1 hover:border-[#8B1A1A]">View page</a>
       ) : null}
       fields={[
         { key: "name", label: "Business name", type: "text", required: true },
         { key: "category", label: "Category", type: "select", options: BUSINESS_CATEGORIES, default: "Other" },
-        { key: "description", label: "Description", type: "textarea" },
+        { key: "tagline", label: "Tagline", type: "text" },
+        { key: "description", label: "Short description (directory card)", type: "textarea" },
+        { key: "about", label: "About the business (business page)", type: "textarea" },
+        { key: "services", label: "Services / products", type: "tags" },
+        { key: "member_offer", label: "Special offer for ICGD members", type: "text" },
         { key: "phone", label: "Phone", type: "text" },
         { key: "email", label: "Email", type: "text" },
         { key: "website", label: "Website", type: "text" },
         { key: "address", label: "Address", type: "text" },
+        { key: "hours", label: "Opening hours", type: "textarea" },
         { key: "logo_url", label: "Logo", type: "image" },
+        { key: "cover_url", label: "Cover photo", type: "image" },
+        { key: "facebook", label: "Facebook", type: "text" },
+        { key: "instagram", label: "Instagram", type: "text" },
+        { key: "linkedin", label: "LinkedIn", type: "text" },
+        { key: "youtube", label: "YouTube", type: "text" },
+        { key: "featured", label: "Featured", type: "checkbox", hint: "Show first in the directory" },
         { key: "status", label: "Status", type: "select", options: ["pending", "approved", "rejected"], default: "approved" },
         { key: "order", label: "Display order", type: "number", default: 100 },
       ]} />

@@ -23,6 +23,7 @@ import {
 import PerksSection from "../components/PerksSection";
 import FamilySection from "../components/FamilySection";
 import MyTicketsSection from "../components/MyTicketsSection";
+import MyBusinessSection from "../components/MyBusinessSection";
 import MembershipTermNote, { fmtLongDate } from "../components/MembershipTermNote";
 import ChangeTierDialog from "../components/ChangeTierDialog";
 import { startCardPayment } from "../components/PaymentMethodPicker";
@@ -609,6 +610,7 @@ export default function MemberDashboardPage() {
             />
           )}
           <MyTicketsSection />
+          {(member.membership?.plan === "business" || member.membership?.tier === "business") && <MyBusinessSection />}
 
           {/* Profile + Password */}
           <div className="grid lg:grid-cols-2 gap-6">

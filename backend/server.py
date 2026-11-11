@@ -52,7 +52,7 @@ from sponsorships import (
     seed_sponsorship_plans, valid_sponsor, expire_sponsorships,
 )
 from reports import router as reports_router
-from community import public_router as community_public_router, admin_router as community_admin_router
+from community import public_router as community_public_router, admin_router as community_admin_router, ensure_slugs
 from spam import spam_guard, check_login_allowed, record_login_failure, clear_login_failures
 from checkout import (public_router as checkout_public_router, admin_router as checkout_admin_router,
                       apply_order_payment, validate_event_pricing)
@@ -855,6 +855,8 @@ async def reload_plan_rules():
 async def _after_admin_write(name: str):
     if name == "membership-plans":
         await reload_plan_rules()
+    if name == "businesses":
+        await ensure_slugs()
 
 
 for name, cls in COLLECTIONS.items():
@@ -1214,6 +1216,7 @@ async def run_migrations():
 
     # One sample record from each part of the old Joomla site
     await seed_legacy_samples()
+    await ensure_slugs()
 
 
 _bg_tasks = []
