@@ -3,7 +3,9 @@ import { Upload, Loader2, FileText, X, Link as LinkIcon } from "lucide-react";
 import { apiClient, absoluteUrl } from "../api/client";
 import { useToast } from "../hooks/use-toast";
 
-const MAX_BYTES = 5 * 1024 * 1024;
+// Same limits as the server: photos 5 MB; PDFs (e.g. the magazine) 10 MB
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_PDF_BYTES = 10 * 1024 * 1024;
 
 /**
  * Upload an image or PDF straight from the computer (click or drag and drop).
@@ -26,8 +28,9 @@ export default function MediaUpload({ value, onChange, kind = "image", testid })
       toast({ title: "That file type isn't supported", description: isPdf ? "Choose a PDF file." : "Choose a PNG, JPG, WebP or GIF image." });
       return;
     }
-    if (file.size > MAX_BYTES) {
-      toast({ title: "File too large", description: "The limit is 5 MB. Try a smaller or compressed file." });
+    const maxBytes = isPdf ? MAX_PDF_BYTES : MAX_IMAGE_BYTES;
+    if (file.size > maxBytes) {
+      toast({ title: "File too large", description: `The limit is ${isPdf ? 10 : 5} MB. Try a smaller or compressed file${isPdf ? ", or paste a link to read it online instead" : ""}.` });
       return;
     }
     setBusy(true);
@@ -85,7 +88,7 @@ export default function MediaUpload({ value, onChange, kind = "image", testid })
         >
           {busy ? <Loader2 className="w-6 h-6 animate-spin text-[#8B1A1A]" /> : isPdf ? <FileText className="w-6 h-6 text-[#8B1A1A]" /> : <Upload className="w-6 h-6 text-[#8B1A1A]" />}
           <span className="font-medium text-stone-800">{busy ? "Uploading…" : isPdf ? "Upload a PDF" : "Upload an image"}</span>
-          <span className="text-xs text-stone-500">Click to choose a file, or drag it here · {isPdf ? "PDF" : "PNG, JPG, WebP or GIF"}, up to 5 MB</span>
+          <span className="text-xs text-stone-500">Click to choose a file, or drag it here · {isPdf ? "PDF, up to 10 MB" : "PNG, JPG, WebP or GIF, up to 5 MB"}</span>
         </button>
       )}
       {showLink ? (

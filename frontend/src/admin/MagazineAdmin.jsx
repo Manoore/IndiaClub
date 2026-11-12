@@ -14,7 +14,7 @@ const ViewLink = ({ to }) => (
 
 export const MagazineIssuesAdmin = () => (
   <CrudPage title="Vibrant Dayton: Issues" endpoint="magazine-issues"
-    description="Each issue has a cover, an intro, and a PDF and/or web articles. Anyone sees the cover and intro; the PDF and full articles need a member sign-in (free accounts count)."
+    description="Each issue has a cover, an intro, and a PDF and/or web articles. Everyone can read the cover, intro and PDF; full web articles need a member sign-in (free accounts count)."
     columns={[
       { key: "cover_url", label: "Cover", render: (r) => r.cover_url ? <img src={absoluteUrl(r.cover_url)} loading="lazy" alt="" className="w-12 h-16 rounded object-cover border" /> : <div className="w-12 h-16 bg-stone-100 rounded" /> },
       { key: "title", label: "Issue" },
@@ -28,7 +28,7 @@ export const MagazineIssuesAdmin = () => (
       { key: "issue_date", label: "Issue date", type: "date", hint: "Newest issue shows first" },
       { key: "cover_url", label: "Cover image", type: "image", hint: "Portrait (3:4) works best" },
       { key: "intro", label: "Intro / editor's note", type: "textarea", rows: 5 },
-      { key: "pdf_url", label: "Full issue as PDF", type: "file", hint: "Up to 10 MB. Only signed-in members can open it." },
+      { key: "pdf_url", label: "Full issue as PDF", type: "file", hint: "Up to 10 MB. Everyone can read it, no sign-in needed." },
       { key: "external_url", label: "Or a link to read it online", type: "text", hint: "e.g. Issuu, Canva or Google Drive. Use this when the PDF is bigger than 10 MB." },
       { key: "featured", label: "Feature on the magazine page", type: "checkbox", hint: "Show as the main issue even if it isn't the newest" },
       { key: "status", label: "Status", type: "select", options: STATUS, default: "draft", hint: "Drafts and their articles stay hidden until published" },

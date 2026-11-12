@@ -1,8 +1,8 @@
 """Vibrant Dayton, the club's digital magazine.
 
 An issue has a cover, an intro, an optional PDF (or a link to read it elsewhere) and web articles.
-Anyone can see covers, intros and article summaries; the full articles and the PDF need a member
-sign-in (a free account is enough).
+Anyone can read covers, intros and the PDF. Web articles show a short preview to visitors; the
+full article needs a member sign-in (a free account is enough).
 """
 import base64
 import re
@@ -93,18 +93,18 @@ async def get_issue(slug: str):
 
 
 @public_router.get("/issues/{slug}/pdf")
-async def issue_pdf(slug: str, authorization: Optional[str] = Header(None)):
+async def issue_pdf(slug: str):
+    """The full issue as a PDF, open to everyone (members and visitors)."""
     issue = await _issue_or_404(slug)
-    if not await _signed_in(authorization):
-        raise HTTPException(401, "Sign in (a free account is fine) to read the full issue")
-    m = re.match(r"^/api/files/([\w-]+)$", issue.get("pdf_url") or "")
+    # The admin uploader may store the full address (https://…/api/files/<id>) or just /api/files/<id>
+    m = re.search(r"/api/files/([\w-]+)$", issue.get("pdf_url") or "")
     if not m:
         raise HTTPException(404, "This issue has no PDF")
     f = await db.files.find_one({"id": m.group(1)})
     if not f:
         raise HTTPException(404, "PDF not found")
     return Response(content=base64.b64decode(f["data_base64"]), media_type="application/pdf", headers={
-        "X-Content-Type-Options": "nosniff", "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff", "Cache-Control": "public, max-age=3600",
         "Content-Security-Policy": "default-src 'none'; sandbox",
         "Content-Disposition": f'inline; filename="vibrant-dayton-{issue["slug"]}.pdf"',
     })

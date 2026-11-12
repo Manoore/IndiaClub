@@ -12,7 +12,7 @@ export const fmtIssueDate = (d) => {
 };
 
 export const IssueCover = ({ issue, className = "" }) => (
-  <div className={`relative aspect-[3/4] rounded-lg overflow-hidden shadow-md bg-gradient-to-br from-[#8B1A1A] via-[#a8361f] to-[#E07A1F] ${className}`}>
+  <div className={`relative w-full aspect-[3/4] rounded-lg overflow-hidden shadow-md bg-gradient-to-br from-[#8B1A1A] via-[#a8361f] to-[#E07A1F] ${className}`}>
     {issue.cover_url ? (
       <img src={absoluteUrl(issue.cover_url)} alt={`${issue.title} cover`} loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
     ) : (
