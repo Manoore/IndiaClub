@@ -41,7 +41,7 @@ export default function MagazinePage() {
               <div className="max-w-6xl mx-auto px-6 grid md:grid-cols-[260px_1fr] gap-10 items-center" data-testid="magazine-latest">
                 <Link to={`/magazine/${latest.slug}`}><IssueCover issue={latest} className="max-w-[260px] mx-auto hover:-translate-y-1 transition" /></Link>
                 <div>
-                  <div className="font-cinzel text-xs tracking-[0.25em] text-[#E07A1F]">LATEST EDITION · {fmtIssueDate(latest.issue_date).toUpperCase()}</div>
+                  <div className="font-cinzel text-xs tracking-[0.25em] text-[#E07A1F]">LATEST EDITION{latest.issue_date ? ` · ${fmtIssueDate(latest.issue_date).toUpperCase()}` : ""}</div>
                   <h2 className="font-display text-4xl text-[#8B1A1A] mt-2">{latest.title}</h2>
                   {latest.intro && <p className="text-stone-700 mt-4 leading-relaxed whitespace-pre-line line-clamp-6">{latest.intro}</p>}
                   <Link to={`/magazine/${latest.slug}`} className="mt-6 inline-flex items-center gap-2 px-6 py-3 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded-md font-medium" data-testid="magazine-open-latest">
