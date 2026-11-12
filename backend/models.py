@@ -202,6 +202,7 @@ class EventRegistration(BaseModel):
     email: EmailStr
     phone: Optional[str] = None
     family_count: int = 1
+    member_id: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 

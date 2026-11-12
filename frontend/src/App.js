@@ -51,18 +51,23 @@ const PublicShell = ({ children }) => (
   </>
 );
 
+import ErrorBoundary from "./components/ErrorBoundary";
+
 function AppRoutes() {
   const { pathname } = useLocation();
   const isAdmin = pathname.startsWith("/admin");
   if (isAdmin) {
     return (
-      <Routes>
-        <Route path="/admin/*" element={<AdminRoutes />} />
-      </Routes>
+      <ErrorBoundary resetKey={pathname}>
+        <Routes>
+          <Route path="/admin/*" element={<AdminRoutes />} />
+        </Routes>
+      </ErrorBoundary>
     );
   }
   return (
     <PublicShell>
+      <ErrorBoundary resetKey={pathname}>
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<AboutPage />} />
@@ -88,6 +93,7 @@ function AppRoutes() {
         <Route path="/member/dashboard" element={<MemberDashboardPage />} />
         <Route path="/payment/return" element={<PaymentReturnPage />} />
       </Routes>
+      </ErrorBoundary>
     </PublicShell>
   );
 }

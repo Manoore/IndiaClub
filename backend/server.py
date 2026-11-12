@@ -504,11 +504,12 @@ async def get_event(id: str):
 
 
 @api.post("/events/{id}/register", dependencies=[Depends(spam_guard)])
-async def register_event(id: str, body: EventRegistration):
+async def register_event(id: str, body: EventRegistration, member_id: str = Depends(require_member)):
     e = await db.events.find_one({"id": id})
     if not e:
         raise HTTPException(404, "Event not found")
     body.event_id = id
+    body.member_id = member_id
     await db.event_registrations.insert_one(body.model_dump())
     return {"ok": True, "id": body.id}
 

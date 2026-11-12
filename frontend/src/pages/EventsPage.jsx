@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { useMemberAuth } from "../api/MemberAuthContext";
 import PageHeader from "../components/PageHeader";
 import { Calendar, Clock, MapPin, Sparkles, Star, Ticket, Loader2, Search, List, CalendarDays, ArrowRight } from "lucide-react";
 import { useToast } from "../hooks/use-toast";
@@ -140,6 +141,8 @@ const UpcomingList = ({ filterSlug }) => {
   const [loading, setLoading] = useState(true);
   const [activeTicketEvent, setActiveTicketEvent] = useState(null);
   const { toast } = useToast();
+  const { isAuthed } = useMemberAuth();
+  const navigate = useNavigate();
 
   // Fetch live events from backend (merges with mocked for richer display)
   useEffect(() => {
@@ -188,6 +191,11 @@ const UpcomingList = ({ filterSlug }) => {
   };
 
   const handleRegister = (e) => {
+    if (!isAuthed) {
+      navigate(`/login?next=${encodeURIComponent(window.location.pathname)}`);
+      toast({ title: "Please sign in first", description: "Sign in or create a free account to register for events." });
+      return;
+    }
     if (registered.includes(e.id)) return;
     const next = [...registered, e.id];
     setRegistered(next);

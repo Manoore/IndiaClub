@@ -60,9 +60,29 @@ apiClient.interceptors.request.use((config) => {
 });
 
 // Auto-logout admin on 401 from admin endpoints; clear member token on 401 from member endpoints
+// FastAPI sends form errors as a list of objects; turn them into one sentence so every
+// `e.response.data.detail` shown on screen is plain text
+export const errorText = (detail, fallback = "Something went wrong") => {
+  if (!detail) return fallback;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    const parts = detail.map((d) => {
+      if (typeof d === "string") return d;
+      const field = (d?.loc || []).filter((x) => x !== "body").join(" ").replace(/_/g, " ");
+      return field ? `${field}: ${d?.msg || "invalid"}` : d?.msg || "";
+    }).filter(Boolean);
+    return parts.join("; ") || fallback;
+  }
+  if (typeof detail === "object") return detail.msg || detail.message || fallback;
+  return String(detail);
+};
+
 apiClient.interceptors.response.use(
   (r) => r,
   (err) => {
+    if (err.response?.data && typeof err.response.data === "object" && "detail" in err.response.data) {
+      err.response.data.detail = errorText(err.response.data.detail);
+    }
     const status = err.response && err.response.status;
     const url = (err.config && err.config.url) || "";
     if (status === 401) {

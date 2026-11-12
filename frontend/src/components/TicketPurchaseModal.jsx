@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import { X, Loader2, Ticket, Lock, Plus, Minus, CheckCircle2, Calendar, Video, MapPin, Tag, Users, Hash, Heart, BadgeCheck, AlertCircle } from "lucide-react";
+import { useNavigate, Link, useLocation } from "react-router-dom";
+import { X, Loader2, Ticket, Lock, Plus, Minus, CheckCircle2, Calendar, Video, MapPin, Tag, Users, Hash, Heart, BadgeCheck, AlertCircle, LogIn, UserPlus } from "lucide-react";
 import AttendeePicker from "./AttendeePicker";
 import { DownloadTicketsButton } from "./MyTicketsSection";
 import PaymentMethodPicker, { startCardPayment } from "./PaymentMethodPicker";
@@ -120,7 +120,8 @@ export default function TicketPurchaseModal({ event, onClose, onSuccess }) {
     items: named ? [] : items.map((i) => ({ ticket_type_id: i.type.id, quantity: i.qty })),
     attendees: named ? attendees.map((a) => ({ ticket_type_id: a.ticket_type_id, kind: a.kind || (a.family_member_id ? "family" : "guest"), name: a.name, family_member_id: a.family_member_id, sponsor_person_id: a.sponsor_person_id })) : undefined,
     buyer_name: buyer.buyer_name.trim(),
-    buyer_email: buyer.buyer_email.trim() || undefined,
+    // Only a complete address: a half-typed one would be rejected by the price check
+    buyer_email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(buyer.buyer_email.trim()) ? buyer.buyer_email.trim() : undefined,
     buyer_phone: buyer.buyer_phone?.trim() || undefined,
     payment_method: buyer.payment_method,
     promo_code: promoCode || undefined,
@@ -196,6 +197,7 @@ export default function TicketPurchaseModal({ event, onClose, onSuccess }) {
   };
 
   if (success) return <SuccessView event={event} order={success} onClose={onClose} />;
+  if (!isAuthed) return <SignInFirst event={event} onClose={onClose} />;
 
   const offer = quote?.membership_offer;
   const showMembership = isAuthed && membershipOptions.length > 0 && (offer || membership);
@@ -203,8 +205,8 @@ export default function TicketPurchaseModal({ event, onClose, onSuccess }) {
   const presets = options?.donation_presets || [10, 25, 50, 100];
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} data-testid="ticket-purchase-modal">
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[92vh] overflow-y-auto" data-testid="ticket-purchase-modal">
         <div className="sticky top-0 bg-white border-b border-stone-200 p-5 flex items-start justify-between z-10">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center text-[#8B1A1A]"><Ticket className="w-5 h-5" /></div>
@@ -575,6 +577,35 @@ function SuccessView({ event, order, onClose }) {
             </div>
           )}
           <button onClick={onClose} className="w-full py-3 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded-md font-medium transition" data-testid="ticket-success-close">Done</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// Tickets belong to an account, so buyers can find, download and manage them later
+function SignInFirst({ event, onClose }) {
+  const loc = useLocation();
+  const next = encodeURIComponent(`${loc.pathname}${loc.search}`);
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl max-w-md w-full p-7 text-center relative" data-testid="ticket-signin-first">
+        <button onClick={onClose} className="absolute top-3 right-3 p-2 hover:bg-stone-100 rounded-md" aria-label="Close"><X className="w-5 h-5" /></button>
+        <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center text-[#8B1A1A] mx-auto mb-3"><Ticket className="w-6 h-6" /></div>
+        <div className="font-cinzel text-xs tracking-[0.22em] text-[#E07A1F]">BUY TICKETS</div>
+        <h3 className="font-display text-2xl text-[#8B1A1A] mt-1">{event.title}</h3>
+        <p className="text-stone-600 mt-3 text-sm">
+          Please sign in to get tickets. New here? Creating an account is free and takes a minute. Your tickets are then
+          saved to your account so you can download them any time.
+        </p>
+        <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
+          <Link to={`/login?next=${next}`} className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded-md text-sm font-medium" data-testid="ticket-signin">
+            <LogIn className="w-4 h-4" /> Sign in
+          </Link>
+          <Link to={`/login?mode=signup&next=${next}`} className="inline-flex items-center justify-center gap-2 px-5 py-2.5 border-2 border-[#8B1A1A] text-[#8B1A1A] rounded-md text-sm font-medium" data-testid="ticket-register">
+            <UserPlus className="w-4 h-4" /> Create free account
+          </Link>
         </div>
       </div>
     </div>

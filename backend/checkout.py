@@ -668,6 +668,9 @@ async def purchase_tickets(event_id: str, body: CheckoutRequest, authorization: 
     if body.payment_method not in PAYMENT_METHODS:
         raise HTTPException(400, "Invalid payment method")
     member = await _member_from(authorization)
+    if not member:
+        # Every ticket belongs to an account, so buyers can find, download and manage their tickets later
+        raise HTTPException(401, "Please sign in or create a free account to get tickets.")
     q = await build_checkout(event, body, member, strict=True)
     return await _create_order(event, body, member, q, payment_method=body.payment_method, actor="buyer")
 
