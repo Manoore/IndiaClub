@@ -31,7 +31,7 @@ export default function MagazinePage() {
       ) : !latest && articles.length === 0 ? (
         <section className="py-24 bg-cream text-center px-6" data-testid="magazine-empty">
           <BookOpen className="w-10 h-10 text-[#E07A1F] mx-auto mb-3" />
-          <h2 className="font-display text-2xl text-[#8B1A1A]">The first issue is on its way</h2>
+          <h2 className="font-display text-2xl text-[#8B1A1A]">The first edition is on its way</h2>
           <p className="text-stone-600 mt-2">Check back soon for {MAG_NAME}.</p>
         </section>
       ) : (
@@ -41,11 +41,11 @@ export default function MagazinePage() {
               <div className="max-w-6xl mx-auto px-6 grid md:grid-cols-[260px_1fr] gap-10 items-center" data-testid="magazine-latest">
                 <Link to={`/magazine/${latest.slug}`}><IssueCover issue={latest} className="max-w-[260px] mx-auto hover:-translate-y-1 transition" /></Link>
                 <div>
-                  <div className="font-cinzel text-xs tracking-[0.25em] text-[#E07A1F]">LATEST ISSUE · {fmtIssueDate(latest.issue_date).toUpperCase()}</div>
+                  <div className="font-cinzel text-xs tracking-[0.25em] text-[#E07A1F]">LATEST EDITION · {fmtIssueDate(latest.issue_date).toUpperCase()}</div>
                   <h2 className="font-display text-4xl text-[#8B1A1A] mt-2">{latest.title}</h2>
                   {latest.intro && <p className="text-stone-700 mt-4 leading-relaxed whitespace-pre-line line-clamp-6">{latest.intro}</p>}
                   <Link to={`/magazine/${latest.slug}`} className="mt-6 inline-flex items-center gap-2 px-6 py-3 bg-[#8B1A1A] hover:bg-[#6f1414] text-amber-50 rounded-md font-medium" data-testid="magazine-open-latest">
-                    Open this issue <ArrowRight className="w-4 h-4" />
+                    Read this edition <ArrowRight className="w-4 h-4" />
                   </Link>
                 </div>
               </div>
@@ -74,7 +74,7 @@ export default function MagazinePage() {
           {past.length > 0 && (
             <section className="py-14 bg-cream">
               <div className="max-w-7xl mx-auto px-6">
-                <h2 className="font-display text-3xl text-stone-900 mb-6">Past issues</h2>
+                <h2 className="font-display text-3xl text-stone-900 mb-6">Past editions</h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-6" data-testid="magazine-past">
                   {past.map((i) => <IssueCard key={i.id} issue={i} />)}
                 </div>

@@ -41,7 +41,7 @@ const NAV_GROUPS = [
       { to: "/admin/ticket-orders", area: "tickets", label: "Ticket Orders", icon: Ticket },
       { to: "/admin/check-in", area: "checkin", label: "Event Check-in", icon: ScanLine },
       { to: "/admin/news", area: "content", label: "News", icon: Newspaper },
-      { to: "/admin/magazine-issues", area: "content", label: "Magazine Issues", icon: BookOpen },
+      { to: "/admin/magazine-issues", area: "content", label: "Magazine Editions", icon: BookOpen },
       { to: "/admin/magazine-articles", area: "content", label: "Magazine Articles", icon: PenLine },
       { to: "/admin/exec-team", area: "content", label: "Executive Team", icon: Users },
       { to: "/admin/gallery", area: "content", label: "Gallery", icon: Image },

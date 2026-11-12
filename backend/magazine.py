@@ -4,7 +4,10 @@ An issue has a cover, an intro, an optional PDF (or a link to read it elsewhere)
 Anyone can read covers, intros and the PDF. Web articles show a short preview to visitors; the
 full article needs a member sign-in (a free account is enough).
 """
+import asyncio
 import base64
+import io
+import logging
 import re
 from datetime import datetime
 from typing import Optional
@@ -13,6 +16,9 @@ from fastapi import APIRouter, Header, HTTPException, Response
 
 from auth import decode_token
 from database import db
+from models import gen_id
+
+log = logging.getLogger(__name__)
 
 public_router = APIRouter(prefix="/api/magazine")
 
@@ -62,12 +68,54 @@ async def ensure_magazine_slugs():
                 upd["published_at"] = now
             if upd:
                 await db[coll].update_one({"id": d["id"]}, {"$set": upd})
+    await ensure_covers()
+
+
+def _file_id(url: Optional[str]) -> Optional[str]:
+    # The admin uploader may store the full address (https://…/api/files/<id>) or just /api/files/<id>
+    m = re.search(r"/api/files/([\w-]+)$", url or "")
+    return m.group(1) if m else None
+
+
+def _first_page_jpeg(pdf_bytes: bytes, width: int = 900) -> bytes:
+    import pypdfium2  # BSD/Apache licensed PDF renderer
+    doc = pypdfium2.PdfDocument(pdf_bytes)
+    try:
+        page = doc[0]
+        w, _ = page.get_size()
+        img = page.render(scale=width / w).to_pil().convert("RGB")
+        out = io.BytesIO()
+        img.save(out, "JPEG", quality=82, optimize=True)
+        return out.getvalue()
+    finally:
+        doc.close()
+
+
+async def ensure_covers():
+    """An edition's cover is the first page of its PDF; redrawn whenever a new PDF is uploaded."""
+    async for d in db.magazine_issues.find({"pdf_url": {"$nin": [None, ""]}}):
+        if d.get("cover_from_pdf") == d["pdf_url"]:
+            continue
+        fid = _file_id(d["pdf_url"])
+        f = await db.files.find_one({"id": fid}) if fid else None
+        if not f:
+            continue
+        try:
+            jpeg = await asyncio.to_thread(_first_page_jpeg, base64.b64decode(f["data_base64"]))
+        except Exception as e:  # a damaged PDF shouldn't break saving
+            log.warning("Couldn't draw the cover for %s: %s", d.get("title"), e)
+            continue
+        cid = gen_id()
+        await db.files.insert_one({"id": cid, "filename": f"cover-{d.get('slug') or d['id']}.jpg", "mime_type": "image/jpeg",
+                                   "data_base64": base64.b64encode(jpeg).decode("utf-8"), "source": "magazine-cover",
+                                   "uploaded_at": datetime.utcnow()})
+        await db.magazine_issues.update_one({"id": d["id"]}, {"$set": {"cover_url": f"/api/files/{cid}", "cover_from_pdf": d["pdf_url"]}})
 
 
 async def _issue_or_404(slug: str) -> dict:
     issue = await db.magazine_issues.find_one({"slug": slug, "status": "published"})
     if not issue:
-        raise HTTPException(404, "Issue not found")
+        raise HTTPException(404, "Edition not found")
     return issue
 
 
@@ -96,11 +144,10 @@ async def get_issue(slug: str):
 async def issue_pdf(slug: str):
     """The full issue as a PDF, open to everyone (members and visitors)."""
     issue = await _issue_or_404(slug)
-    # The admin uploader may store the full address (https://…/api/files/<id>) or just /api/files/<id>
-    m = re.search(r"/api/files/([\w-]+)$", issue.get("pdf_url") or "")
-    if not m:
-        raise HTTPException(404, "This issue has no PDF")
-    f = await db.files.find_one({"id": m.group(1)})
+    fid = _file_id(issue.get("pdf_url"))
+    if not fid:
+        raise HTTPException(404, "This edition has no PDF")
+    f = await db.files.find_one({"id": fid})
     if not f:
         raise HTTPException(404, "PDF not found")
     return Response(content=base64.b64decode(f["data_base64"]), media_type="application/pdf", headers={

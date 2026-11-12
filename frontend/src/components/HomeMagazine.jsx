@@ -4,7 +4,7 @@ import { ArrowRight } from "lucide-react";
 import { apiClient } from "../api/client";
 import { IssueCover, ArticleCard, MAG_NAME, fmtIssueDate } from "./MagazineParts";
 
-// Home page block for the latest Vibrant Dayton issue; renders nothing until something is published
+// Home page block for the latest Vibrant Dayton edition; renders nothing until something is published
 export default function HomeMagazine() {
   const [issue, setIssue] = useState(null);
   const [articles, setArticles] = useState([]);
@@ -25,7 +25,7 @@ export default function HomeMagazine() {
             <div className="font-cinzel text-xs tracking-[0.25em] text-[#E07A1F]">DIGITAL MAGAZINE</div>
             <h2 className="font-display text-4xl text-[#8B1A1A] mt-1">{MAG_NAME}</h2>
           </div>
-          <Link to="/magazine" className="text-sm font-medium text-[#8B1A1A] inline-flex items-center gap-1 hover:gap-2 transition-all">All issues <ArrowRight className="w-4 h-4" /></Link>
+          <Link to="/magazine" className="text-sm font-medium text-[#8B1A1A] inline-flex items-center gap-1 hover:gap-2 transition-all">All editions <ArrowRight className="w-4 h-4" /></Link>
         </div>
         <div className={`grid gap-8 ${issue ? "lg:grid-cols-[240px_1fr]" : ""}`}>
           {issue && (
